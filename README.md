@@ -33,7 +33,7 @@ An AI-powered competitor research and analysis tool that helps businesses track 
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/yourusername/competitor-research-agent.git
+   git clone https://github.com/ngorshkov-nve/competitor-agent-tam-nve.git
    cd competitor-research-agent
    ```
 

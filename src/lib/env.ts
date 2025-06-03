@@ -2,14 +2,14 @@ import { z } from 'zod'
 
 const envSchema = z.object({
   DATABASE_URL: z.string().url(),
-  OPENAI_API_KEY: z.string().min(1),
+  OPENAI_API_KEY: z.string().min(1).optional(),
   NEXTAUTH_URL: z.string().url().optional(),
   NEXTAUTH_SECRET: z.string().min(1).optional(),
-  GOOGLE_CLIENT_ID: z.string().min(1),
-  GOOGLE_CLIENT_SECRET: z.string().min(1),
-  AZURE_AD_CLIENT_ID: z.string().min(1),
-  AZURE_AD_CLIENT_SECRET: z.string().min(1),
-  AZURE_AD_TENANT_ID: z.string().min(1),
+  GOOGLE_CLIENT_ID: z.string().min(1).optional(),
+  GOOGLE_CLIENT_SECRET: z.string().min(1).optional(),
+  AZURE_AD_CLIENT_ID: z.string().min(1).optional(),
+  AZURE_AD_CLIENT_SECRET: z.string().min(1).optional(),
+  AZURE_AD_TENANT_ID: z.string().min(1).optional(),
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
 })
 

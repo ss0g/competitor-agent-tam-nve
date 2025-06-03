@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import Link from 'next/link'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { MagnifyingGlassIcon, PlusIcon } from '@heroicons/react/24/outline'
@@ -20,7 +20,7 @@ interface PaginationData {
   limit: number
 }
 
-export default function CompetitorsList() {
+function CompetitorsListContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [competitors, setCompetitors] = useState<Competitor[]>([])
@@ -213,5 +213,13 @@ export default function CompetitorsList() {
         </div>
       )}
     </div>
+  )
+}
+
+export default function CompetitorsList() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <CompetitorsListContent />
+    </Suspense>
   )
 } 

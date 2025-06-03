@@ -19,8 +19,9 @@
     "@auth/core": "^0.39.1",
     "@auth/nextjs": "^0.0.0-380f8d56",
     "@auth/prisma-adapter": "^2.9.1",
-    "@aws-sdk/client-bedrock-runtime": "^3.817.0",
+    "@aws-sdk/client-bedrock-runtime": "^3.821.0",
     "@azure/msal-node": "^3.5.3",
+    "@bull-board/api": "^6.9.6",
     "@headlessui/react": "^2.2.4",
     "@heroicons/react": "^2.2.0",
     "@hookform/resolvers": "^5.0.1",
@@ -33,6 +34,7 @@
     "@types/js-cookie": "^3.0.6",
     "@types/nodemailer": "^6.4.17",
     "axios": "^1.9.0",
+    "bull": "^4.16.5",
     "cheerio": "^1.0.0",
     "cron-parser": "^5.2.0",
     "date-fns": "^4.1.0",
@@ -40,6 +42,7 @@
     "js-cookie": "^3.0.5",
     "next": "15.3.2",
     "next-auth": "^4.24.11",
+    "node-cron": "^4.1.0",
     "nodemailer": "^7.0.3",
     "openai": "^4.103.0",
     "puppeteer": "^24.9.0",
@@ -69,5 +72,21 @@
     "tailwindcss": "^4",
     "ts-jest": "^29.3.4",
     "typescript": "^5"
-  }
+  },
+  "description": "An AI-powered competitor research and analysis tool that helps businesses track and analyze their competitors' activities, market trends, and strategic changes.",
+  "main": "jest.config.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ngorshkov-nve/competitor-agent-tam-nve.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/ngorshkov-nve/competitor-agent-tam-nve/issues"
+  },
+  "homepage": "https://github.com/ngorshkov-nve/competitor-agent-tam-nve#readme"
 }

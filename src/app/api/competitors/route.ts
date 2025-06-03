@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { z } from 'zod'
 import { prisma } from '@/lib/prisma'
+import { authOptions } from '@/lib/auth'
 
 const competitorSchema = z.object({
   name: z.string().min(1),
@@ -11,10 +12,10 @@ const competitorSchema = z.object({
 
 export async function POST(request: Request) {
   try {
-    const session = await getServerSession()
+    const session = await getServerSession(authOptions)
     
-    if (!session?.user) {
-      return new NextResponse('Unauthorized', { status: 401 })
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     const json = await request.json()
@@ -27,62 +28,34 @@ export async function POST(request: Request) {
       },
     })
 
-    return NextResponse.json(competitor)
+    return NextResponse.json(competitor, { status: 201 })
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return new NextResponse(JSON.stringify(error.issues), { status: 422 })
-    }
-
-    return new NextResponse('Internal Error', { status: 500 })
+    console.error('Error creating competitor:', error)
+    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
   }
 }
 
-export async function GET(request: Request) {
+export async function GET() {
   try {
-    const session = await getServerSession()
+    const session = await getServerSession(authOptions)
     
-    if (!session?.user) {
-      return new NextResponse('Unauthorized', { status: 401 })
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
-
-    const { searchParams } = new URL(request.url)
-    const page = parseInt(searchParams.get('page') || '1')
-    const limit = parseInt(searchParams.get('limit') || '10')
-    const search = searchParams.get('search') || ''
 
     const competitors = await prisma.competitor.findMany({
       where: {
-        userId: session.user.id,
-        OR: [
-          { name: { contains: search, mode: 'insensitive' } },
-          { description: { contains: search, mode: 'insensitive' } },
-        ],
+        userId: session.user.id
       },
-      orderBy: { createdAt: 'desc' },
-      skip: (page - 1) * limit,
-      take: limit,
+      include: {
+        projects: true,
+        analyses: true,
+      }
     })
 
-    const total = await prisma.competitor.count({
-      where: {
-        userId: session.user.id,
-        OR: [
-          { name: { contains: search, mode: 'insensitive' } },
-          { description: { contains: search, mode: 'insensitive' } },
-        ],
-      },
-    })
-
-    return NextResponse.json({
-      competitors,
-      pagination: {
-        total,
-        pages: Math.ceil(total / limit),
-        page,
-        limit,
-      },
-    })
+    return NextResponse.json(competitors)
   } catch (error) {
-    return new NextResponse('Internal Error', { status: 500 })
+    console.error('Error fetching competitors:', error)
+    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
   }
 } 

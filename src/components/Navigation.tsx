@@ -1,12 +1,13 @@
 'use client'
 
 import Link from 'next/link'
-import { HomeIcon, ChartBarIcon, DocumentTextIcon, UserGroupIcon } from '@heroicons/react/24/outline'
+import { HomeIcon, ChartBarIcon, DocumentTextIcon, UserGroupIcon, ChatBubbleLeftRightIcon } from '@heroicons/react/24/outline'
 import { useSession, signIn, signOut } from 'next-auth/react'
 import Image from 'next/image'
 
 const navigation = [
   { name: 'Dashboard', href: '/', icon: HomeIcon },
+  { name: 'Chat Agent', href: '/chat', icon: ChatBubbleLeftRightIcon },
   { name: 'Competitors', href: '/competitors', icon: UserGroupIcon },
   { name: 'Reports', href: '/reports', icon: DocumentTextIcon },
   { name: 'Analytics', href: '/analytics', icon: ChartBarIcon },
