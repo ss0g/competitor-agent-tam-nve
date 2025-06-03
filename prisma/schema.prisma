@@ -1,0 +1,183 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model User {
+  id            String         @id @default(cuid())
+  email         String         @unique
+  name          String?
+  emailVerified DateTime?
+  image         String?
+  accounts      Account[]
+  sessions      Session[]
+  competitors   Competitor[]
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+}
+
+model Competitor {
+  id            String         @id @default(cuid())
+  name          String
+  url           String
+  description   String?
+  user          User           @relation(fields: [userId], references: [id])
+  userId        String
+  snapshots     Snapshot[]
+  reports       Report[]
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+}
+
+model Report {
+  id            String         @id @default(cuid())
+  competitor    Competitor     @relation(fields: [competitorId], references: [id])
+  competitorId  String
+  title         String
+  description   String?
+  analyses      Analysis[]
+  versions      ReportVersion[]
+  schedules     ReportSchedule[]
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  isLatest      Boolean        @default(true)
+  versionNumber Int           @default(1)
+}
+
+model ReportVersion {
+  id            String         @id @default(cuid())
+  report        Report         @relation(fields: [reportId], references: [id])
+  reportId      String
+  versionNumber Int
+  title         String
+  description   String?
+  content       Json          // Store sections and metadata
+  analyses      Analysis[]    // Keep track of which analyses were included
+  createdAt     DateTime       @default(now())
+  createdBy     String?       // Optional: track who created this version
+  changeLog     String?       // Description of what changed in this version
+}
+
+model Snapshot {
+  id            String         @id @default(cuid())
+  competitor    Competitor     @relation(fields: [competitorId], references: [id])
+  competitorId  String
+  content       String         @db.Text
+  metadata      Json
+  analyses      Analysis[]
+  createdAt     DateTime       @default(now())
+}
+
+model Analysis {
+  id            String         @id @default(cuid())
+  snapshot      Snapshot       @relation(fields: [snapshotId], references: [id])
+  snapshotId    String
+  report        Report?        @relation(fields: [reportId], references: [id])
+  reportId      String?
+  primaryModel   String        // e.g., "claude", "mistral"
+  secondaryModel String        // e.g., "claude", "mistral"
+  summary       String         @db.Text
+  keyChanges    String[]
+  marketingChanges String[]
+  productChanges String[]
+  competitiveInsights String[]
+  suggestedActions String[]
+  confidence    Json          // Store agreement and keyPointsOverlap
+  tokenUsage    Json          // Store token usage metrics
+  trends        AnalysisTrend[]
+  createdAt     DateTime       @default(now())
+}
+
+model AnalysisTrend {
+  id            String         @id @default(cuid())
+  analysis      Analysis       @relation(fields: [analysisId], references: [id])
+  analysisId    String
+  category      String         // e.g., "product", "marketing", "competitive"
+  trend         String         @db.Text
+  impact        Float          // Impact score from -1 to 1
+  confidence    Float          // Confidence score from 0 to 1
+  createdAt     DateTime       @default(now())
+}
+
+enum ReportType {
+  WEEKLY
+  MONTHLY
+  CUSTOM
+}
+
+enum ReportStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  FAILED
+}
+
+enum ReportScheduleFrequency {
+  DAILY
+  WEEKLY
+  BIWEEKLY
+  MONTHLY
+  CUSTOM
+}
+
+enum ReportScheduleStatus {
+  ACTIVE
+  PAUSED
+  DISABLED
+}
+
+model ReportSchedule {
+  id              String               @id @default(cuid())
+  report          Report               @relation(fields: [reportId], references: [id])
+  reportId        String
+  name            String               // e.g., "Weekly Marketing Report"
+  description     String?
+  frequency       ReportScheduleFrequency
+  customCron      String?              // For custom frequency
+  timeframe       Int                  // Analysis timeframe in days
+  lastRun         DateTime?
+  nextRun         DateTime
+  recipients      String[]             // Email addresses
+  status          ReportScheduleStatus @default(ACTIVE)
+  notifyOnChanges Boolean              @default(false)  // Send notifications only when changes detected
+  createdBy       String?              // User ID who created the schedule
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+
+  @@index([nextRun])
+  @@index([status])
+} 
