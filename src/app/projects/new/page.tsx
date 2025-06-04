@@ -3,21 +3,10 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import ProjectForm from '@/components/projects/ProjectForm';
-import { useSession } from 'next-auth/react';
 
 export default function NewProject() {
   const router = useRouter();
-  const { data: session, status } = useSession();
   const [error, setError] = useState<string | null>(null);
-
-  if (status === 'loading') {
-    return <div>Loading...</div>;
-  }
-
-  if (!session) {
-    router.push('/auth/signin');
-    return null;
-  }
 
   const handleSubmit = async (data: any) => {
     try {

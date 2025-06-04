@@ -14,38 +14,41 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Validate filename to prevent path traversal
-    if (filename.includes('..') || filename.includes('/') || filename.includes('\\')) {
+    // Security: Only allow markdown files and prevent directory traversal
+    if (!filename.endsWith('.md') || filename.includes('..') || filename.includes('/')) {
       return NextResponse.json(
         { error: 'Invalid filename' },
         { status: 400 }
       );
     }
 
-    // Construct file path (reports are stored in ./reports directory)
-    const reportsDir = './reports';
+    // Path to reports directory
+    const reportsDir = join(process.cwd(), 'reports');
     const filePath = join(reportsDir, filename);
 
     try {
       const fileContent = await readFile(filePath, 'utf-8');
       
-      // Return the markdown content with appropriate headers
+      // Return the file as a download
       return new NextResponse(fileContent, {
         status: 200,
         headers: {
-          'Content-Type': 'text/markdown; charset=utf-8',
+          'Content-Type': 'text/markdown',
           'Content-Disposition': `attachment; filename="${filename}"`,
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0',
         },
       });
     } catch (fileError) {
+      console.error('File read error:', fileError);
       return NextResponse.json(
         { error: 'Report file not found' },
         { status: 404 }
       );
     }
-
   } catch (error) {
-    console.error('Report download error:', error);
+    console.error('Download API error:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

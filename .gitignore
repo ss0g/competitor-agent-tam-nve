@@ -60,3 +60,7 @@ logs
 # Cache
 .cache/
 .temp/
+
+# Environment backup files
+.env.backup.*
+.env.*.backup

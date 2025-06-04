@@ -13,6 +13,11 @@ export class ClaudeService implements ClaudeServiceInterface {
 
   constructor(config: ClaudeConfig) {
     this.config = config;
+    
+    if (!config.apiKey) {
+      throw new Error('Anthropic API key is required but not provided');
+    }
+    
     this.client = new Anthropic({
       apiKey: config.apiKey,
     });
@@ -52,7 +57,21 @@ export class ClaudeService implements ClaudeServiceInterface {
       };
     } catch (error) {
       console.error('Error in Claude API call:', error);
-      throw new Error('Failed to get response from Claude API');
+      
+      // Provide more specific error information
+      if (error instanceof Error) {
+        if (error.message.includes('API key')) {
+          throw new Error('Invalid or missing Anthropic API key. Please check your ANTHROPIC_API_KEY environment variable.');
+        }
+        if (error.message.includes('rate limit')) {
+          throw new Error('Rate limit exceeded. Please try again later.');
+        }
+        if (error.message.includes('model')) {
+          throw new Error(`Model error: ${error.message}. Please check if the model is available.`);
+        }
+      }
+      
+      throw new Error(`Failed to get response from Claude API: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 

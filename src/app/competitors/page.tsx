@@ -8,7 +8,7 @@ import { MagnifyingGlassIcon, PlusIcon } from '@heroicons/react/24/outline'
 interface Competitor {
   id: string
   name: string
-  url: string
+  website: string
   description?: string
   createdAt: string
 }
@@ -26,9 +26,9 @@ function CompetitorsListContent() {
   const [competitors, setCompetitors] = useState<Competitor[]>([])
   const [pagination, setPagination] = useState<PaginationData>()
   const [isLoading, setIsLoading] = useState(true)
-  const [searchTerm, setSearchTerm] = useState(searchParams.get('search') || '')
+  const [searchTerm, setSearchTerm] = useState(searchParams?.get('search') || '')
 
-  const currentPage = parseInt(searchParams.get('page') || '1')
+  const currentPage = parseInt(searchParams?.get('page') || '1')
 
   useEffect(() => {
     const fetchCompetitors = async () => {
@@ -44,10 +44,19 @@ function CompetitorsListContent() {
         if (!response.ok) throw new Error('Failed to fetch competitors')
         
         const data = await response.json()
-        setCompetitors(data.competitors)
-        setPagination(data.pagination)
+        console.log('API response:', data) // Debug log
+        
+        // Ensure we have valid data structure
+        if (data && Array.isArray(data.competitors)) {
+          setCompetitors(data.competitors)
+          setPagination(data.pagination)
+        } else {
+          console.error('Invalid API response structure:', data)
+          setCompetitors([]) // Fallback to empty array
+        }
       } catch (error) {
         console.error('Error fetching competitors:', error)
+        setCompetitors([]) // Ensure we set an empty array on error
       } finally {
         setIsLoading(false)
       }
@@ -126,7 +135,7 @@ function CompetitorsListContent() {
                         Loading...
                       </td>
                     </tr>
-                  ) : competitors.length === 0 ? (
+                  ) : !competitors || competitors.length === 0 ? (
                     <tr>
                       <td colSpan={4} className="text-center py-4 text-gray-500">
                         No competitors found
@@ -139,8 +148,8 @@ function CompetitorsListContent() {
                           {competitor.name}
                         </td>
                         <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                          <a href={competitor.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800">
-                            {new URL(competitor.url).hostname}
+                          <a href={competitor.website} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800">
+                            {new URL(competitor.website).hostname}
                           </a>
                         </td>
                         <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">

@@ -1,6 +1,4 @@
 import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
 import { CompetitorAnalysisService } from '@/services/competitorAnalysis';
 
 const competitorService = new CompetitorAnalysisService();
@@ -10,12 +8,7 @@ export async function POST(
   { params }: { params: { id: string } }
 ) {
   try {
-    const session = await getServerSession(authOptions);
-
-    if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
+    // Authentication disabled - allow all requests
     const { id } = params;
 
     if (!id) {

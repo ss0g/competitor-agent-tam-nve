@@ -35,6 +35,13 @@ export interface CompetitorAnalysisReport {
     longTerm: string[];
     priority: 'High' | 'Medium' | 'Low';
   };
+  aiAnalysis?: {
+    executiveSummary: string;
+    customerInsights: string;
+    rawAnalysis: string;
+    generatedBy: string;
+    timestamp: Date;
+  };
 }
 
 export interface CompetitorInsight {
@@ -63,6 +70,9 @@ export class MarkdownReportGenerator {
   private buildReportFromChatState(chatState: ChatState, analysisResults?: any): CompetitorAnalysisReport {
     const data = chatState.collectedData!;
     
+    // Use AI analysis results if available, otherwise fall back to simulated data
+    const hasRealAnalysis = analysisResults && analysisResults.rawAnalysis;
+    
     return {
       projectId: chatState.projectId!,
       projectName: chatState.projectName!,
@@ -82,20 +92,42 @@ export class MarkdownReportGenerator {
         demographics: this.extractDemographics(data.customerDescription!),
       },
       executiveSummary: {
-        keyFindings: this.generateKeyFindings(data),
-        competitorCount: 3, // Simulated for now
+        keyFindings: hasRealAnalysis 
+          ? this.generateKeyFindingsFromAI(analysisResults)
+          : this.generateKeyFindings(data),
+        competitorCount: hasRealAnalysis 
+          ? (analysisResults.competitors?.length || 0)
+          : 3, // Simulated fallback
         analysisDate: new Date(),
       },
       competitorAnalysis: {
-        competitors: this.generateCompetitorInsights(data.industry!),
-        positioningDifferences: this.generatePositioningDifferences(),
-        featureGaps: this.generateFeatureGaps(),
+        competitors: hasRealAnalysis 
+          ? this.convertAICompetitorsToReport(analysisResults.competitors || [])
+          : this.generateCompetitorInsights(data.industry!),
+        positioningDifferences: hasRealAnalysis 
+          ? (analysisResults.positioningDifferences || [])
+          : this.generatePositioningDifferences(),
+        featureGaps: hasRealAnalysis 
+          ? (analysisResults.featureGaps || [])
+          : this.generateFeatureGaps(),
       },
       recommendations: {
-        immediate: this.generateImmediateRecommendations(data),
-        longTerm: this.generateLongTermRecommendations(data),
+        immediate: hasRealAnalysis 
+          ? (analysisResults.recommendations?.immediate || [])
+          : this.generateImmediateRecommendations(data),
+        longTerm: hasRealAnalysis 
+          ? (analysisResults.recommendations?.longTerm || [])
+          : this.generateLongTermRecommendations(data),
         priority: 'High',
       },
+      // Store raw AI analysis for reference
+      aiAnalysis: hasRealAnalysis ? {
+        executiveSummary: analysisResults.executiveSummary || '',
+        customerInsights: analysisResults.customerInsights || '',
+        rawAnalysis: analysisResults.rawAnalysis || '',
+        generatedBy: 'Claude AI via AWS Bedrock',
+        timestamp: new Date(),
+      } : undefined,
     };
   }
 
@@ -106,6 +138,7 @@ export class MarkdownReportGenerator {
 **Project ID:** ${report.projectId}  
 **Requested by:** ${report.userEmail}  
 **Report Frequency:** ${report.reportFrequency}
+${report.aiAnalysis ? `**Analysis Method:** ${report.aiAnalysis.generatedBy}` : '**Analysis Method:** Template-based analysis'}
 
 ---
 
@@ -147,7 +180,17 @@ ${report.customerAnalysis.demographics}` : ''}
 
 ---
 
-## Competitive Analysis
+${report.aiAnalysis ? `## AI-Generated Competitive Analysis
+
+${report.aiAnalysis.executiveSummary ? `### Executive Summary (AI-Generated)
+${report.aiAnalysis.executiveSummary}
+
+` : ''}${report.aiAnalysis.customerInsights ? `### Customer Experience Insights (AI-Generated)
+${report.aiAnalysis.customerInsights}
+
+` : ''}---
+
+` : ''}## Competitive Analysis
 
 ### Positioning Differences
 ${report.competitorAnalysis.positioningDifferences.map(diff => `- ${diff}`).join('\n')}
@@ -183,17 +226,33 @@ ${report.recommendations.longTerm.map(rec => `- ${rec}`).join('\n')}
 
 ---
 
-## Methodology
+${report.aiAnalysis ? `## Full AI Analysis
+
+<details>
+<summary>Click to view complete AI analysis</summary>
+
+${report.aiAnalysis.rawAnalysis}
+
+</details>
+
+---
+
+` : ''}## Methodology
 
 This analysis was conducted using the HelloFresh Competitor Research Agent, which:
 
 1. **Data Collection:** Gathered product and customer information through structured interviews
-2. **Competitor Identification:** Identified key competitors in the ${report.productInfo.industry} industry
-3. **Experience Analysis:** Analyzed competitor websites, positioning, and customer experiences
-4. **Gap Analysis:** Identified differentiators and opportunities for improvement
-5. **Strategic Recommendations:** Generated actionable insights based on findings
+2. **Competitor Identification:** ${report.aiAnalysis ? 'Used Claude AI to identify key competitors' : 'Identified key competitors'} in the ${report.productInfo.industry} industry
+3. **Experience Analysis:** ${report.aiAnalysis ? 'AI-powered analysis of competitor positioning and strategies' : 'Analyzed competitor websites, positioning, and customer experiences'}
+4. **Gap Analysis:** ${report.aiAnalysis ? 'Claude AI identified differentiators and opportunities' : 'Identified differentiators and opportunities for improvement'}
+5. **Strategic Recommendations:** ${report.aiAnalysis ? 'AI-generated actionable insights' : 'Generated actionable insights'} based on findings
 
----
+${report.aiAnalysis ? `### AI Analysis Details
+- **Model Used:** Claude 3 Sonnet via AWS Bedrock
+- **Analysis Timestamp:** ${report.aiAnalysis.timestamp.toISOString()}
+- **Token Usage:** Comprehensive analysis with structured output
+
+` : ''}---
 
 *Report generated by HelloFresh Competitor Research Agent*  
 *Next report scheduled: Based on ${report.reportFrequency} frequency*
@@ -249,6 +308,37 @@ This analysis was conducted using the HelloFresh Competitor Research Agent, whic
     ];
   }
 
+  private generateKeyFindingsFromAI(analysisResults: any): string[] {
+    const findings: string[] = [];
+    
+    if (analysisResults.competitors && analysisResults.competitors.length > 0) {
+      findings.push(`Identified ${analysisResults.competitors.length} key competitors through AI analysis`);
+      findings.push(`Analyzed competitive positioning strategies across ${analysisResults.competitors.map((c: any) => c.name).join(', ')}`);
+    }
+    
+    if (analysisResults.positioningDifferences && analysisResults.positioningDifferences.length > 0) {
+      findings.push(`Discovered ${analysisResults.positioningDifferences.length} significant positioning differences in the market`);
+    }
+    
+    if (analysisResults.featureGaps && analysisResults.featureGaps.length > 0) {
+      findings.push(`Found ${analysisResults.featureGaps.length} feature gaps representing potential competitive advantages`);
+    }
+    
+    if (analysisResults.recommendations?.immediate?.length > 0) {
+      findings.push(`Generated ${analysisResults.recommendations.immediate.length} immediate action items for competitive advantage`);
+    }
+    
+    if (analysisResults.executiveSummary) {
+      // Extract first sentence or key insight from executive summary
+      const firstSentence = analysisResults.executiveSummary.split('.')[0];
+      if (firstSentence && firstSentence.length > 20) {
+        findings.push(firstSentence.trim());
+      }
+    }
+    
+    return findings.length > 0 ? findings : ['Competitive landscape analysis completed using AI-powered insights'];
+  }
+
   private generateCompetitorInsights(industry: string): CompetitorInsight[] {
     // Simulated competitor data - in real implementation, would be from actual analysis
     const baseCompetitors = [
@@ -279,6 +369,28 @@ This analysis was conducted using the HelloFresh Competitor Research Agent, whic
     ];
 
     return baseCompetitors;
+  }
+
+  private convertAICompetitorsToReport(aiCompetitors: any[]): CompetitorInsight[] {
+    return aiCompetitors.map(competitor => ({
+      name: competitor.name || 'Unknown Competitor',
+      website: competitor.website || undefined,
+      keyDifferentiators: this.extractValidItems(competitor.strengths) || ['Market presence', 'Brand recognition'],
+      strengths: this.extractValidItems(competitor.strengths) || ['Established market position'],
+      weaknesses: this.extractValidItems(competitor.weaknesses) || ['Areas for improvement identified'],
+      positioningStrategy: competitor.positioning || competitor.customerExperience || 'Market-focused strategy',
+    }));
+  }
+
+  private extractValidItems(items: any): string[] {
+    if (!items) return [];
+    if (Array.isArray(items)) {
+      return items.filter(item => typeof item === 'string' && item.trim().length > 0);
+    }
+    if (typeof items === 'string') {
+      return [items.trim()].filter(item => item.length > 0);
+    }
+    return [];
   }
 
   private generatePositioningDifferences(): string[] {

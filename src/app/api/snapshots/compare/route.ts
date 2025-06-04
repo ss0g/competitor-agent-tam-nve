@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
 import { prisma } from '@/lib/prisma';
 import { SnapshotDiff } from '@/lib/diff';
 import { z } from 'zod';
@@ -11,31 +10,19 @@ const compareSchema = z.object({
 
 export async function POST(request: Request) {
   try {
-    const session = await getServerSession();
-    
-    if (!session?.user) {
-      return new NextResponse('Unauthorized', { status: 401 });
-    }
-
     const json = await request.json();
     const { oldSnapshotId, newSnapshotId } = compareSchema.parse(json);
 
-    // Get both snapshots and verify access
+    // Get both snapshots without user verification (auth disabled)
     const [oldSnapshot, newSnapshot] = await Promise.all([
       prisma.snapshot.findFirst({
         where: {
           id: oldSnapshotId,
-          competitor: {
-            userId: session.user.id,
-          },
         },
       }),
       prisma.snapshot.findFirst({
         where: {
           id: newSnapshotId,
-          competitor: {
-            userId: session.user.id,
-          },
         },
       }),
     ]);

@@ -2,24 +2,21 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
 export function middleware(request: NextRequest) {
-  // Get the pathname
-  const path = request.nextUrl.pathname
-
-  // Define public paths that don't require authentication
-  const isPublicPath = path === '/auth/signin'
-
-  // Check if user is authenticated
-  const mockUser = request.cookies.get('mockUser')?.value
-
-  // Redirect authenticated users away from public paths
-  if (isPublicPath && mockUser) {
-    return NextResponse.redirect(new URL('/dashboard', request.url))
-  }
-
-  // Redirect unauthenticated users to sign in
-  if (!isPublicPath && !mockUser) {
-    return NextResponse.redirect(new URL('/auth/signin', request.url))
-  }
+  // Authentication disabled - all routes are now public
+  // const path = request.nextUrl.pathname
+  // const isPublicPath = path === '/auth/signin' || path === '/api/chat'
+  // const mockUser = request.cookies.get('mockUser')?.value
+  
+  // if (path === '/auth/signin' && mockUser) {
+  //   return NextResponse.redirect(new URL('/dashboard', request.url))
+  // }
+  
+  // if (!isPublicPath && !mockUser) {
+  //   return NextResponse.redirect(new URL('/auth/signin', request.url))
+  // }
+  
+  // Allow all requests through without authentication
+  return NextResponse.next()
 }
 
 export const config = {

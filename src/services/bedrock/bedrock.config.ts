@@ -1,9 +1,9 @@
 import { BedrockConfig } from "./types";
 
 export const claudeConfig: BedrockConfig = {
-  modelId: "anthropic.claude-3-7-sonnet-20250219-v1:0",
+  modelId: "anthropic.claude-3-sonnet-20240229-v1:0",
   provider: "anthropic",
-  region: process.env.AWS_REGION || "eu-north-1",
+  region: process.env.AWS_REGION || "eu-west-1",
   maxTokens: 200,
   temperature: 1,
   topP: 0.999,
@@ -18,9 +18,9 @@ export const claudeConfig: BedrockConfig = {
 };
 
 export const mistralConfig: BedrockConfig = {
-  modelId: "eu.mistral.pixtral-large-2502-v1:0",
+  modelId: "mistral.mistral-large-2402-v1:0",
   provider: "mistral",
-  region: process.env.AWS_REGION || "eu-north-1",
+  region: process.env.AWS_REGION || "eu-west-1",
   maxTokens: 200,
   temperature: 1,
   topP: 0.999,

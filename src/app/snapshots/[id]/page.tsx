@@ -1,5 +1,4 @@
 import { notFound } from 'next/navigation';
-import { getServerSession } from 'next-auth';
 import { prisma } from '@/lib/prisma';
 import { SnapshotComparison } from '@/components/snapshots/SnapshotComparison';
 
@@ -9,18 +8,34 @@ interface SnapshotPageProps {
   };
 }
 
-export default async function SnapshotPage({ params }: SnapshotPageProps) {
-  const session = await getServerSession();
+// Default mock user for testing without authentication
+const DEFAULT_USER_EMAIL = 'mock@example.com';
 
-  if (!session?.user) {
-    return notFound();
+async function getOrCreateMockUser() {
+  let mockUser = await prisma.user.findFirst({
+    where: { email: DEFAULT_USER_EMAIL }
+  });
+  
+  if (!mockUser) {
+    mockUser = await prisma.user.create({
+      data: {
+        email: DEFAULT_USER_EMAIL,
+        name: 'Mock User'
+      }
+    });
   }
+  return mockUser;
+}
+
+export default async function SnapshotPage({ params }: SnapshotPageProps) {
+  // Always use mock user (auth disabled)
+  const mockUser = await getOrCreateMockUser();
 
   const snapshot = await prisma.snapshot.findFirst({
     where: {
       id: params.id,
       competitor: {
-        userId: session.user.id,
+        userId: mockUser.id,
       },
     },
     include: {

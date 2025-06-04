@@ -10,6 +10,15 @@ export function ChatMessage({ message }: ChatMessageProps) {
   const isUser = message.role === 'user';
   const isSystem = message.role === 'system';
 
+  // Fix: Ensure timestamp is a Date object
+  const getFormattedTime = (timestamp: Date | string) => {
+    const date = timestamp instanceof Date ? timestamp : new Date(timestamp);
+    return date.toLocaleTimeString([], { 
+      hour: '2-digit', 
+      minute: '2-digit' 
+    });
+  };
+
   return (
     <div className={`flex ${isUser ? 'justify-end' : 'justify-start'} mb-4`}>
       <div className={`flex max-w-3xl ${isUser ? 'flex-row-reverse' : 'flex-row'}`}>
@@ -48,10 +57,7 @@ export function ChatMessage({ message }: ChatMessageProps) {
               ? 'text-blue-100' 
               : 'text-gray-500'
           }`}>
-            {message.timestamp.toLocaleTimeString([], { 
-              hour: '2-digit', 
-              minute: '2-digit' 
-            })}
+            {getFormattedTime(message.timestamp)}
             {message.metadata?.step && (
               <span className="ml-2">
                 • Step {message.metadata.step}

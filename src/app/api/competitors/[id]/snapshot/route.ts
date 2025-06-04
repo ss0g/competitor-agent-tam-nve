@@ -1,24 +1,39 @@
 import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
 import { prisma } from '@/lib/prisma';
 import { WebsiteScraper } from '@/lib/scraper';
+
+// Default mock user for testing without authentication
+const DEFAULT_USER_EMAIL = 'mock@example.com';
+
+async function getOrCreateMockUser() {
+  let mockUser = await prisma.user.findFirst({
+    where: { email: DEFAULT_USER_EMAIL }
+  });
+  
+  if (!mockUser) {
+    mockUser = await prisma.user.create({
+      data: {
+        email: DEFAULT_USER_EMAIL,
+        name: 'Mock User'
+      }
+    });
+  }
+  return mockUser;
+}
 
 export async function POST(
   request: Request,
   { params }: { params: { id: string } }
 ) {
   try {
-    const session = await getServerSession();
-    
-    if (!session?.user) {
-      return new NextResponse('Unauthorized', { status: 401 });
-    }
+    // Always use mock user (auth disabled)
+    const mockUser = await getOrCreateMockUser();
 
     // Get the competitor
     const competitor = await prisma.competitor.findFirst({
       where: {
         id: params.id,
-        userId: session.user.id,
+        userId: mockUser.id,
       },
     });
 

@@ -16,7 +16,7 @@ interface ChatInterfaceProps {
 export function ChatInterface({ onSendMessage, messages, isLoading, chatState }: ChatInterfaceProps) {
   const [inputValue, setInputValue] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -25,6 +25,14 @@ export function ChatInterface({ onSendMessage, messages, isLoading, chatState }:
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  // Auto-resize textarea
+  useEffect(() => {
+    if (inputRef.current) {
+      inputRef.current.style.height = 'auto';
+      inputRef.current.style.height = inputRef.current.scrollHeight + 'px';
+    }
+  }, [inputValue]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -40,11 +48,12 @@ export function ChatInterface({ onSendMessage, messages, isLoading, chatState }:
     }
   };
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
+  const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSubmit(e);
     }
+    // Shift+Enter will add a new line (default textarea behavior)
   };
 
   return (
@@ -100,30 +109,34 @@ export function ChatInterface({ onSendMessage, messages, isLoading, chatState }:
       <div className="bg-white border-t border-gray-200 px-6 py-4">
         <form onSubmit={handleSubmit} className="flex space-x-4">
           <div className="flex-1">
-            <input
+            <textarea
               ref={inputRef}
-              type="text"
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
-              onKeyPress={handleKeyPress}
+              onKeyDown={handleKeyDown}
               placeholder={
                 chatState.expectedInputType === 'email' ? 'Enter your HelloFresh email...' :
-                chatState.expectedInputType === 'text' ? 'Type your response...' :
-                'Type your message...'
+                chatState.expectedInputType === 'text' ? 'Type your response... (Shift+Enter for new line)' :
+                'Type your message... (Shift+Enter for new line)'
               }
               disabled={isLoading}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
+              rows={1}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed resize-none overflow-hidden text-gray-900 placeholder-gray-500"
+              style={{ minHeight: '42px', maxHeight: '120px' }}
             />
           </div>
           <button
             type="submit"
             disabled={!inputValue.trim() || isLoading}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200 flex items-center space-x-2"
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200 flex items-center space-x-2 self-end"
           >
             <PaperAirplaneIcon className="w-4 h-4" />
             <span>Send</span>
           </button>
         </form>
+        <div className="mt-2 text-xs text-gray-400">
+          Press Enter to send • Shift+Enter for new line
+        </div>
       </div>
     </div>
   );

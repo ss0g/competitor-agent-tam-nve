@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { useSession } from 'next-auth/react';
 
 interface Project {
   id: string;
@@ -17,19 +16,11 @@ interface Project {
 
 export default function Projects() {
   const router = useRouter();
-  const { data: session, status } = useSession();
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (status === 'loading') return;
-
-    if (!session) {
-      router.push('/auth/signin');
-      return;
-    }
-
     const fetchProjects = async () => {
       try {
         const response = await fetch('/api/projects');
@@ -46,7 +37,7 @@ export default function Projects() {
     };
 
     fetchProjects();
-  }, [session, status, router]);
+  }, []);
 
   if (loading) {
     return <div>Loading...</div>;

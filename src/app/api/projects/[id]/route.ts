@@ -1,7 +1,24 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+
+// Default mock user for testing without authentication
+const DEFAULT_USER_EMAIL = 'mock@example.com';
+
+async function getOrCreateMockUser() {
+  let mockUser = await prisma.user.findFirst({
+    where: { email: DEFAULT_USER_EMAIL }
+  });
+  
+  if (!mockUser) {
+    mockUser = await prisma.user.create({
+      data: {
+        email: DEFAULT_USER_EMAIL,
+        name: 'Mock User'
+      }
+    });
+  }
+  return mockUser;
+}
 
 // GET /api/projects/[id]
 export async function GET(
@@ -9,16 +26,13 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    const session = await getServerSession(authOptions);
-    
-    if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    // Always use mock user (auth disabled)
+    const mockUser = await getOrCreateMockUser();
 
     const project = await prisma.project.findUnique({
       where: {
         id: params.id,
-        userId: session.user.id
+        userId: mockUser.id
       },
       include: {
         competitors: true,
@@ -43,17 +57,14 @@ export async function PUT(
   { params }: { params: { id: string } }
 ) {
   try {
-    const session = await getServerSession(authOptions);
-    
-    if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    // Always use mock user (auth disabled)
+    const mockUser = await getOrCreateMockUser();
 
     const json = await request.json();
     const project = await prisma.project.update({
       where: {
         id: params.id,
-        userId: session.user.id
+        userId: mockUser.id
       },
       data: {
         name: json.name,
@@ -80,16 +91,13 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    const session = await getServerSession(authOptions);
-    
-    if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    // Always use mock user (auth disabled)
+    const mockUser = await getOrCreateMockUser();
 
     await prisma.project.delete({
       where: {
         id: params.id,
-        userId: session.user.id
+        userId: mockUser.id
       }
     });
 

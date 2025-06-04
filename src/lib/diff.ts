@@ -1,7 +1,18 @@
 import * as diffLib from 'diff';
 import { prisma } from '@/lib/prisma';
 
-type Snapshot = NonNullable<Awaited<ReturnType<typeof prisma.snapshot.findFirst>>>;
+interface SnapshotData {
+  id: string;
+  text: string;
+  title: string;
+  description: string;
+  statusCode: number;
+  contentLength: number;
+  metadata: any;
+  createdAt: Date;
+  updatedAt: Date;
+  competitorId: string;
+}
 
 export interface ContentDiff {
   text: {
@@ -24,32 +35,46 @@ export interface ContentDiff {
 }
 
 export class SnapshotDiff {
-  static compare(oldSnapshot: Snapshot, newSnapshot: Snapshot): ContentDiff {
-    // Compare text content
-    const textDiff = diffLib.diffLines(oldSnapshot.text, newSnapshot.text);
+  static compare(oldSnapshot: SnapshotData, newSnapshot: SnapshotData): ContentDiff {
+    // Split text into lines for comparison
+    const oldLines = oldSnapshot.text.split('\n').filter(line => line.trim() !== '');
+    const newLines = newSnapshot.text.split('\n').filter(line => line.trim() !== '');
+    
+    // Find added, removed, and unchanged lines
     const textChanges = {
       added: [] as string[],
       removed: [] as string[],
       unchanged: [] as string[],
     };
 
-    let addedLines = 0;
-    let removedLines = 0;
-    let unchangedLines = 0;
+    // Create sets for efficient lookup
+    const oldLinesSet = new Set(oldLines);
+    const newLinesSet = new Set(newLines);
 
-    textDiff.forEach((part) => {
-      const lines = part.value.split('\n').filter(line => line.trim());
-      if (part.added) {
-        textChanges.added.push(...lines);
-        addedLines += lines.length;
-      } else if (part.removed) {
-        textChanges.removed.push(...lines);
-        removedLines += lines.length;
-      } else {
-        textChanges.unchanged.push(...lines);
-        unchangedLines += lines.length;
+    // Find unchanged lines (present in both)
+    oldLines.forEach(line => {
+      if (newLinesSet.has(line)) {
+        textChanges.unchanged.push(line);
       }
     });
+
+    // Find removed lines (in old but not in new)
+    oldLines.forEach(line => {
+      if (!newLinesSet.has(line)) {
+        textChanges.removed.push(line);
+      }
+    });
+
+    // Find added lines (in new but not in old)
+    newLines.forEach(line => {
+      if (!oldLinesSet.has(line)) {
+        textChanges.added.push(line);
+      }
+    });
+
+    const addedLines = textChanges.added.length;
+    const removedLines = textChanges.removed.length;
+    const unchangedLines = textChanges.unchanged.length;
 
     // Compare metadata
     const metadataChanges = {

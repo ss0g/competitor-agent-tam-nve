@@ -2,7 +2,7 @@ export interface Message {
   id?: string;
   role: 'user' | 'assistant' | 'system';
   content: string;
-  timestamp: Date;
+  timestamp: Date | string;
   metadata?: {
     step?: number;
     stepType?: string;
