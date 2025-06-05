@@ -341,7 +341,7 @@ ${historicalData}
       contentType: 'application/json',
       accept: 'application/json',
       body: JSON.stringify({
-        anthropic_version: '2023-06-01',
+        anthropic_version: 'bedrock-2023-05-31',
         max_tokens: 1500,
         temperature: 0.7,
         messages: [

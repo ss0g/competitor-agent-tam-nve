@@ -18,6 +18,7 @@ export interface ChatState {
   projectId?: string;
   projectName?: string;
   isValidated?: boolean;
+  databaseProjectCreated?: boolean;
   collectedData?: {
     userEmail?: string;
     reportFrequency?: string;

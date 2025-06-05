@@ -70,11 +70,18 @@ model Report {
   name         String
   description  String?
   competitorId String
+  projectId    String?          // Add optional project ID to link reports to projects
+  title        String?          // Add title field for better report identification
+  status       ReportStatus     @default(PENDING) // Add status field
   createdAt    DateTime         @default(now())
   updatedAt    DateTime         @updatedAt
   competitor   Competitor       @relation(fields: [competitorId], references: [id])
+  project      Project?         @relation(fields: [projectId], references: [id]) // Add relation to project
   schedules    ReportSchedule[]
   versions     ReportVersion[]
+
+  @@index([projectId])
+  @@index([status])
 }
 
 model ReportVersion {
@@ -158,6 +165,7 @@ model Project {
   updatedAt   DateTime        @updatedAt
   user        User            @relation(fields: [userId], references: [id])
   competitors Competitor[]    @relation("CompetitorToProject")
+  reports     Report[]        // Add relation to reports
 
   @@index([userId])
   @@index([status])

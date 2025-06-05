@@ -4,11 +4,17 @@ import React, { useState, useEffect } from 'react';
 import { DocumentTextIcon, ArrowDownTrayIcon, ClockIcon } from '@heroicons/react/24/outline';
 
 interface ReportFile {
-  filename: string;
+  id?: string;
+  filename?: string;
   projectId: string;
+  projectName?: string;
+  title?: string;
   generatedAt: string;
-  size: number;
+  size?: number;
   downloadUrl: string;
+  source: 'database' | 'file';
+  status?: string;
+  competitorName?: string;
 }
 
 export default function ReportsPage() {
@@ -39,8 +45,8 @@ export default function ReportsPage() {
     }
   };
 
-  const formatFileSize = (bytes: number): string => {
-    if (bytes === 0) return '0 B';
+  const formatFileSize = (bytes?: number): string => {
+    if (!bytes || bytes === 0) return '0 B';
     const k = 1024;
     const sizes = ['B', 'KB', 'MB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
@@ -96,7 +102,7 @@ export default function ReportsPage() {
         <div className="bg-white shadow overflow-hidden sm:rounded-md">
           <ul className="divide-y divide-gray-200">
             {reports.map((report) => (
-              <li key={report.filename}>
+              <li key={report.id || report.filename || `${report.projectId}-${report.source}`}>
                 <div className="px-4 py-4 flex items-center justify-between">
                   <div className="flex items-center">
                     <div className="flex-shrink-0">
@@ -105,18 +111,46 @@ export default function ReportsPage() {
                     <div className="ml-4">
                       <div className="flex items-center">
                         <p className="text-sm font-medium text-gray-900 truncate">
-                          Project: {report.projectId}
+                          {report.title || `Project: ${report.projectName || report.projectId}`}
                         </p>
+                        <span className={`ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                          report.source === 'database' 
+                            ? 'bg-blue-100 text-blue-800' 
+                            : 'bg-green-100 text-green-800'
+                        }`}>
+                          {report.source === 'database' ? 'Database' : 'File'}
+                        </span>
+                        {report.status && (
+                          <span className={`ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                            report.status === 'COMPLETED' 
+                              ? 'bg-green-100 text-green-800' 
+                              : 'bg-yellow-100 text-yellow-800'
+                          }`}>
+                            {report.status}
+                          </span>
+                        )}
                       </div>
                       <div className="flex items-center mt-1">
                         <ClockIcon className="flex-shrink-0 mr-1.5 h-4 w-4 text-gray-400" />
                         <p className="text-sm text-gray-500">
                           Generated: {formatDate(report.generatedAt)}
                         </p>
-                        <span className="mx-2 text-gray-300">•</span>
-                        <p className="text-sm text-gray-500">
-                          Size: {formatFileSize(report.size)}
-                        </p>
+                        {report.competitorName && (
+                          <>
+                            <span className="mx-2 text-gray-300">•</span>
+                            <p className="text-sm text-gray-500">
+                              Competitor: {report.competitorName}
+                            </p>
+                          </>
+                        )}
+                        {report.size && (
+                          <>
+                            <span className="mx-2 text-gray-300">•</span>
+                            <p className="text-sm text-gray-500">
+                              Size: {formatFileSize(report.size)}
+                            </p>
+                          </>
+                        )}
                       </div>
                     </div>
                   </div>

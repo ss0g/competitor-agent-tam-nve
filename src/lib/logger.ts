@@ -11,6 +11,10 @@ export interface LogContext {
   competitorId?: string;
   reportId?: string;
   sessionId?: string;
+  projectId?: string;
+  projectName?: string;
+  operationStep?: string;
+  correlationId?: string;
   [key: string]: any;
 }
 
@@ -94,6 +98,56 @@ class Logger {
     this.log(LogLevel.INFO, `Event: ${eventData.eventType}`, {
       ...context,
       event: eventData,
+    });
+  }
+
+  // New method for database operation logging
+  database(operation: string, table: string, context?: LogContext & { 
+    recordId?: string; 
+    recordData?: any; 
+    query?: string;
+    duration?: number;
+  }): void {
+    this.log(LogLevel.DEBUG, `Database: ${operation} on ${table}`, {
+      ...context,
+      operation: 'database',
+      table,
+    });
+  }
+
+  // New method for file system operation logging
+  filesystem(operation: string, filePath: string, context?: LogContext & {
+    fileSize?: number;
+    success?: boolean;
+    error?: string;
+  }): void {
+    this.log(LogLevel.DEBUG, `FileSystem: ${operation} - ${filePath}`, {
+      ...context,
+      operation: 'filesystem',
+      filePath,
+    });
+  }
+
+  // New method for report generation flow tracking
+  reportFlow(step: string, context?: LogContext & {
+    reportName?: string;
+    competitorName?: string;
+    stepStatus?: 'started' | 'completed' | 'failed';
+    stepData?: any;
+  }): void {
+    this.log(LogLevel.INFO, `ReportFlow: ${step}`, {
+      ...context,
+      operation: 'report_flow',
+      operationStep: step,
+    });
+  }
+
+  // New method for correlation tracking
+  correlation(correlationId: string, event: string, context?: LogContext): void {
+    this.log(LogLevel.INFO, `Correlation[${correlationId}]: ${event}`, {
+      ...context,
+      correlationId,
+      operation: 'correlation',
     });
   }
 
@@ -262,4 +316,46 @@ export const trackBusinessEvent = (event: string, metadata?: Record<string, any>
     category: 'business',
     metadata,
   }, context);
+};
+
+// New correlation utility functions
+export const generateCorrelationId = (): string => {
+  return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+};
+
+export const createCorrelationLogger = (correlationId: string, baseContext?: LogContext) => {
+  return logger.child({ correlationId, ...baseContext });
+};
+
+// Enhanced tracking functions with correlation support
+export const trackDatabaseOperation = (
+  operation: string, 
+  table: string, 
+  context?: LogContext & { recordId?: string; recordData?: any; duration?: number }
+) => {
+  logger.database(operation, table, context);
+};
+
+export const trackFileSystemOperation = (
+  operation: string, 
+  filePath: string, 
+  context?: LogContext & { fileSize?: number; success?: boolean; error?: string }
+) => {
+  logger.filesystem(operation, filePath, context);
+};
+
+export const trackReportFlow = (
+  step: string, 
+  context?: LogContext & { 
+    reportName?: string; 
+    competitorName?: string; 
+    stepStatus?: 'started' | 'completed' | 'failed';
+    stepData?: any;
+  }
+) => {
+  logger.reportFlow(step, context);
+};
+
+export const trackCorrelation = (correlationId: string, event: string, context?: LogContext) => {
+  logger.correlation(correlationId, event, context);
 }; 

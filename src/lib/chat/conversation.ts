@@ -1,5 +1,6 @@
 import { ChatState, Message, ChatResponse } from '@/types/chat';
 import { MarkdownReportGenerator } from '@/lib/reports/markdown-generator';
+import prisma from '@/lib/prisma';
 
 export class ConversationManager {
   private chatState: ChatState;
@@ -154,22 +155,56 @@ Please tell me:
       reportName: reportName,
     };
 
-    // Generate project ID
-    const projectId = this.generateProjectId(reportName);
-    this.chatState.projectId = projectId;
-    this.chatState.projectName = reportName;
+    try {
+      // Create actual database project with all competitors auto-assigned
+      const databaseProject = await this.createProjectWithAllCompetitors(reportName, email);
+      
+      this.chatState.projectId = databaseProject.id;
+      this.chatState.projectName = databaseProject.name;
+      this.chatState.databaseProjectCreated = true;
 
-    return {
-      message: `Thanks for the input! The following project has been created: ${projectId}
+      const competitorCount = databaseProject.competitors?.length || 0;
+      const competitorNames = databaseProject.competitors?.map((c: any) => c.name).join(', ') || 'None';
+
+      return {
+        message: `Thanks for the input! The following project has been created: ${databaseProject.id}
+
+✅ **Project Details:**
+- **Name:** ${databaseProject.name}
+- **ID:** ${databaseProject.id}  
+- **Competitors Auto-Assigned:** ${competitorCount} (${competitorNames})
 
 All reports can be found in a folder of that name and the email address: ${email} will receive the new report.
 
 Now, what is the name of the product that you want to perform competitive analysis on?`,
-      nextStep: 1,
-      stepDescription: 'Product Information',
-      expectedInputType: 'text',
-      projectCreated: true,
-    };
+        nextStep: 1,
+        stepDescription: 'Product Information',
+        expectedInputType: 'text',
+        projectCreated: true,
+      };
+    } catch (error) {
+      console.error('Failed to create database project:', error);
+      
+      // Fallback to old behavior
+      const projectId = this.generateProjectId(reportName);
+      this.chatState.projectId = projectId;
+      this.chatState.projectName = reportName;
+      this.chatState.databaseProjectCreated = false;
+
+      return {
+        message: `Thanks for the input! The following project has been created: ${projectId}
+
+⚠️ **Note:** Project created in file system only (database creation failed).
+
+All reports can be found in a folder of that name and the email address: ${email} will receive the new report.
+
+Now, what is the name of the product that you want to perform competitive analysis on?`,
+        nextStep: 1,
+        stepDescription: 'Product Information',
+        expectedInputType: 'text',
+        projectCreated: true,
+      };
+    }
   }
 
   private async handleStep1(content: string): Promise<ChatResponse> {
@@ -707,5 +742,61 @@ Please respond with 1, 2, or 3.`,
     const date = new Date().toISOString().slice(0, 10).replace(/-/g, '');
     const cleanName = reportName.toLowerCase().replace(/[^a-z0-9]/g, '-');
     return `${cleanName}_report_${date}`;
+  }
+
+  private async createProjectWithAllCompetitors(reportName: string, userEmail: string): Promise<any> {
+    // Get or create mock user
+    const DEFAULT_USER_EMAIL = 'mock@example.com';
+    let mockUser = await prisma.user.findFirst({
+      where: { email: DEFAULT_USER_EMAIL }
+    });
+    
+    if (!mockUser) {
+      mockUser = await prisma.user.create({
+        data: {
+          email: DEFAULT_USER_EMAIL,
+          name: 'Mock User'
+        }
+      });
+    }
+
+    // Get all available competitors
+    const allCompetitors = await prisma.competitor.findMany({
+      select: { id: true, name: true }
+    });
+
+    // Create project with all competitors automatically assigned
+    const project = await prisma.project.create({
+      data: {
+        name: reportName,
+        description: `Competitor analysis project created via chat by ${userEmail}`,
+        userId: mockUser.id,
+        status: 'DRAFT',
+        priority: 'MEDIUM',
+        parameters: {
+          chatCreated: true,
+          userEmail: userEmail,
+          autoAssignedCompetitors: true,
+          competitorCount: allCompetitors.length
+        },
+        competitors: {
+          connect: allCompetitors.map(competitor => ({ id: competitor.id }))
+        }
+      },
+      include: {
+        competitors: {
+          select: {
+            id: true,
+            name: true,
+            website: true
+          }
+        }
+      }
+    });
+
+    console.log(`✅ Created project "${reportName}" with ${allCompetitors.length} competitors auto-assigned:`, 
+      allCompetitors.map(c => c.name).join(', '));
+
+    return project;
   }
 } 

@@ -49,14 +49,32 @@ export async function POST(request: Request) {
     const mockUser = await getOrCreateMockUser();
 
     const json = await request.json();
+    
+    // Auto-assign all competitors if none are specified or if autoAssignCompetitors is true
+    let competitorIds = json.competitorIds || [];
+    
+    if (competitorIds.length === 0 || json.autoAssignCompetitors === true) {
+      const allCompetitors = await prisma.competitor.findMany({
+        select: { id: true, name: true }
+      });
+      competitorIds = allCompetitors.map(c => c.id);
+      
+      console.log(`🔄 Auto-assigning ${allCompetitors.length} competitors to project "${json.name}":`, 
+        allCompetitors.map(c => c.name).join(', '));
+    }
+
     const project = await prisma.project.create({
       data: {
         name: json.name,
         description: json.description,
         userId: mockUser.id,
-        parameters: json.parameters || {},
+        parameters: {
+          ...json.parameters || {},
+          autoAssignedCompetitors: competitorIds.length > 0 && (json.competitorIds?.length === 0 || json.autoAssignCompetitors === true),
+          assignedCompetitorCount: competitorIds.length
+        },
         competitors: {
-          connect: json.competitorIds?.map((id: string) => ({ id })) || []
+          connect: competitorIds.map((id: string) => ({ id }))
         }
       },
       include: {

@@ -10,7 +10,18 @@ import {
   ValidationError
 } from '@/types/reports';
 import { z } from 'zod';
-import { logger, trackError, trackPerformance, trackBusinessEvent } from './logger';
+import { 
+  logger, 
+  trackError, 
+  trackPerformance, 
+  trackBusinessEvent,
+  trackDatabaseOperation,
+  trackFileSystemOperation,
+  trackReportFlow,
+  generateCorrelationId
+} from './logger';
+import { writeFile, mkdir } from 'fs/promises';
+import { join } from 'path';
 
 // Validation schemas
 const reportSectionSchema = z.object({
@@ -101,29 +112,56 @@ export class ReportGenerator {
     options?: {
       userId?: string;
       changeLog?: string;
+      reportName?: string;
+      projectId?: string;
       reportOptions?: ReportGenerationOptions;
     }
   ): Promise<APIResponse<ReportData>> {
     return logger.timeOperation('report_generation', async () => {
       const reportOptions = { ...this.defaultOptions, ...options?.reportOptions };
+      const correlationId = generateCorrelationId();
       const context = {
         competitorId,
         timeframe,
         userId: options?.userId,
-        changeLog: options?.changeLog
+        changeLog: options?.changeLog,
+        reportName: options?.reportName,
+        projectId: options?.projectId,
+        correlationId
       };
 
       try {
+        trackReportFlow('report_generation_started', {
+          ...context,
+          stepStatus: 'started',
+          stepData: { competitorId, timeframe, reportName: options?.reportName, projectId: options?.projectId }
+        });
+
         logger.info('Starting report generation', context);
 
         // Input validation
+        trackReportFlow('input_validation', { ...context, stepStatus: 'started' });
         const inputValidation = this.validateInputs(competitorId, timeframe);
         if (inputValidation) {
+          trackReportFlow('input_validation', { 
+            ...context, 
+            stepStatus: 'failed',
+            stepData: { error: 'Input validation failed' }
+          });
           return inputValidation;
         }
+        trackReportFlow('input_validation', { ...context, stepStatus: 'completed' });
 
         // Get competitor data with snapshots and analyses
+        trackReportFlow('competitor_data_fetch', { ...context, stepStatus: 'started' });
         logger.debug('Fetching competitor data', context);
+        
+        trackDatabaseOperation('findUnique', 'competitor', {
+          ...context,
+          recordId: competitorId,
+          query: 'competitor with snapshots and analyses'
+        });
+
         const competitor = await this.prisma.competitor.findUnique({
           where: { id: competitorId },
           include: {
@@ -142,9 +180,39 @@ export class ReportGenerator {
         });
 
         if (!competitor) {
+          trackReportFlow('competitor_data_fetch', {
+            ...context,
+            stepStatus: 'failed',
+            stepData: { error: 'Competitor not found' }
+          });
+          trackDatabaseOperation('findUnique', 'competitor', {
+            ...context,
+            recordId: competitorId,
+            success: false,
+            error: 'Competitor not found'
+          });
           logger.warn('Competitor not found', context);
           return { error: 'Competitor not found' };
         }
+
+        trackReportFlow('competitor_data_fetch', {
+          ...context,
+          stepStatus: 'completed',
+          stepData: { 
+            competitorName: competitor.name,
+            snapshotsCount: competitor.snapshots?.length || 0
+          }
+        });
+
+        trackDatabaseOperation('findUnique', 'competitor', {
+          ...context,
+          recordId: competitorId,
+          success: true,
+          recordData: {
+            name: competitor.name,
+            snapshotsCount: competitor.snapshots?.length || 0
+          }
+        });
 
         // Ensure snapshots is an array
         if (!Array.isArray(competitor.snapshots)) {
@@ -156,6 +224,7 @@ export class ReportGenerator {
         }
 
         // Filter snapshots by timeframe
+        trackReportFlow('snapshot_filtering', { ...context, stepStatus: 'started' });
         const endDate = new Date();
         const startDate = new Date();
         startDate.setDate(endDate.getDate() - timeframe);
@@ -164,7 +233,23 @@ export class ReportGenerator {
           (snapshot: any) => snapshot.createdAt >= startDate
         );
 
+        trackReportFlow('snapshot_filtering', {
+          ...context,
+          stepStatus: 'completed',
+          stepData: {
+            totalSnapshots: competitor.snapshots.length,
+            filteredSnapshots: filteredSnapshots.length,
+            startDate: startDate.toISOString(),
+            endDate: endDate.toISOString()
+          }
+        });
+
         if (filteredSnapshots.length === 0) {
+          trackReportFlow('snapshot_filtering', {
+            ...context,
+            stepStatus: 'failed',
+            stepData: { error: 'No snapshots found in timeframe' }
+          });
           logger.info('No snapshots found in timeframe', {
             ...context,
             startDate,
@@ -174,6 +259,7 @@ export class ReportGenerator {
         }
 
         // Analyze trends with enhanced error handling
+        trackReportFlow('trend_analysis', { ...context, stepStatus: 'started' });
         logger.debug('Analyzing trends', {
           ...context,
           snapshotsCount: filteredSnapshots.length
@@ -190,79 +276,50 @@ export class ReportGenerator {
               retryDelay: reportOptions.retryDelay
             }
           );
+          trackReportFlow('trend_analysis', {
+            ...context,
+            stepStatus: 'completed',
+            stepData: { trendsCount: trends.length }
+          });
         } catch (trendError) {
+          trackReportFlow('trend_analysis', {
+            ...context,
+            stepStatus: 'failed',
+            stepData: { error: (trendError as Error).message }
+          });
           logger.warn('Trend analysis failed, continuing with empty trends', {
             ...context,
             error: trendError instanceof Error ? trendError.message : 'Unknown error'
           });
-
-          if (reportOptions.fallbackToSimpleReport) {
-            // Continue with empty trends rather than failing the entire report
-            trends = [];
-          } else {
-            throw this.enhanceReportError(trendError as Error, 'trend_analysis');
-          }
         }
 
-        // Calculate report metadata
-        logger.debug('Calculating report metadata', context);
-        const analysisCount = filteredSnapshots.reduce(
-          (count: number, snapshot: any) => {
-            const analyses = Array.isArray(snapshot.analyses) ? snapshot.analyses : [];
-            return count + analyses.length;
-          },
-          0
-        );
-        const significantChanges = this.countSignificantChanges(filteredSnapshots);
-
-        logger.debug('Report metadata calculated', {
-          ...context,
-          analysisCount,
-          significantChanges,
-          trendsCount: trends.length
-        });
-
-        // Generate report sections with fallbacks
-        logger.debug('Generating report sections', context);
-        const sections = await this.generateSectionsWithRetry(
-          {
-            name: competitor.name,
-            snapshots: filteredSnapshots.map((snapshot: any) => ({
-              analyses: Array.isArray(snapshot.analyses) 
-                ? snapshot.analyses.map((analysis: any) => {
-                    const data = analysis.data as any;
-                    return {
-                      keyChanges: data?.primary?.keyChanges || [],
-                      marketingChanges: data?.primary?.marketingChanges || [],
-                      productChanges: data?.primary?.productChanges || []
-                    };
-                  })
-                : []
-            }))
-          },
-          trends,
-          startDate,
-          endDate,
-          reportOptions
-        );
-
-        // Create report title and description with fallbacks
-        const title = await this.generateTitleWithFallback(competitor.name, startDate, endDate, reportOptions);
-        const description = await this.generateDescriptionWithFallback(
-          {
-            name: competitor.name,
-            url: competitor.website
-          },
-          analysisCount,
-          significantChanges,
-          trends,
-          reportOptions
-        );
-
+        // Generate report data with enhanced logging
+        trackReportFlow('report_data_generation', { ...context, stepStatus: 'started' });
+        
         const reportData: ReportData = {
-          title,
-          description,
-          sections,
+          title: await this.generateTitleWithFallback(
+            competitor.name,
+            startDate,
+            endDate,
+            reportOptions
+          ),
+                     description: await this.generateDescriptionWithFallback(
+             {
+               name: competitor.name,
+               url: competitor.website
+             },
+             filteredSnapshots.length,
+             this.countSignificantChanges(filteredSnapshots),
+             trends,
+             reportOptions
+           ),
+          sections: await this.generateSectionsWithRetry(
+            competitor,
+            trends,
+            startDate,
+            endDate,
+            reportOptions
+          ),
           metadata: {
             competitor: {
               name: competitor.name,
@@ -272,81 +329,199 @@ export class ReportGenerator {
               start: startDate,
               end: endDate,
             },
-            analysisCount,
-            significantChanges,
+            analysisCount: filteredSnapshots.length,
+            significantChanges: this.countSignificantChanges(filteredSnapshots),
+          },
+          version: {
+            number: 1,
+            createdAt: new Date(),
+            changeLog: options?.changeLog,
           },
         };
 
-        // Validate report data
-        logger.debug('Validating generated report data', context);
-        const reportValidation = reportDataSchema.safeParse(reportData);
-        if (!reportValidation.success) {
-          logger.error('Report validation failed', new Error('Validation failed'), {
+        trackReportFlow('report_data_generation', {
+          ...context,
+          stepStatus: 'completed',
+          stepData: {
+            title: reportData.title,
+            sectionsCount: reportData.sections.length,
+            analysisCount: reportData.metadata.analysisCount
+          }
+        });
+
+        // Validate the generated report
+        trackReportFlow('report_validation', { ...context, stepStatus: 'started' });
+        try {
+          reportDataSchema.parse(reportData);
+          trackReportFlow('report_validation', { ...context, stepStatus: 'completed' });
+        } catch (validationError) {
+          trackReportFlow('report_validation', {
             ...context,
-            validationErrors: reportValidation.error.errors
+            stepStatus: 'failed',
+            stepData: { error: (validationError as Error).message }
           });
+          logger.error('Report validation failed', validationError as Error, context);
           return {
-            error: 'Invalid report data',
-            validationErrors: reportValidation.error.errors.map((err: any) => ({
-              field: err.path.join('.'),
-              message: err.message
-            }))
+            error: 'Generated report failed validation',
+            validationErrors: validationError instanceof z.ZodError 
+              ? validationError.errors.map(e => ({ field: e.path.join('.'), message: e.message }))
+              : [{ field: 'unknown', message: 'Validation failed' }]
           };
         }
 
-        // Create or update report in database
-        logger.debug('Saving report to database', context);
-        const report = await this.prisma.report.create({
-          data: {
-            name: title,
-            description,
-            competitorId,
-          },
-        });
+        // Save report to database
+        trackReportFlow('database_save', { ...context, stepStatus: 'started' });
+        let savedReport;
+        try {
+          trackDatabaseOperation('create', 'report', {
+            ...context,
+            recordData: {
+              name: options?.reportName || reportData.title,
+              competitorId,
+              description: reportData.description
+            }
+          });
 
-        // Create report version
-        await this.prisma.reportVersion.create({
-          data: {
-            reportId: report.id,
-            version: 1,
-            content: reportData as any,
-          },
-        });
+          savedReport = await this.prisma.report.create({
+            data: {
+              name: options?.reportName || reportData.title,
+              description: reportData.description,
+              competitorId,
+              projectId: options?.projectId, // Link report to project
+              title: reportData.title,
+              status: 'COMPLETED',
+            },
+          });
 
-        logger.info('Report generated successfully', {
+          trackReportFlow('database_save', {
+            ...context,
+            stepStatus: 'completed',
+            stepData: { reportId: savedReport.id }
+          });
+
+          trackDatabaseOperation('create', 'report', {
+            ...context,
+            recordId: savedReport.id,
+            success: true
+          });
+
+          logger.info('Report saved to database', {
+            ...context,
+            reportId: savedReport.id
+          });
+        } catch (dbError) {
+          trackReportFlow('database_save', {
+            ...context,
+            stepStatus: 'failed',
+            stepData: { error: (dbError as Error).message }
+          });
+
+          trackDatabaseOperation('create', 'report', {
+            ...context,
+            success: false,
+            error: (dbError as Error).message
+          });
+
+          logger.error('Failed to save report to database', dbError as Error, context);
+          return { error: 'Failed to save report to database' };
+        }
+
+        // Save report version
+        trackReportFlow('version_save', { ...context, stepStatus: 'started' });
+        try {
+          trackDatabaseOperation('create', 'reportVersion', {
+            ...context,
+            recordData: {
+              reportId: savedReport.id,
+              version: 1,
+              content: reportData
+            }
+          });
+
+          await this.prisma.reportVersion.create({
+            data: {
+              reportId: savedReport.id,
+              version: 1,
+              content: reportData as any,
+            },
+          });
+
+          trackReportFlow('version_save', { ...context, stepStatus: 'completed' });
+
+          trackDatabaseOperation('create', 'reportVersion', {
+            ...context,
+            success: true
+          });
+        } catch (versionError) {
+          trackReportFlow('version_save', {
+            ...context,
+            stepStatus: 'failed',
+            stepData: { error: (versionError as Error).message }
+          });
+
+          trackDatabaseOperation('create', 'reportVersion', {
+            ...context,
+            success: false,
+            error: (versionError as Error).message
+          });
+
+          logger.error('Failed to save report version', versionError as Error, context);
+        }
+
+        // Save report to file system
+        trackReportFlow('file_save', { ...context, stepStatus: 'started' });
+        try {
+          const projectName = options?.projectId || options?.reportName || competitor.name;
+          await this.saveReportToFile(reportData, savedReport.id, projectName, competitor.name);
+          
+          trackReportFlow('file_save', {
+            ...context,
+            stepStatus: 'completed',
+            stepData: { projectName }
+          });
+        } catch (fileError) {
+          trackReportFlow('file_save', {
+            ...context,
+            stepStatus: 'failed',
+            stepData: { error: (fileError as Error).message }
+          });
+          
+          // Don't fail the entire operation if file save fails
+          logger.error('Failed to save report file, but continuing', fileError as Error, context);
+        }
+
+        trackReportFlow('report_generation_completed', {
           ...context,
-          reportId: report.id,
-          title,
-          sectionsCount: sections.length,
-          analysisCount,
-          significantChanges,
-          aiServiceUsed: reportOptions.fallbackToSimpleReport ? 'mixed' : 'ai'
+          stepStatus: 'completed',
+          stepData: {
+            reportId: savedReport.id,
+            title: reportData.title,
+            sectionsCount: reportData.sections.length
+          }
         });
 
-        // Track business event for successful report generation
         trackBusinessEvent('report_generated', {
           competitorId,
           competitorName: competitor.name,
-          timeframe,
-          analysisCount,
-          significantChanges,
-          sectionsGenerated: sections.length,
-          aiServiceUsed: reportOptions.fallbackToSimpleReport
-        }, { ...context, reportId: report.id });
+          reportId: savedReport.id,
+          sectionsCount: reportData.sections.length,
+          analysisCount: reportData.metadata.analysisCount,
+          projectId: options?.projectId
+        }, context);
 
         return { data: reportData };
+
       } catch (error) {
-        const enhancedError = this.enhanceReportError(error as Error, 'report_generation');
+        trackReportFlow('report_generation_error', {
+          ...context,
+          stepStatus: 'failed',
+          stepData: { error: (error as Error).message }
+        });
+
+        const enhancedError = this.enhanceReportError(error as Error, 'generateReport');
+        logger.error('Report generation failed', enhancedError, context);
         trackError(enhancedError, 'report_generation', context);
-        logger.error('Error generating report:', enhancedError);
-        
-        return {
-          error: enhancedError.message,
-          validationErrors: [{
-            field: 'general',
-            message: enhancedError.message
-          }]
-        };
+        return { error: enhancedError.message };
       }
     });
   }
@@ -520,7 +695,7 @@ Format the summary in 2-3 sentences, highlighting the most important findings an
         contentType: 'application/json',
         accept: 'application/json',
         body: JSON.stringify({
-          anthropic_version: '2023-06-01',
+          anthropic_version: 'bedrock-2023-05-31',
           max_tokens: 300,
           messages: [
             {
@@ -616,9 +791,9 @@ Format the summary in 2-3 sentences, highlighting the most important findings an
   }>): Promise<string> {
     const allChanges = snapshots.flatMap(snapshot => 
       snapshot.analyses.flatMap(analysis => [
-        ...analysis.keyChanges,
-        ...analysis.marketingChanges,
-        ...analysis.productChanges
+        ...(Array.isArray(analysis.keyChanges) ? analysis.keyChanges : []),
+        ...(Array.isArray(analysis.marketingChanges) ? analysis.marketingChanges : []),
+        ...(Array.isArray(analysis.productChanges) ? analysis.productChanges : [])
       ])
     );
     
@@ -793,9 +968,9 @@ Format the summary in 2-3 sentences, highlighting the most important findings an
     // Key Changes
     const allChanges = competitor.snapshots.flatMap((snapshot: any) => 
       snapshot.analyses.flatMap((analysis: any) => [
-        ...analysis.keyChanges,
-        ...analysis.marketingChanges,
-        ...analysis.productChanges
+        ...(Array.isArray(analysis.keyChanges) ? analysis.keyChanges : []),
+        ...(Array.isArray(analysis.marketingChanges) ? analysis.marketingChanges : []),
+        ...(Array.isArray(analysis.productChanges) ? analysis.productChanges : [])
       ])
     );
 
@@ -827,5 +1002,87 @@ Format the summary in 2-3 sentences, highlighting the most important findings an
     });
 
     return sections;
+  }
+
+  private async saveReportToFile(reportData: ReportData, reportId: string, projectName: string, competitorName: string): Promise<void> {
+    const context = { reportId, projectName, competitorName };
+    
+    try {
+                    // Create reports directory if it doesn't exist
+       const reportsDir = join(process.cwd(), 'reports');
+       await mkdir(reportsDir, { recursive: true });
+
+              trackFileSystemOperation('mkdir', reportsDir);
+
+       // Generate filename with timestamp
+       const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+       const sanitizedProjectName = projectName.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase();
+       const filename = `${sanitizedProjectName}_${timestamp}.md`;
+       const filePath = join(reportsDir, filename);
+
+       // Convert report data to markdown
+       const markdownContent = this.convertToMarkdown(reportData);
+
+       // Write file
+       await writeFile(filePath, markdownContent, 'utf-8');
+
+       trackFileSystemOperation('writeFile', filePath);
+
+      logger.info('Report file saved', {
+        reportId,
+        filename,
+        filePath,
+        competitorName,
+        fileSize: markdownContent.length
+      });
+
+      trackBusinessEvent('report_file_saved', {
+        reportId,
+        filename,
+        filePath,
+        competitorName,
+        projectName,
+        fileSize: markdownContent.length
+      }, context);
+
+    } catch (error) {
+             trackFileSystemOperation('saveReportToFile', 'reports');
+
+      logger.error('Failed to save report file', error as Error, {
+        reportId,
+        competitorName
+      });
+      throw error;
+    }
+  }
+
+  private convertToMarkdown(reportData: ReportData): string {
+    let markdown = `# ${reportData.title}\n\n`;
+    
+    if (reportData.description) {
+      markdown += `${reportData.description}\n\n`;
+    }
+
+    // Add metadata
+    markdown += `## Report Details\n\n`;
+    markdown += `- **Competitor**: ${reportData.metadata.competitor.name}\n`;
+    markdown += `- **Website**: ${reportData.metadata.competitor.url}\n`;
+    markdown += `- **Analysis Period**: ${this.formatDateRange(reportData.metadata.dateRange.start, reportData.metadata.dateRange.end)}\n`;
+    markdown += `- **Data Points Analyzed**: ${reportData.metadata.analysisCount}\n`;
+    markdown += `- **Significant Changes**: ${reportData.metadata.significantChanges}\n`;
+    markdown += `- **Generated**: ${new Date().toLocaleString()}\n\n`;
+
+    // Add sections
+    const sortedSections = reportData.sections.sort((a, b) => a.order - b.order);
+    for (const section of sortedSections) {
+      markdown += `## ${section.title}\n\n`;
+      markdown += `${section.content}\n\n`;
+    }
+
+    // Add footer
+    markdown += `---\n\n`;
+    markdown += `*This report was generated automatically by the Competitor Research Agent.*\n`;
+
+    return markdown;
   }
 } 
