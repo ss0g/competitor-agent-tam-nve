@@ -93,7 +93,7 @@ module.exports = {
       testEnvironment: 'node',
       testMatch: ['<rootDir>/src/__tests__/regression/**/*.test.ts'],
       setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
-      testTimeout: 60000, // Longer timeout for regression tests
+      timeout: 60000, // Longer timeout for regression tests
       moduleNameMapper: {
         '^@/(.*)$': '<rootDir>/src/$1',
         '^@/lib/(.*)$': '<rootDir>/src/lib/$1',

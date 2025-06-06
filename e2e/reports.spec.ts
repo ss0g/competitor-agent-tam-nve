@@ -74,8 +74,8 @@ test.describe('Navigation Without Authentication', () => {
     await expect(page.locator('text=Sign in')).not.toBeVisible();
     await expect(page.locator('text=Sign out')).not.toBeVisible();
     
-    // Should show app branding
-    await expect(page.locator('text=Competitor Research Agent')).toBeVisible();
+    // Should show app branding - target only the navigation div, not the page title
+    await expect(page.locator('nav').locator('text=Competitor Research Agent')).toBeVisible();
   });
 });
 
