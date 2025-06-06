@@ -1,7 +1,9 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { DocumentTextIcon, ArrowDownTrayIcon, ClockIcon } from '@heroicons/react/24/outline';
+import { DocumentTextIcon, ArrowDownTrayIcon, ClockIcon, EyeIcon } from '@heroicons/react/24/outline';
+import { useObservability } from '@/hooks/useObservability';
+import ErrorBoundary from '@/components/ErrorBoundary';
 
 interface ReportFile {
   id?: string;
@@ -17,10 +19,17 @@ interface ReportFile {
   competitorName?: string;
 }
 
-export default function ReportsPage() {
+function ReportsPageContent() {
   const [reports, setReports] = useState<ReportFile[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Initialize observability tracking
+  const observability = useObservability({
+    feature: 'reports_list',
+    userId: 'anonymous', // You can get this from auth context
+    sessionId: 'session_' + Date.now(),
+  });
 
   useEffect(() => {
     fetchReports();
@@ -29,19 +38,53 @@ export default function ReportsPage() {
   const fetchReports = async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/reports/list');
-      const data = await response.json();
+      setError(null);
       
-      if (response.ok) {
-        setReports(data.reports || []);
-      } else {
-        setError(data.error || 'Failed to fetch reports');
-      }
+      // Track API call with observability
+      const data = await observability.trackApiCall(
+        'fetch_reports_list',
+        async () => {
+          const response = await fetch('/api/reports/list');
+          const responseData = await response.json();
+          
+          if (!response.ok) {
+            throw new Error(responseData.error || 'Failed to fetch reports');
+          }
+          
+          return responseData;
+        },
+        {
+          url: '/api/reports/list',
+          operation: 'fetch_reports',
+        }
+      );
+      
+      setReports(data.reports || []);
+      
+      // Log successful data retrieval
+      observability.logEvent('reports_loaded', 'business', {
+        reportCount: data.reports?.length || 0,
+        sources: data.sources,
+        total: data.total,
+      });
+      
     } catch (err) {
-      setError('Failed to fetch reports');
-      console.error('Error fetching reports:', err);
+      const errorMessage = err instanceof Error ? err.message : 'Failed to fetch reports';
+      setError(errorMessage);
+      
+      // Error is already logged by trackApiCall, but log UI state change
+      observability.logEvent('reports_load_failed', 'error', {
+        errorMessage,
+        userVisible: true,
+      });
     } finally {
       setLoading(false);
+      
+      // Log loading state change
+      observability.logEvent('reports_loading_complete', 'system_event', {
+        hasError: !!error,
+        reportCount: reports.length,
+      });
     }
   };
 
@@ -93,6 +136,9 @@ export default function ReportsPage() {
             <a
               href="/chat"
               className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
+              onClick={() => {
+                observability.trackNavigation('/reports', '/chat', 'click');
+              }}
             >
               Start Analysis
             </a>
@@ -156,9 +202,36 @@ export default function ReportsPage() {
                   </div>
                   <div className="flex items-center space-x-2">
                     <a
+                      href={`/reports/${report.id || report.filename}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center px-3 py-2 border border-blue-300 shadow-sm text-sm leading-4 font-medium rounded-md text-blue-700 bg-blue-50 hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                      onClick={() => {
+                        observability.trackInteraction('click', 'read_report_button', {
+                          reportId: report.id || report.filename,
+                          reportSource: report.source,
+                          projectId: report.projectId,
+                          competitorName: report.competitorName,
+                        });
+                        observability.trackNavigation('/reports', `/reports/${report.id || report.filename}`, 'click');
+                      }}
+                    >
+                      <EyeIcon className="-ml-0.5 mr-2 h-4 w-4" />
+                      Read Report
+                    </a>
+                    <a
                       href={report.downloadUrl}
                       className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                       download
+                      onClick={() => {
+                        observability.trackInteraction('click', 'download_report_button', {
+                          reportId: report.id || report.filename,
+                          reportSource: report.source,
+                          projectId: report.projectId,
+                          competitorName: report.competitorName,
+                          downloadUrl: report.downloadUrl,
+                        });
+                      }}
                     >
                       <ArrowDownTrayIcon className="-ml-0.5 mr-2 h-4 w-4" />
                       Download
@@ -173,12 +246,34 @@ export default function ReportsPage() {
 
       <div className="mt-8 text-center">
         <button
-          onClick={fetchReports}
+          onClick={() => {
+            observability.trackInteraction('click', 'refresh_reports_button', {
+              currentReportCount: reports.length,
+            });
+            fetchReports();
+          }}
           className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
         >
           Refresh Reports
         </button>
       </div>
     </div>
+  );
+}
+
+export default function ReportsPage() {
+  return (
+    <ErrorBoundary 
+      feature="reports_list" 
+      onError={(error, errorInfo, correlationId) => {
+        console.error('Reports page error boundary triggered:', {
+          error: error.message,
+          correlationId,
+          componentStack: errorInfo.componentStack,
+        });
+      }}
+    >
+      <ReportsPageContent />
+    </ErrorBoundary>
   );
 } 
