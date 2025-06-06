@@ -1,245 +1,39 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuites name="jest tests" tests="113" failures="0" errors="0" time="12.171">
-  <testsuite name="SnapshotDiff" errors="0" failures="0" skipped="0" timestamp="2025-06-04T19:30:11" time="6.108" tests="20">
-    <testcase classname="SnapshotDiff compare should detect text additions" name="SnapshotDiff compare should detect text additions" time="0.005">
-    </testcase>
-    <testcase classname="SnapshotDiff compare should detect text removals" name="SnapshotDiff compare should detect text removals" time="0">
-    </testcase>
-    <testcase classname="SnapshotDiff compare should detect text modifications" name="SnapshotDiff compare should detect text modifications" time="0.001">
-    </testcase>
-    <testcase classname="SnapshotDiff compare should handle identical content" name="SnapshotDiff compare should handle identical content" time="0">
-    </testcase>
-    <testcase classname="SnapshotDiff compare should detect metadata changes" name="SnapshotDiff compare should detect metadata changes" time="0.001">
-    </testcase>
-    <testcase classname="SnapshotDiff compare should calculate change percentage correctly" name="SnapshotDiff compare should calculate change percentage correctly" time="0">
-    </testcase>
-    <testcase classname="SnapshotDiff compare should handle empty content" name="SnapshotDiff compare should handle empty content" time="0">
-    </testcase>
-    <testcase classname="SnapshotDiff compare should filter out empty lines" name="SnapshotDiff compare should filter out empty lines" time="0">
-    </testcase>
-    <testcase classname="SnapshotDiff getSignificantChanges should identify significant content changes" name="SnapshotDiff getSignificantChanges should identify significant content changes" time="0.001">
-    </testcase>
-    <testcase classname="SnapshotDiff getSignificantChanges should identify metadata changes" name="SnapshotDiff getSignificantChanges should identify metadata changes" time="0">
-    </testcase>
-    <testcase classname="SnapshotDiff getSignificantChanges should return empty array for no significant changes" name="SnapshotDiff getSignificantChanges should return empty array for no significant changes" time="0.048">
-    </testcase>
-    <testcase classname="SnapshotDiff getSignificantChanges should handle mixed significant changes" name="SnapshotDiff getSignificantChanges should handle mixed significant changes" time="0.001">
-    </testcase>
-    <testcase classname="SnapshotDiff formatTextDiff should format removed content with minus prefix" name="SnapshotDiff formatTextDiff should format removed content with minus prefix" time="0">
-    </testcase>
-    <testcase classname="SnapshotDiff formatTextDiff should format added content with plus prefix" name="SnapshotDiff formatTextDiff should format added content with plus prefix" time="0">
-    </testcase>
-    <testcase classname="SnapshotDiff formatTextDiff should format both added and removed content" name="SnapshotDiff formatTextDiff should format both added and removed content" time="0">
-    </testcase>
-    <testcase classname="SnapshotDiff formatTextDiff should return empty string for no changes" name="SnapshotDiff formatTextDiff should return empty string for no changes" time="0">
-    </testcase>
-    <testcase classname="SnapshotDiff formatTextDiff should handle special characters in diff content" name="SnapshotDiff formatTextDiff should handle special characters in diff content" time="0.001">
-    </testcase>
-    <testcase classname="SnapshotDiff Edge Cases should handle null/undefined values gracefully" name="SnapshotDiff Edge Cases should handle null/undefined values gracefully" time="0">
-    </testcase>
-    <testcase classname="SnapshotDiff Edge Cases should handle very large content differences" name="SnapshotDiff Edge Cases should handle very large content differences" time="0">
-    </testcase>
-    <testcase classname="SnapshotDiff Edge Cases should handle content with only whitespace differences" name="SnapshotDiff Edge Cases should handle content with only whitespace differences" time="0">
-    </testcase>
-  </testsuite>
-  <testsuite name="ContentAnalyzer" errors="0" failures="0" skipped="0" timestamp="2025-06-04T19:30:17" time="0.312" tests="16">
-    <testcase classname="ContentAnalyzer Constructor should initialize with AWS Bedrock client" name="ContentAnalyzer Constructor should initialize with AWS Bedrock client" time="0.023">
-    </testcase>
-    <testcase classname="ContentAnalyzer Token Usage Calculation should calculate token usage correctly" name="ContentAnalyzer Token Usage Calculation should calculate token usage correctly" time="0.002">
-    </testcase>
-    <testcase classname="ContentAnalyzer Token Usage Calculation should calculate cost for Claude model" name="ContentAnalyzer Token Usage Calculation should calculate cost for Claude model" time="0.005">
-    </testcase>
-    <testcase classname="ContentAnalyzer Token Usage Calculation should calculate cost for Mistral model" name="ContentAnalyzer Token Usage Calculation should calculate cost for Mistral model" time="0.001">
-    </testcase>
-    <testcase classname="ContentAnalyzer Analysis Response Parsing should parse analysis response correctly" name="ContentAnalyzer Analysis Response Parsing should parse analysis response correctly" time="0.001">
-    </testcase>
-    <testcase classname="ContentAnalyzer Analysis Response Parsing should handle missing sections gracefully" name="ContentAnalyzer Analysis Response Parsing should handle missing sections gracefully" time="0.001">
-    </testcase>
-    <testcase classname="ContentAnalyzer Confidence Calculation should calculate confidence metrics" name="ContentAnalyzer Confidence Calculation should calculate confidence metrics" time="0.001">
-    </testcase>
-    <testcase classname="ContentAnalyzer analyzeChanges should analyze changes successfully" name="ContentAnalyzer analyzeChanges should analyze changes successfully" time="0.042">
-    </testcase>
-    <testcase classname="ContentAnalyzer analyzeChanges should handle API errors gracefully" name="ContentAnalyzer analyzeChanges should handle API errors gracefully" time="0.03">
-    </testcase>
-    <testcase classname="ContentAnalyzer analyzeChanges should build analysis prompt correctly" name="ContentAnalyzer analyzeChanges should build analysis prompt correctly" time="0">
-    </testcase>
-    <testcase classname="ContentAnalyzer Text Similarity should calculate text similarity correctly" name="ContentAnalyzer Text Similarity should calculate text similarity correctly" time="0.001">
-    </testcase>
-    <testcase classname="ContentAnalyzer Text Similarity should return 0 for completely different texts" name="ContentAnalyzer Text Similarity should return 0 for completely different texts" time="0">
-    </testcase>
-    <testcase classname="ContentAnalyzer Text Similarity should return 1 for identical texts" name="ContentAnalyzer Text Similarity should return 1 for identical texts" time="0">
-    </testcase>
-    <testcase classname="ContentAnalyzer List Overlap Calculation should calculate list overlap correctly" name="ContentAnalyzer List Overlap Calculation should calculate list overlap correctly" time="0.019">
-    </testcase>
-    <testcase classname="ContentAnalyzer List Overlap Calculation should handle empty lists" name="ContentAnalyzer List Overlap Calculation should handle empty lists" time="0.029">
-    </testcase>
-    <testcase classname="ContentAnalyzer List Overlap Calculation should handle case insensitive comparison" name="ContentAnalyzer List Overlap Calculation should handle case insensitive comparison" time="0">
-    </testcase>
-  </testsuite>
-  <testsuite name="Logger" errors="0" failures="0" skipped="0" timestamp="2025-06-04T19:30:11" time="6.162" tests="23">
-    <testcase classname="Logger Log Levels should log debug messages when level is DEBUG" name="Logger Log Levels should log debug messages when level is DEBUG" time="0.008">
-    </testcase>
-    <testcase classname="Logger Log Levels should not log debug messages when level is INFO" name="Logger Log Levels should not log debug messages when level is INFO" time="0">
-    </testcase>
-    <testcase classname="Logger Log Levels should log info messages when level is INFO" name="Logger Log Levels should log info messages when level is INFO" time="0.002">
-    </testcase>
-    <testcase classname="Logger Log Levels should log warning messages" name="Logger Log Levels should log warning messages" time="0.001">
-    </testcase>
-    <testcase classname="Logger Log Levels should log error messages" name="Logger Log Levels should log error messages" time="0.03">
-    </testcase>
-    <testcase classname="Logger Context Management should include context in log messages" name="Logger Context Management should include context in log messages" time="0.001">
-    </testcase>
-    <testcase classname="Logger Context Management should maintain persistent context" name="Logger Context Management should maintain persistent context" time="0">
-    </testcase>
-    <testcase classname="Logger Context Management should merge contexts correctly" name="Logger Context Management should merge contexts correctly" time="0">
-    </testcase>
-    <testcase classname="Logger Context Management should clear context" name="Logger Context Management should clear context" time="0">
-    </testcase>
-    <testcase classname="Logger Child Logger should create child logger with additional context" name="Logger Child Logger should create child logger with additional context" time="0.005">
-    </testcase>
-    <testcase classname="Logger Child Logger should inherit parent context in child logger" name="Logger Child Logger should inherit parent context in child logger" time="0.031">
-    </testcase>
-    <testcase classname="Logger Performance Timing should time operations successfully" name="Logger Performance Timing should time operations successfully" time="0">
-    </testcase>
-    <testcase classname="Logger Performance Timing should handle operation failures" name="Logger Performance Timing should handle operation failures" time="0.001">
-    </testcase>
-    <testcase classname="Logger Event Tracking should track events" name="Logger Event Tracking should track events" time="0.018">
-    </testcase>
-    <testcase classname="Logger Event Tracking should track errors" name="Logger Event Tracking should track errors" time="0.001">
-    </testcase>
-    <testcase classname="Logger Event Tracking should track performance" name="Logger Event Tracking should track performance" time="0">
-    </testcase>
-    <testcase classname="Logger Event Tracking should track user actions" name="Logger Event Tracking should track user actions" time="0">
-    </testcase>
-    <testcase classname="Logger Event Tracking should track business events" name="Logger Event Tracking should track business events" time="0">
-    </testcase>
-    <testcase classname="Logger Log Formatting should format timestamps correctly" name="Logger Log Formatting should format timestamps correctly" time="0">
-    </testcase>
-    <testcase classname="Logger Log Formatting should include stack trace for errors" name="Logger Log Formatting should include stack trace for errors" time="0.001">
-    </testcase>
-    <testcase classname="Logger Log Formatting should format performance logs correctly" name="Logger Log Formatting should format performance logs correctly" time="0">
-    </testcase>
-    <testcase classname="Logger Error Handling should handle errors without stack traces" name="Logger Error Handling should handle errors without stack traces" time="0">
-    </testcase>
-    <testcase classname="Logger Error Handling should handle null/undefined errors gracefully" name="Logger Error Handling should handle null/undefined errors gracefully" time="0">
-    </testcase>
-  </testsuite>
-  <testsuite name="WebsiteScraper" errors="0" failures="0" skipped="0" timestamp="2025-06-04T19:30:11" time="6.413" tests="20">
-    <testcase classname="WebsiteScraper Browser Initialization should initialize browser with correct options" name="WebsiteScraper Browser Initialization should initialize browser with correct options" time="0.032">
-    </testcase>
-    <testcase classname="WebsiteScraper Browser Initialization should reuse existing browser instance" name="WebsiteScraper Browser Initialization should reuse existing browser instance" time="0.003">
-    </testcase>
-    <testcase classname="WebsiteScraper takeSnapshot should take a complete website snapshot" name="WebsiteScraper takeSnapshot should take a complete website snapshot" time="0.001">
-    </testcase>
-    <testcase classname="WebsiteScraper takeSnapshot should extract meta description when present" name="WebsiteScraper takeSnapshot should extract meta description when present" time="0.002">
-    </testcase>
-    <testcase classname="WebsiteScraper takeSnapshot should handle missing meta description" name="WebsiteScraper takeSnapshot should handle missing meta description" time="0.002">
-    </testcase>
-    <testcase classname="WebsiteScraper takeSnapshot should set viewport correctly" name="WebsiteScraper takeSnapshot should set viewport correctly" time="0.001">
-    </testcase>
-    <testcase classname="WebsiteScraper takeSnapshot should enable request interception" name="WebsiteScraper takeSnapshot should enable request interception" time="0.001">
-    </testcase>
-    <testcase classname="WebsiteScraper takeSnapshot should navigate to URL with correct options" name="WebsiteScraper takeSnapshot should navigate to URL with correct options" time="0.001">
-    </testcase>
-    <testcase classname="WebsiteScraper takeSnapshot should close page after snapshot" name="WebsiteScraper takeSnapshot should close page after snapshot" time="0.004">
-    </testcase>
-    <testcase classname="WebsiteScraper takeSnapshot should handle navigation errors" name="WebsiteScraper takeSnapshot should handle navigation errors" time="0.009">
-    </testcase>
-    <testcase classname="WebsiteScraper takeSnapshot should handle page content extraction errors" name="WebsiteScraper takeSnapshot should handle page content extraction errors" time="0.002">
-    </testcase>
-    <testcase classname="WebsiteScraper takeSnapshot should handle request events correctly" name="WebsiteScraper takeSnapshot should handle request events correctly" time="0.001">
-    </testcase>
-    <testcase classname="WebsiteScraper takeSnapshot should capture response headers and status" name="WebsiteScraper takeSnapshot should capture response headers and status" time="0.004">
-    </testcase>
-    <testcase classname="WebsiteScraper takeSnapshot should handle different status codes" name="WebsiteScraper takeSnapshot should handle different status codes" time="0.003">
-    </testcase>
-    <testcase classname="WebsiteScraper Content Parsing should handle special characters in content" name="WebsiteScraper Content Parsing should handle special characters in content" time="0.002">
-    </testcase>
-    <testcase classname="WebsiteScraper Content Parsing should handle empty content gracefully" name="WebsiteScraper Content Parsing should handle empty content gracefully" time="0.002">
-    </testcase>
-    <testcase classname="WebsiteScraper close should close browser when it exists" name="WebsiteScraper close should close browser when it exists" time="0.005">
-    </testcase>
-    <testcase classname="WebsiteScraper close should handle close when browser does not exist" name="WebsiteScraper close should handle close when browser does not exist" time="0.001">
-    </testcase>
-    <testcase classname="WebsiteScraper close should handle browser close errors" name="WebsiteScraper close should handle browser close errors" time="0.001">
-    </testcase>
-    <testcase classname="WebsiteScraper close should set browser to null after closing" name="WebsiteScraper close should set browser to null after closing" time="0.004">
-    </testcase>
-  </testsuite>
-  <testsuite name="Critical Paths Regression Tests" errors="0" failures="0" skipped="0" timestamp="2025-06-04T19:30:10" time="10.766" tests="13">
-    <testcase classname="Critical Paths Regression Tests Report Generation - Critical Smoke Tests should generate a report successfully" name="Critical Paths Regression Tests Report Generation - Critical Smoke Tests should generate a report successfully" time="1.296">
-    </testcase>
-    <testcase classname="Critical Paths Regression Tests Report Generation - Critical Smoke Tests should handle competitor not found gracefully" name="Critical Paths Regression Tests Report Generation - Critical Smoke Tests should handle competitor not found gracefully" time="0.003">
-    </testcase>
-    <testcase classname="Critical Paths Regression Tests Report Generation - Critical Smoke Tests should validate input parameters" name="Critical Paths Regression Tests Report Generation - Critical Smoke Tests should validate input parameters" time="0.022">
-    </testcase>
-    <testcase classname="Critical Paths Regression Tests Content Analysis - Critical Smoke Tests should perform content analysis successfully" name="Critical Paths Regression Tests Content Analysis - Critical Smoke Tests should perform content analysis successfully" time="0.007">
-    </testcase>
-    <testcase classname="Critical Paths Regression Tests Content Analysis - Critical Smoke Tests should handle AI service failures gracefully" name="Critical Paths Regression Tests Content Analysis - Critical Smoke Tests should handle AI service failures gracefully" time="0.011">
-    </testcase>
-    <testcase classname="Critical Paths Regression Tests Data Integrity - Critical Checks should maintain data consistency in report storage" name="Critical Paths Regression Tests Data Integrity - Critical Checks should maintain data consistency in report storage" time="0.004">
-    </testcase>
-    <testcase classname="Critical Paths Regression Tests Data Integrity - Critical Checks should handle database transaction failures" name="Critical Paths Regression Tests Data Integrity - Critical Checks should handle database transaction failures" time="0.004">
-    </testcase>
-    <testcase classname="Critical Paths Regression Tests Data Integrity - Critical Checks should handle malformed data gracefully" name="Critical Paths Regression Tests Data Integrity - Critical Checks should handle malformed data gracefully" time="0.003">
-    </testcase>
-    <testcase classname="Critical Paths Regression Tests Performance - Critical Benchmarks should complete report generation within acceptable time limits" name="Critical Paths Regression Tests Performance - Critical Benchmarks should complete report generation within acceptable time limits" time="0.011">
-    </testcase>
-    <testcase classname="Critical Paths Regression Tests Performance - Critical Benchmarks should handle concurrent report generations" name="Critical Paths Regression Tests Performance - Critical Benchmarks should handle concurrent report generations" time="0.004">
-    </testcase>
-    <testcase classname="Critical Paths Regression Tests Error Handling - Critical Recovery should recover from temporary service failures" name="Critical Paths Regression Tests Error Handling - Critical Recovery should recover from temporary service failures" time="0.023">
-    </testcase>
-    <testcase classname="Critical Paths Regression Tests Error Handling - Critical Recovery should handle malformed data gracefully" name="Critical Paths Regression Tests Error Handling - Critical Recovery should handle malformed data gracefully" time="0.006">
-    </testcase>
-    <testcase classname="Critical Paths Regression Tests Integration - Critical Workflows should complete end-to-end report workflow" name="Critical Paths Regression Tests Integration - Critical Workflows should complete end-to-end report workflow" time="0.012">
-    </testcase>
-  </testsuite>
-  <testsuite name="Data Integrity Regression Tests" errors="0" failures="0" skipped="0" timestamp="2025-06-04T19:30:10" time="10.589" tests="9">
-    <testcase classname="Data Integrity Regression Tests Database Operations should maintain referential integrity between competitors and snapshots" name="Data Integrity Regression Tests Database Operations should maintain referential integrity between competitors and snapshots" time="1.259">
-    </testcase>
-    <testcase classname="Data Integrity Regression Tests Database Operations should handle concurrent database operations without corruption" name="Data Integrity Regression Tests Database Operations should handle concurrent database operations without corruption" time="0.006">
-    </testcase>
-    <testcase classname="Data Integrity Regression Tests Database Operations should validate data before storage" name="Data Integrity Regression Tests Database Operations should validate data before storage" time="0.001">
-    </testcase>
-    <testcase classname="Data Integrity Regression Tests Content Diff Integrity should maintain diff accuracy across multiple comparisons" name="Data Integrity Regression Tests Content Diff Integrity should maintain diff accuracy across multiple comparisons" time="0.009">
-    </testcase>
-    <testcase classname="Data Integrity Regression Tests Content Diff Integrity should detect significant changes correctly" name="Data Integrity Regression Tests Content Diff Integrity should detect significant changes correctly" time="0.001">
-    </testcase>
-    <testcase classname="Data Integrity Regression Tests Analysis Data Consistency should maintain analysis result consistency" name="Data Integrity Regression Tests Analysis Data Consistency should maintain analysis result consistency" time="0.018">
-    </testcase>
-    <testcase classname="Data Integrity Regression Tests Analysis Data Consistency should handle analysis data corruption gracefully" name="Data Integrity Regression Tests Analysis Data Consistency should handle analysis data corruption gracefully" time="0.021">
-    </testcase>
-    <testcase classname="Data Integrity Regression Tests Report Data Integrity should maintain report structure consistency" name="Data Integrity Regression Tests Report Data Integrity should maintain report structure consistency" time="0.005">
-    </testcase>
-    <testcase classname="Data Integrity Regression Tests Report Data Integrity should handle report versioning correctly" name="Data Integrity Regression Tests Report Data Integrity should handle report versioning correctly" time="0">
-    </testcase>
-  </testsuite>
-  <testsuite name="ReportGenerator" errors="0" failures="0" skipped="0" timestamp="2025-06-04T19:30:11" time="10.365" tests="7">
-    <testcase classname="ReportGenerator generateReport should validate input parameters" name="ReportGenerator generateReport should validate input parameters" time="0.022">
-    </testcase>
-    <testcase classname="ReportGenerator generateReport should validate timeframe" name="ReportGenerator generateReport should validate timeframe" time="0.001">
-    </testcase>
-    <testcase classname="ReportGenerator generateReport should handle competitor not found" name="ReportGenerator generateReport should handle competitor not found" time="0.001">
-    </testcase>
-    <testcase classname="ReportGenerator generateReport should generate a valid report" name="ReportGenerator generateReport should generate a valid report" time="0.02">
-    </testcase>
-    <testcase classname="ReportGenerator generateReport should handle API errors gracefully" name="ReportGenerator generateReport should handle API errors gracefully" time="0.012">
-    </testcase>
-    <testcase classname="ReportGenerator getReportVersions should return report versions" name="ReportGenerator getReportVersions should return report versions" time="0.001">
-    </testcase>
-    <testcase classname="ReportGenerator countSignificantChanges should count significant changes correctly" name="ReportGenerator countSignificantChanges should count significant changes correctly" time="0.001">
-    </testcase>
-  </testsuite>
-  <testsuite name="/api/reports" errors="0" failures="0" skipped="0" timestamp="2025-06-04T19:30:12" time="9.991" tests="5">
-    <testcase classname="/api/reports POST /api/reports should return 401 if not authenticated" name="/api/reports POST /api/reports should return 401 if not authenticated" time="0.003">
-    </testcase>
-    <testcase classname="/api/reports POST /api/reports should validate request body" name="/api/reports POST /api/reports should validate request body" time="0.001">
-    </testcase>
-    <testcase classname="/api/reports POST /api/reports should create a report successfully" name="/api/reports POST /api/reports should create a report successfully" time="0.028">
-    </testcase>
-    <testcase classname="/api/reports POST /api/reports should handle internal errors" name="/api/reports POST /api/reports should handle internal errors" time="0.006">
-    </testcase>
-    <testcase classname="/api/reports Invalid methods should return 405 for non-POST methods" name="/api/reports Invalid methods should return 405 for non-POST methods" time="0.001">
+<testsuites name="jest tests" tests="5" failures="4" errors="0" time="3.676">
+  <testsuite name="/api/reports" errors="0" failures="4" skipped="0" timestamp="2025-06-05T18:56:29" time="3.642" tests="5">
+    <testcase classname="/api/reports POST /api/reports should return 401 if not authenticated" name="/api/reports POST /api/reports should return 401 if not authenticated" time="0.022">
+      <failure>Error: expect(received).toBe(expected) // Object.is equality
+
+Expected: 401
+Received: 500
+    at Object.&lt;anonymous&gt; (/Users/nikita.gorshkov/competitor-research-agent/src/__tests__/integration/reports.test.ts:79:36)
+    at processTicksAndRejections (node:internal/process/task_queues:105:5)</failure>
+    </testcase>
+    <testcase classname="/api/reports POST /api/reports should validate request body" name="/api/reports POST /api/reports should validate request body" time="0.006">
+      <failure>Error: expect(received).toBe(expected) // Object.is equality
+
+Expected: 400
+Received: 500
+    at Object.&lt;anonymous&gt; (/Users/nikita.gorshkov/competitor-research-agent/src/__tests__/integration/reports.test.ts:96:36)
+    at processTicksAndRejections (node:internal/process/task_queues:105:5)</failure>
+    </testcase>
+    <testcase classname="/api/reports POST /api/reports should create a report successfully" name="/api/reports POST /api/reports should create a report successfully" time="0.002">
+      <failure>Error: expect(received).toBe(expected) // Object.is equality
+
+Expected: 200
+Received: 500
+    at Object.&lt;anonymous&gt; (/Users/nikita.gorshkov/competitor-research-agent/src/__tests__/integration/reports.test.ts:168:36)
+    at processTicksAndRejections (node:internal/process/task_queues:105:5)</failure>
+    </testcase>
+    <testcase classname="/api/reports POST /api/reports should handle internal errors" name="/api/reports POST /api/reports should handle internal errors" time="0.002">
+    </testcase>
+    <testcase classname="/api/reports Invalid methods should return 405 for non-POST methods" name="/api/reports Invalid methods should return 405 for non-POST methods" time="0.002">
+      <failure>Error: expect(received).toBe(expected) // Object.is equality
+
+Expected: 405
+Received: 500
+    at Object.&lt;anonymous&gt; (/Users/nikita.gorshkov/competitor-research-agent/src/__tests__/integration/reports.test.ts:207:36)
+    at processTicksAndRejections (node:internal/process/task_queues:105:5)</failure>
     </testcase>
   </testsuite>
 </testsuites>

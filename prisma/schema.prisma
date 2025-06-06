@@ -151,21 +151,23 @@ model ReportSchedule {
 }
 
 model Project {
-  id          String          @id @default(cuid())
-  name        String
-  description String?
-  status      ProjectStatus   @default(DRAFT)
-  priority    ProjectPriority @default(MEDIUM)
-  userId      String
-  startDate   DateTime        @default(now())
-  endDate     DateTime?
-  parameters  Json
-  tags        String[]
-  createdAt   DateTime        @default(now())
-  updatedAt   DateTime        @updatedAt
-  user        User            @relation(fields: [userId], references: [id])
-  competitors Competitor[]    @relation("CompetitorToProject")
-  reports     Report[]        // Add relation to reports
+  id              String                   @id @default(cuid())
+  name            String
+  description     String?
+  status          ProjectStatus            @default(DRAFT)
+  priority        ProjectPriority          @default(MEDIUM)
+  userId          String
+  startDate       DateTime                 @default(now())
+  endDate         DateTime?
+  parameters      Json
+  tags            String[]
+  scrapingFrequency ReportScheduleFrequency? @default(WEEKLY) // Add scraping frequency
+  userEmail       String?                  // Store user email from chat
+  createdAt       DateTime                 @default(now())
+  updatedAt       DateTime                 @updatedAt
+  user            User                     @relation(fields: [userId], references: [id])
+  competitors     Competitor[]             @relation("CompetitorToProject")
+  reports         Report[]                 // Add relation to reports
 
   @@index([userId])
   @@index([status])

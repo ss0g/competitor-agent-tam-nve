@@ -71,4 +71,8 @@ echo ""
 echo "🎯 Next steps:"
 echo "1. Verify 'node test-bedrock.js' works"
 echo "2. Test report generation API"
-echo "3. Check application functionality" 
+echo "3. Check application functionality"
+
+chmod +x fix-aws-credentials.sh
+./fix-aws-credentials.sh
+

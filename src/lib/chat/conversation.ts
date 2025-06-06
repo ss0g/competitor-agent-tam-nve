@@ -1,6 +1,8 @@
 import { ChatState, Message, ChatResponse } from '@/types/chat';
 import { MarkdownReportGenerator } from '@/lib/reports/markdown-generator';
 import prisma from '@/lib/prisma';
+import { parseFrequency, frequencyToString } from '@/utils/frequencyParser';
+import { projectScrapingService } from '@/services/projectScrapingService';
 
 export class ConversationManager {
   private chatState: ChatState;
@@ -165,6 +167,7 @@ Please tell me:
 
       const competitorCount = databaseProject.competitors?.length || 0;
       const competitorNames = databaseProject.competitors?.map((c: any) => c.name).join(', ') || 'None';
+      const parsedFreq = parseFrequency(frequency);
 
       return {
         message: `Thanks for the input! The following project has been created: ${databaseProject.id}
@@ -173,6 +176,9 @@ Please tell me:
 - **Name:** ${databaseProject.name}
 - **ID:** ${databaseProject.id}  
 - **Competitors Auto-Assigned:** ${competitorCount} (${competitorNames})
+- **Scraping Frequency:** ${frequencyToString(parsedFreq.frequency)} (${parsedFreq.description})
+
+🕕 **Automated Scraping Scheduled:** Your competitors will be automatically scraped ${frequencyToString(parsedFreq.frequency).toLowerCase()} to ensure fresh data for reports.
 
 All reports can be found in a folder of that name and the email address: ${email} will receive the new report.
 
@@ -765,6 +771,13 @@ Please respond with 1, 2, or 3.`,
       select: { id: true, name: true }
     });
 
+    // Parse frequency from collected data
+    const frequencyInput = this.chatState.collectedData?.reportFrequency || 'weekly';
+    const parsedFrequency = parseFrequency(frequencyInput);
+
+    console.log(`📅 Parsed frequency: "${frequencyInput}" -> ${frequencyToString(parsedFrequency.frequency)}`);
+    console.log(`⏰ Cron expression: ${parsedFrequency.cronExpression}`);
+
     // Create project with all competitors automatically assigned
     const project = await prisma.project.create({
       data: {
@@ -773,11 +786,16 @@ Please respond with 1, 2, or 3.`,
         userId: mockUser.id,
         status: 'DRAFT',
         priority: 'MEDIUM',
+        scrapingFrequency: parsedFrequency.frequency,
+        userEmail: userEmail,
         parameters: {
           chatCreated: true,
           userEmail: userEmail,
           autoAssignedCompetitors: true,
-          competitorCount: allCompetitors.length
+          competitorCount: allCompetitors.length,
+          scrapingFrequency: parsedFrequency.frequency,
+          frequencyDescription: parsedFrequency.description,
+          cronExpression: parsedFrequency.cronExpression
         },
         competitors: {
           connect: allCompetitors.map(competitor => ({ id: competitor.id }))
@@ -796,6 +814,18 @@ Please respond with 1, 2, or 3.`,
 
     console.log(`✅ Created project "${reportName}" with ${allCompetitors.length} competitors auto-assigned:`, 
       allCompetitors.map(c => c.name).join(', '));
+
+    // Set up scraping schedule for the project
+    try {
+      const jobId = await projectScrapingService.scheduleProjectScraping(project.id);
+      if (jobId) {
+        console.log(`🕕 Scraping scheduled for project "${reportName}" with frequency: ${frequencyToString(parsedFrequency.frequency)}`);
+      } else {
+        console.warn(`⚠️ Failed to schedule scraping for project "${reportName}"`);
+      }
+    } catch (error) {
+      console.error(`❌ Error scheduling scraping for project "${reportName}":`, error);
+    }
 
     return project;
   }
