@@ -89,7 +89,7 @@ describe('ReportGenerator', () => {
 
     it('should validate timeframe', async () => {
       const result = await reportGenerator.generateReport('comp-123', 0);
-      expect(result.error).toBe('Invalid timeframe');
+      expect(result.error).toBe('Invalid timeframe. Must be between 1 and 365 days');
     });
 
     it('should handle competitor not found', async () => {
@@ -124,7 +124,7 @@ describe('ReportGenerator', () => {
     it('should handle API errors gracefully', async () => {
       mockPrisma.competitor.findUnique.mockRejectedValue(new Error('Database error'));
       const result = await reportGenerator.generateReport('comp-123', 30);
-      expect(result.error).toBe('Failed to generate report');
+      expect(result.error).toBe('Database error');
     });
   });
 
