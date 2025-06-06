@@ -503,16 +503,96 @@ docker build -t competitor-research-agent .
 docker run -p 3000:3000 competitor-research-agent
 ```
 
+## 🌿 Branch Strategy
+
+This repository uses a structured branching strategy to organize development work:
+
+### **Branch Overview**
+- **`stable-main`**: 🔒 Stable baseline (June 5, 2025) - Production-ready code without experimental features
+- **`main`**: 🚀 Current development branch with all latest features and improvements
+- **`20250606`**: 🧪 Experimental observability implementation - Contains comprehensive monitoring and error tracking features
+
+### **Branch Details**
+
+#### **stable-main** (Stable Baseline)
+- **Purpose**: Production-ready baseline from June 5, 2025
+- **Features**: Core competitor research functionality, web scraping, AI analysis
+- **Status**: ✅ Fully tested and operational
+- **Use For**: Production deployments, stable feature development
+
+#### **main** (Current Development)
+- **Purpose**: Active development with all latest features
+- **Features**: Everything in stable-main plus frequency-based scraping, enhanced testing, bug fixes
+- **Status**: ✅ Regularly tested, production-ready
+- **Use For**: New feature development, standard deployments
+
+#### **20250606** (Observability Branch)
+- **Purpose**: Experimental comprehensive observability implementation
+- **Features**: Advanced monitoring, error tracking, performance analytics, user journey tracking
+- **Components**: 
+  - Custom React hooks for observability
+  - Error boundaries with user-friendly handling
+  - Correlation ID tracking across all requests
+  - Performance monitoring for pages and APIs
+  - Comprehensive test suite (44 tests)
+- **Status**: 🧪 Experimental - Fully implemented and tested but not yet merged
+- **Use For**: Testing observability features, advanced monitoring scenarios
+
+### **Working with Branches**
+
+#### **For Stable Development**
+```bash
+git checkout stable-main
+git pull origin stable-main
+# Work on stable features
+```
+
+#### **For Latest Features**
+```bash
+git checkout main
+git pull origin main
+# Work with all current features
+```
+
+#### **For Observability Testing**
+```bash
+git checkout 20250606
+git pull origin 20250606
+# Test advanced monitoring features
+```
+
+#### **Creating New Features**
+```bash
+# Branch from main for new features
+git checkout main
+git checkout -b feature/your-feature-name
+
+# Branch from stable-main for critical fixes
+git checkout stable-main
+git checkout -b hotfix/your-fix-name
+```
+
+### **Branch Selection Guide**
+
+| Use Case | Recommended Branch | Why |
+|----------|-------------------|-----|
+| **Production Deployment** | `stable-main` | Proven stability, no experimental features |
+| **Feature Development** | `main` | Latest features with good test coverage |
+| **Observability Testing** | `20250606` | Advanced monitoring and error tracking |
+| **Critical Bug Fixes** | `stable-main` | Minimal risk, focused fixes |
+| **Integration Testing** | `main` | Full feature set for comprehensive testing |
+
 ## 🤝 Contributing
 
 1. Fork the repository
-2. Create feature branch (`git checkout -b feature/amazing-feature`)
-3. Make changes with proper tests
-4. Ensure all tests pass (`npm test`)
-5. Update README if needed
-6. Commit changes (`git commit -m 'Add amazing feature'`)
-7. Push to branch (`git push origin feature/amazing-feature`)
-8. Open Pull Request
+2. Choose appropriate base branch (see Branch Strategy above)
+3. Create feature branch (`git checkout -b feature/amazing-feature`)
+4. Make changes with proper tests
+5. Ensure all tests pass (`npm test`)
+6. Update README if needed
+7. Commit changes (`git commit -m 'Add amazing feature'`)
+8. Push to branch (`git push origin feature/amazing-feature`)
+9. Open Pull Request to appropriate target branch
 
 ### **Development Guidelines**
 - Follow TypeScript strict mode
