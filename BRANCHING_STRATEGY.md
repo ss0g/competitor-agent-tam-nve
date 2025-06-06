@@ -6,15 +6,15 @@ This document outlines the branching strategy implemented on **June 6, 2025** to
 
 ## 🌿 Branch Structure
 
-### **Three-Branch System**
+### **Two-Branch System**
 
 ```
-┌─────────────┐    ┌─────────────┐    ┌─────────────┐
-│ stable-main │    │    main     │    │  20250606   │
-│   🔒 Stable │    │ 🚀 Current  │    │🧪 Experiment│
-│  June 5th   │    │Development  │    │Observability│
-│  Baseline   │    │   Branch    │    │   Branch    │
-└─────────────┘    └─────────────┘    └─────────────┘
+┌─────────────┐    ┌─────────────────────────────┐
+│ stable-main │    │           main              │
+│   🔒 Stable │    │    🚀 Current Development   │
+│  June 5th   │    │  + 🧪 Observability Merged │
+│  Baseline   │    │        June 6th            │
+└─────────────┘    └─────────────────────────────┘
 ```
 
 ## 🎯 Branch Purposes
@@ -33,24 +33,20 @@ This document outlines the branching strategy implemented on **June 6, 2025** to
   ✅ Database and file storage systems
 
 ### **main**
-- **Purpose**: Active development branch with latest stable features
+- **Purpose**: Active development branch with all latest features including observability
 - **Contents**: Everything in `stable-main` plus:
   ✅ Frequency-based scraping implementation
   ✅ Enhanced test suites and bug fixes
   ✅ Improved documentation
   ✅ Performance optimizations
   ✅ Additional API endpoints
-
-### **20250606**
-- **Purpose**: Experimental observability implementation
-- **Contents**: Everything in `main` plus:
-  🧪 Comprehensive observability system
-  🧪 Custom React hooks for monitoring
-  🧪 Error boundaries with user-friendly handling
-  🧪 Correlation ID tracking
-  🧪 Performance analytics
-  🧪 User journey tracking
-  🧪 44-test comprehensive test suite
+  ✅ **Comprehensive observability system** (merged June 6, 2025)
+  ✅ Custom React hooks for monitoring
+  ✅ Error boundaries with user-friendly handling
+  ✅ Correlation ID tracking
+  ✅ Performance analytics
+  ✅ User journey tracking
+  ✅ 44-test comprehensive test suite
 
 ## 🔄 Workflow Patterns
 
@@ -89,11 +85,11 @@ git checkout -b hotfix/critical-fix
 # Cherry-pick to main if needed
 ```
 
-### **For Observability Testing**
+### **For Observability Features**
 ```bash
-# Test advanced monitoring features
-git checkout 20250606
-git pull origin 20250606
+# Use advanced monitoring features (now in main)
+git checkout main
+git pull origin main
 npm install
 npm run test
 npm run dev
@@ -106,9 +102,9 @@ npm run dev
 | **Production Deployment** | `stable-main` | Proven stability, minimal risk |
 | **New Feature Development** | `main` | Latest features, good test coverage |
 | **Critical Bug Fix** | `stable-main` | Minimal changes, focused fixes |
-| **Testing Observability** | `20250606` | Access to monitoring features |
-| **Integration Testing** | `main` | Full feature set available |
-| **Experimental Features** | `20250606` | Safe testing environment |
+| **Observability Features** | `main` | Access to all monitoring features |
+| **Integration Testing** | `main` | Full feature set including observability |
+| **Experimental Features** | `main` | All features are now production-ready |
 | **Client Demos** | `main` | Latest stable features |
 | **Long-term Maintenance** | `stable-main` | Minimal complexity |
 
@@ -116,8 +112,7 @@ npm run dev
 
 ### **Merging Rules**
 1. **stable-main** ← hotfixes only
-2. **main** ← feature branches + cherry-picked hotfixes
-3. **20250606** ← experimental work (may merge to main later)
+2. **main** ← feature branches + cherry-picked hotfixes (includes observability)
 
 ### **No Direct Merges**
 - All changes go through Pull Requests
@@ -125,10 +120,10 @@ npm run dev
 - Run full test suite before merge
 - Update documentation as needed
 
-## 🧪 Observability Branch Details
+## 🧪 Observability Implementation (Merged to Main)
 
-### **What's in 20250606**
-The observability branch contains a complete monitoring implementation:
+### **What's Now in Main**
+The observability implementation has been merged into main and contains:
 
 #### **Files Added**
 - `src/hooks/useObservability.ts` - Custom React hook
@@ -167,10 +162,10 @@ The observability branch contains a complete monitoring implementation:
 - Building on recent improvements
 - Standard development work
 
-#### **Choose `20250606` when:**
-- Testing observability features
+#### **Choose `main` for observability when:**
+- Using monitoring features (now included)
 - Implementing monitoring enhancements
-- Experimenting with user analytics
+- Working with user analytics
 - Need advanced error tracking
 
 ### **Code Quality Standards**
@@ -183,29 +178,29 @@ All branches maintain the same quality standards:
 
 ## 📊 Branch Comparison
 
-| Feature | stable-main | main | 20250606 |
-|---------|-------------|------|-----------|
-| **Web Scraping** | ✅ Basic | ✅ Enhanced | ✅ Enhanced |
-| **AI Analysis** | ✅ Core | ✅ Improved | ✅ Improved |
-| **Project Management** | ✅ Basic | ✅ Enhanced | ✅ Enhanced |
-| **Frequency Scraping** | ❌ | ✅ | ✅ |
-| **Enhanced Testing** | ❌ | ✅ | ✅ |
-| **Observability** | ❌ | ❌ | ✅ |
-| **Error Boundaries** | ❌ | ❌ | ✅ |
-| **Performance Monitoring** | ❌ | ❌ | ✅ |
-| **User Journey Tracking** | ❌ | ❌ | ✅ |
+| Feature | stable-main | main |
+|---------|-------------|------|
+| **Web Scraping** | ✅ Basic | ✅ Enhanced |
+| **AI Analysis** | ✅ Core | ✅ Improved |
+| **Project Management** | ✅ Basic | ✅ Enhanced |
+| **Frequency Scraping** | ❌ | ✅ |
+| **Enhanced Testing** | ❌ | ✅ |
+| **Observability** | ❌ | ✅ |
+| **Error Boundaries** | ❌ | ✅ |
+| **Performance Monitoring** | ❌ | ✅ |
+| **User Journey Tracking** | ❌ | ✅ |
 
 ## 🚀 Future Branch Plans
 
 ### **Potential Merges**
-1. **20250606 → main**: After thorough testing and validation
-2. **main → stable-main**: Periodic stable releases
-3. **New experimental branches**: For future feature development
+1. **✅ 20250606 → main**: Completed June 6, 2025
+2. **main → stable-main**: Periodic stable releases (future)
+3. **New feature branches**: For future development
 
 ### **Branch Lifecycle**
 - **stable-main**: Permanent baseline
-- **main**: Continuously evolving
-- **20250606**: May merge to main or become permanent experimental branch
+- **main**: Continuously evolving with full feature set
+- **Feature branches**: Created as needed for new development
 
 ## 📝 Documentation Updates
 
@@ -234,5 +229,6 @@ Regular monitoring ensures branch quality:
 ---
 
 **Last Updated**: June 6, 2025  
-**Document Version**: 1.0  
+**Document Version**: 2.0 (Updated after 20250606 merge)  
+**Merge Completed**: June 6, 2025 - Observability implementation merged to main  
 **Next Review**: July 6, 2025 

@@ -509,8 +509,7 @@ This repository uses a structured branching strategy to organize development wor
 
 ### **Branch Overview**
 - **`stable-main`**: 🔒 Stable baseline (June 5, 2025) - Production-ready code without experimental features
-- **`main`**: 🚀 Current development branch with all latest features and improvements
-- **`20250606`**: 🧪 Experimental observability implementation - Contains comprehensive monitoring and error tracking features
+- **`main`**: 🚀 Current development branch with all latest features including observability implementation
 
 ### **Branch Details**
 
@@ -521,22 +520,18 @@ This repository uses a structured branching strategy to organize development wor
 - **Use For**: Production deployments, stable feature development
 
 #### **main** (Current Development)
-- **Purpose**: Active development with all latest features
-- **Features**: Everything in stable-main plus frequency-based scraping, enhanced testing, bug fixes
-- **Status**: ✅ Regularly tested, production-ready
-- **Use For**: New feature development, standard deployments
-
-#### **20250606** (Observability Branch)
-- **Purpose**: Experimental comprehensive observability implementation
-- **Features**: Advanced monitoring, error tracking, performance analytics, user journey tracking
-- **Components**: 
-  - Custom React hooks for observability
+- **Purpose**: Active development with all latest features including observability
+- **Features**: Everything in stable-main plus:
+  - Frequency-based scraping, enhanced testing, bug fixes
+  - **Comprehensive observability implementation**
+  - Custom React hooks for monitoring
   - Error boundaries with user-friendly handling
   - Correlation ID tracking across all requests
   - Performance monitoring for pages and APIs
+  - User journey analytics and session summaries
   - Comprehensive test suite (44 tests)
-- **Status**: 🧪 Experimental - Fully implemented and tested but not yet merged
-- **Use For**: Testing observability features, advanced monitoring scenarios
+- **Status**: ✅ Fully tested and production-ready
+- **Use For**: New feature development, standard deployments, observability monitoring
 
 ### **Working with Branches**
 
@@ -554,11 +549,11 @@ git pull origin main
 # Work with all current features
 ```
 
-#### **For Observability Testing**
+#### **For Observability Features**
 ```bash
-git checkout 20250606
-git pull origin 20250606
-# Test advanced monitoring features
+git checkout main
+git pull origin main
+# All observability features are now in main
 ```
 
 #### **Creating New Features**
@@ -578,9 +573,9 @@ git checkout -b hotfix/your-fix-name
 |----------|-------------------|-----|
 | **Production Deployment** | `stable-main` | Proven stability, no experimental features |
 | **Feature Development** | `main` | Latest features with good test coverage |
-| **Observability Testing** | `20250606` | Advanced monitoring and error tracking |
+| **Observability Monitoring** | `main` | Advanced monitoring and error tracking included |
 | **Critical Bug Fixes** | `stable-main` | Minimal risk, focused fixes |
-| **Integration Testing** | `main` | Full feature set for comprehensive testing |
+| **Integration Testing** | `main` | Full feature set including observability |
 
 ## 🤝 Contributing
 
