@@ -1,0 +1,501 @@
+import { createId } from '@paralleldrive/cuid2';
+import Handlebars from 'handlebars';
+import { logger } from '@/lib/logger';
+import { BedrockService } from '../bedrock/bedrock.service';
+import { BedrockMessage } from '../bedrock/types';
+import { 
+  ComparativeReport, 
+  ComparativeReportSection, 
+  ComparativeReportMetadata, 
+  ReportGenerationOptions, 
+  ReportGenerationResult,
+  ReportTemplate,
+  ComparativeReportError,
+  ReportGenerationError,
+  AnalysisNotFoundError,
+  TemplateNotFoundError,
+  REPORT_TEMPLATES,
+  ComparativeReportTemplate,
+  ComparativeReportSectionTemplate,
+  ReportChart,
+  ReportTable
+} from '@/types/comparativeReport';
+import { ComparativeAnalysis } from '@/types/analysis';
+import { Product, ProductSnapshot } from '@/types/product';
+import { 
+  getReportTemplate, 
+  listAvailableTemplates,
+  COMPREHENSIVE_TEMPLATE 
+} from './comparativeReportTemplates';
+
+interface ReportContext {
+  productName: string;
+  competitorCount: number;
+  overallPosition: string;
+  opportunityScore: number;
+  threatLevel: string;
+  confidenceScore: number;
+  keyStrengths: string[];
+  keyWeaknesses: string[];
+  immediateRecommendations: string[];
+  productFeatures: string[];
+  competitorFeatures: Array<{
+    competitorName: string;
+    features: string[];
+  }>;
+  uniqueToProduct: string[];
+  featureGaps: string[];
+  innovationScore: number;
+  primaryMessage: string;
+  valueProposition: string;
+  targetAudience: string;
+  differentiators: string[];
+  competitorPositioning: Array<{
+    competitorName: string;
+    primaryMessage: string;
+    valueProposition: string;
+    targetAudience: string;
+  }>;
+  marketOpportunities: string[];
+  messagingEffectiveness: number;
+  designQuality: number;
+  usabilityScore: number;
+  navigationStructure: string;
+  keyUserFlows: string[];
+  competitorUX: Array<{
+    competitorName: string;
+    designQuality: number;
+    usabilityScore: number;
+    navigationStructure: string;
+  }>;
+  uxStrengths: string[];
+  uxWeaknesses: string[];
+  uxRecommendations: string[];
+  primarySegments: string[];
+  customerTypes: string[];
+  useCases: string[];
+  competitorTargeting: Array<{
+    competitorName: string;
+    primarySegments: string[];
+    customerTypes: string[];
+  }>;
+  targetingOverlap: string[];
+  untappedSegments: string[];
+  competitiveAdvantage: string[];
+  priorityScore: number;
+  immediateActions: string[];
+  shortTermActions: string[];
+  longTermActions: string[];
+}
+
+export class ComparativeReportService {
+  private bedrockService: BedrockService;
+
+  constructor() {
+    this.bedrockService = new BedrockService();
+  }
+
+  /**
+   * Generate a comprehensive comparative report from analysis results
+   */
+  async generateComparativeReport(
+    analysis: ComparativeAnalysis,
+    product: Product,
+    productSnapshot: ProductSnapshot,
+    options: ReportGenerationOptions = {}
+  ): Promise<ReportGenerationResult> {
+    const startTime = Date.now();
+    const context = {
+      analysisId: analysis.id,
+      productName: product.name,
+      reportTemplate: options.template || REPORT_TEMPLATES.COMPREHENSIVE
+    };
+
+    try {
+      logger.info('Starting comparative report generation', context);
+
+      // Get report template
+      const template = this.getTemplate(options.template || REPORT_TEMPLATES.COMPREHENSIVE);
+      
+      // Build report context from analysis
+      const reportContext = this.buildReportContext(analysis, product, productSnapshot);
+      
+      // Generate report sections
+      const sections = await this.generateReportSections(
+        template.sectionTemplates,
+        reportContext,
+        options
+      );
+      
+      // Build complete report
+      const report = this.buildComparativeReport(
+        analysis,
+        product,
+        template,
+        sections,
+        reportContext,
+        options
+      );
+
+      // Calculate generation metrics
+      const generationTime = Date.now() - startTime;
+      const tokensUsed = this.estimateTokenUsage(report);
+      const cost = this.calculateCost(tokensUsed);
+
+      logger.info('Comparative report generated successfully', {
+        ...context,
+        generationTime,
+        sectionsCount: sections.length,
+        tokensUsed
+      });
+
+      return {
+        report,
+        generationTime,
+        tokensUsed,
+        cost,
+        warnings: [],
+        errors: []
+      };
+
+    } catch (error) {
+      logger.error('Failed to generate comparative report', error as Error, context);
+      throw new ReportGenerationError(
+        `Failed to generate comparative report: ${(error as Error).message}`,
+        { analysisId: analysis.id, productId: product.id }
+      );
+    }
+  }
+
+  /**
+   * Generate enhanced report content using AI
+   */
+  async generateEnhancedReportContent(
+    analysisId: string,
+    template: ReportTemplate,
+    options: ReportGenerationOptions = {}
+  ): Promise<string> {
+    const context = { analysisId, template };
+
+    try {
+      logger.info('Generating enhanced report content with AI', context);
+
+      const prompt = this.buildEnhancedReportPrompt(template, options);
+      const messages: BedrockMessage[] = [
+        {
+          role: 'user',
+          content: [{ type: 'text', text: prompt }]
+        }
+      ];
+      const enhancedContent = await this.bedrockService.generateCompletion(messages);
+
+      logger.info('Enhanced report content generated successfully', {
+        ...context,
+        contentLength: enhancedContent.length
+      });
+
+      return enhancedContent;
+
+    } catch (error) {
+      logger.error('Failed to generate enhanced report content', error as Error, context);
+      throw new ReportGenerationError(
+        `Failed to generate enhanced report content: ${(error as Error).message}`,
+        { analysisId, template }
+      );
+    }
+  }
+
+  /**
+   * Get available report templates
+   */
+  getAvailableTemplates(): ComparativeReportTemplate[] {
+    return listAvailableTemplates();
+  }
+
+  /**
+   * Validate analysis for report generation
+   */
+  validateAnalysisForReporting(analysis: ComparativeAnalysis): void {
+    const requiredFields = [
+      'summary',
+      'detailed',
+      'recommendations',
+      'metadata'
+    ];
+
+    for (const field of requiredFields) {
+      if (!analysis[field as keyof ComparativeAnalysis]) {
+        throw new ComparativeReportError(
+          `Analysis missing required field for reporting: ${field}`,
+          'INVALID_CONFIG',
+          { analysisId: analysis.id, missingField: field }
+        );
+      }
+    }
+
+    // Validate analysis quality
+    if (analysis.metadata.confidenceScore < 50) {
+      logger.warn('Analysis confidence score is low for reporting', {
+        analysisId: analysis.id,
+        confidenceScore: analysis.metadata.confidenceScore
+      });
+    }
+  }
+
+  private getTemplate(templateId: string): ComparativeReportTemplate {
+    const template = getReportTemplate(templateId);
+    if (!template) {
+      throw new TemplateNotFoundError(templateId);
+    }
+    return template;
+  }
+
+  private buildReportContext(
+    analysis: ComparativeAnalysis,
+    product: Product,
+    productSnapshot: ProductSnapshot
+  ): ReportContext {
+    const { summary, detailed, recommendations, metadata } = analysis;
+
+    return {
+      // Basic product info
+      productName: product.name,
+      competitorCount: detailed.featureComparison.competitorFeatures?.length || 0,
+
+      // Summary metrics
+      overallPosition: summary.overallPosition,
+      opportunityScore: summary.opportunityScore,
+      threatLevel: summary.threatLevel,
+      confidenceScore: metadata.confidenceScore,
+      keyStrengths: summary.keyStrengths,
+      keyWeaknesses: summary.keyWeaknesses,
+      immediateRecommendations: recommendations.immediate,
+
+      // Feature analysis
+      productFeatures: detailed.featureComparison.productFeatures || [],
+      competitorFeatures: detailed.featureComparison.competitorFeatures?.map(comp => ({
+        competitorName: comp.competitorName,
+        features: comp.features
+      })) || [],
+      uniqueToProduct: detailed.featureComparison.uniqueToProduct || [],
+      featureGaps: detailed.featureComparison.featureGaps || [],
+      innovationScore: detailed.featureComparison.innovationScore,
+
+      // Positioning analysis
+      primaryMessage: detailed.positioningAnalysis.productPositioning?.primaryMessage || '',
+      valueProposition: detailed.positioningAnalysis.productPositioning?.valueProposition || '',
+      targetAudience: detailed.positioningAnalysis.productPositioning?.targetAudience || '',
+      differentiators: detailed.positioningAnalysis.productPositioning?.differentiators || [],
+      competitorPositioning: detailed.positioningAnalysis.competitorPositioning?.map(comp => ({
+        competitorName: comp.competitorName,
+        primaryMessage: comp.primaryMessage,
+        valueProposition: comp.valueProposition,
+        targetAudience: comp.targetAudience
+      })) || [],
+      marketOpportunities: detailed.positioningAnalysis.marketOpportunities || [],
+      messagingEffectiveness: detailed.positioningAnalysis.messagingEffectiveness,
+
+      // UX analysis
+      designQuality: detailed.userExperienceComparison.productUX?.designQuality || 0,
+      usabilityScore: detailed.userExperienceComparison.productUX?.usabilityScore || 0,
+      navigationStructure: detailed.userExperienceComparison.productUX?.navigationStructure || '',
+      keyUserFlows: detailed.userExperienceComparison.productUX?.keyUserFlows || [],
+      competitorUX: detailed.userExperienceComparison.competitorUX?.map(comp => ({
+        competitorName: comp.competitorName,
+        designQuality: comp.designQuality,
+        usabilityScore: comp.usabilityScore,
+        navigationStructure: comp.navigationStructure
+      })) || [],
+      uxStrengths: detailed.userExperienceComparison.uxStrengths || [],
+      uxWeaknesses: detailed.userExperienceComparison.uxWeaknesses || [],
+      uxRecommendations: detailed.userExperienceComparison.uxRecommendations || [],
+
+      // Customer targeting
+      primarySegments: detailed.customerTargeting.productTargeting?.primarySegments || [],
+      customerTypes: detailed.customerTargeting.productTargeting?.customerTypes || [],
+      useCases: detailed.customerTargeting.productTargeting?.useCases || [],
+      competitorTargeting: detailed.customerTargeting.competitorTargeting?.map(comp => ({
+        competitorName: comp.competitorName,
+        primarySegments: comp.primarySegments,
+        customerTypes: comp.customerTypes
+      })) || [],
+      targetingOverlap: detailed.customerTargeting.targetingOverlap || [],
+      untappedSegments: detailed.customerTargeting.untappedSegments || [],
+      competitiveAdvantage: detailed.customerTargeting.competitiveAdvantage || [],
+
+      // Recommendations
+      priorityScore: recommendations.priorityScore,
+      immediateActions: recommendations.immediate,
+      shortTermActions: recommendations.shortTerm,
+      longTermActions: recommendations.longTerm
+    };
+  }
+
+  private async generateReportSections(
+    sectionTemplates: ComparativeReportSectionTemplate[],
+    context: ReportContext,
+    options: ReportGenerationOptions
+  ): Promise<ComparativeReportSection[]> {
+    const sections: ComparativeReportSection[] = [];
+
+    for (const sectionTemplate of sectionTemplates) {
+      try {
+        // Compile Handlebars template
+        const template = Handlebars.compile(sectionTemplate.template);
+        const content = template(context);
+
+        const section: ComparativeReportSection = {
+          id: createId(),
+          title: sectionTemplate.title,
+          content,
+          type: sectionTemplate.type,
+          order: sectionTemplate.order,
+          charts: sectionTemplate.includeCharts ? this.generateCharts(sectionTemplate.type, context) : undefined,
+          tables: sectionTemplate.includeTables ? this.generateTables(sectionTemplate.type, context) : undefined
+        };
+
+        sections.push(section);
+
+      } catch (error) {
+        logger.error('Failed to generate report section', error as Error, {
+          sectionType: sectionTemplate.type,
+          sectionTitle: sectionTemplate.title
+        });
+        throw new ReportGenerationError(
+          `Failed to generate section ${sectionTemplate.title}: ${(error as Error).message}`
+        );
+      }
+    }
+
+    return sections.sort((a, b) => a.order - b.order);
+  }
+
+  private buildComparativeReport(
+    analysis: ComparativeAnalysis,
+    product: Product,
+    template: ComparativeReportTemplate,
+    sections: ComparativeReportSection[],
+    context: ReportContext,
+    options: ReportGenerationOptions
+  ): ComparativeReport {
+    const reportId = createId();
+    const now = new Date();
+
+    const metadata: ComparativeReportMetadata = {
+      productName: product.name,
+      productUrl: product.website,
+      competitorCount: context.competitorCount,
+      analysisDate: analysis.analysisDate,
+      reportGeneratedAt: now,
+      analysisId: analysis.id,
+      analysisMethod: analysis.metadata.analysisMethod,
+      confidenceScore: analysis.metadata.confidenceScore,
+      dataQuality: analysis.metadata.dataQuality,
+      reportVersion: '1.0',
+      focusAreas: template.focusAreas,
+      analysisDepth: template.analysisDepth
+    };
+
+    return {
+      id: reportId,
+      title: this.generateReportTitle(product.name, template.name),
+      description: this.generateReportDescription(product.name, context.competitorCount, template.description),
+      projectId: product.projectId,
+      productId: product.id,
+      analysisId: analysis.id,
+      metadata,
+      sections,
+      executiveSummary: this.extractExecutiveSummary(sections),
+      keyFindings: this.extractKeyFindings(context),
+      strategicRecommendations: {
+        immediate: context.immediateActions,
+        shortTerm: context.shortTermActions,
+        longTerm: context.longTermActions,
+        priorityScore: context.priorityScore
+      },
+      competitiveIntelligence: {
+        marketPosition: context.overallPosition,
+        keyThreats: this.extractKeyThreats(context),
+        opportunities: context.marketOpportunities,
+        competitiveAdvantages: context.competitiveAdvantage
+      },
+      createdAt: now,
+      updatedAt: now,
+      status: 'completed',
+      format: options.format || 'markdown'
+    };
+  }
+
+  private generateCharts(sectionType: string, context: ReportContext): ReportChart[] {
+    // Implementation would generate charts based on section type and data
+    // For now, return empty array - charts would be implemented in a future iteration
+    return [];
+  }
+
+  private generateTables(sectionType: string, context: ReportContext): ReportTable[] {
+    // Implementation would generate tables based on section type and data
+    // For now, return empty array - tables would be implemented in a future iteration
+    return [];
+  }
+
+  private buildEnhancedReportPrompt(template: ReportTemplate, options: ReportGenerationOptions): string {
+    return `Generate an enhanced ${template} comparative analysis report with the following requirements:
+
+Format: Professional business report
+Length: ${options.maxTokens ? Math.floor(options.maxTokens / 4) : 1000} words
+Style: Executive-level analysis
+Focus: Strategic insights and actionable recommendations
+
+Please include:
+1. Executive summary with key findings
+2. Detailed competitive analysis
+3. Strategic recommendations with priorities
+4. Market opportunity assessment
+
+Use clear headings, bullet points, and professional business language.`;
+  }
+
+  private generateReportTitle(productName: string, templateName: string): string {
+    const timestamp = new Date().toISOString().split('T')[0];
+    return `${productName} - ${templateName} (${timestamp})`;
+  }
+
+  private generateReportDescription(productName: string, competitorCount: number, templateDescription: string): string {
+    return `${templateDescription} for ${productName} analyzing ${competitorCount} competitors. Generated ${new Date().toLocaleDateString()}.`;
+  }
+
+  private extractExecutiveSummary(sections: ComparativeReportSection[]): string {
+    const executiveSection = sections.find(s => s.type === 'executive_summary');
+    return executiveSection?.content || 'Executive summary not available.';
+  }
+
+  private extractKeyFindings(context: ReportContext): string[] {
+    return [
+      ...context.keyStrengths.map(s => `Strength: ${s}`),
+      ...context.keyWeaknesses.map(w => `Weakness: ${w}`),
+      `Market Position: ${context.overallPosition}`,
+      `Opportunity Score: ${context.opportunityScore}/100`
+    ];
+  }
+
+  private extractKeyThreats(context: ReportContext): string[] {
+    return [
+      `Overall threat level: ${context.threatLevel}`,
+      ...context.featureGaps.slice(0, 3),
+      ...context.uxWeaknesses.slice(0, 2)
+    ];
+  }
+
+  private estimateTokenUsage(report: ComparativeReport): number {
+    // Rough estimation: 4 characters per token
+    const totalCharacters = report.sections.reduce((total, section) => 
+      total + section.content.length, 0
+    );
+    return Math.ceil(totalCharacters / 4);
+  }
+
+  private calculateCost(tokens: number): number {
+    // Rough estimation based on Claude pricing: $0.003 per 1K tokens
+    return (tokens / 1000) * 0.003;
+  }
+} 

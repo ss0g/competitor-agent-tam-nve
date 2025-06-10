@@ -23,9 +23,14 @@ export interface ChatState {
     userEmail?: string;
     reportFrequency?: string;
     reportName?: string;
+    // Enhanced PRODUCT data collection
     productName?: string;
-    industry?: string;
+    productUrl?: string;
     positioning?: string;
+    customerData?: string;
+    userProblem?: string;
+    industry?: string;
+    // Legacy fields for backward compatibility
     customerProblems?: string;
     businessChallenges?: string;
     competitors?: string[];

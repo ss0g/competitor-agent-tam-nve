@@ -168,9 +168,38 @@ model Project {
   user              User                     @relation(fields: [userId], references: [id])
   reports           Report[]
   competitors       Competitor[]             @relation("CompetitorToProject")
+  products          Product[]
 
   @@index([userId])
   @@index([status])
+}
+
+model Product {
+  id            String            @id @default(cuid())
+  name          String
+  website       String
+  positioning   String
+  customerData  String
+  userProblem   String
+  industry      String
+  projectId     String
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+  project       Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  snapshots     ProductSnapshot[]
+
+  @@index([projectId])
+}
+
+model ProductSnapshot {
+  id        String   @id @default(cuid())
+  productId String
+  content   Json
+  metadata  Json
+  createdAt DateTime @default(now())
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
 }
 
 enum ReportType {

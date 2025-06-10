@@ -3,6 +3,8 @@ import { MarkdownReportGenerator } from '@/lib/reports/markdown-generator';
 import prisma from '@/lib/prisma';
 import { parseFrequency, frequencyToString } from '@/utils/frequencyParser';
 import { projectScrapingService } from '@/services/projectScrapingService';
+import { productChatProcessor } from './productChatProcessor';
+import { productService } from '@/services/productService';
 
 export class ConversationManager {
   private chatState: ChatState;
@@ -105,6 +107,8 @@ export class ConversationManager {
         return this.handleStep0(content);
       case 1:
         return this.handleStep1(content);
+      case 1.5:
+        return this.handleStep1_5(content);
       case 2:
         return this.handleStep2(content);
       case 3:
@@ -247,60 +251,80 @@ Now, what is the name of the product that you want to perform competitive analys
   }
 
   private async handleStep1(content: string): Promise<ChatResponse> {
-    if (!this.chatState.collectedData) {
-      this.chatState.collectedData = {};
+    // Use the enhanced product chat processor for PRODUCT data collection
+    const response = await productChatProcessor.collectProductData(content, this.chatState);
+    
+    // Check if product data collection is complete
+    if (productChatProcessor.validateProductData(this.chatState)) {
+      // All product data collected, proceed to product creation step
+      response.nextStep = 1.5; // Intermediate step for product creation
+      response.stepDescription = 'Product Creation';
+    }
+    
+    return response;
+  }
+
+  private async handleStep1_5(content: string): Promise<ChatResponse> {
+    // Handle product creation confirmation
+    const confirmation = content.toLowerCase();
+    
+    if (confirmation.includes('yes') || confirmation.includes('proceed') || confirmation.includes('continue')) {
+      try {
+        // Ensure we have a project ID
+        if (!this.chatState.projectId) {
+          throw new Error('No project ID available for product creation');
+        }
+
+        // Create the PRODUCT entity from collected chat data
+        const product = await productService.createProductFromChat(this.chatState, this.chatState.projectId);
+
+        return {
+          message: `🎉 **PRODUCT Entity Created Successfully!**
+
+✅ **Product Created:** ${product.name}
+✅ **Product ID:** ${product.id}
+✅ **Website:** ${product.website}
+✅ **Project:** ${this.chatState.projectName} (${this.chatState.projectId})
+
+Your PRODUCT is now ready for comparative analysis! The system will:
+
+1. ✅ **PRODUCT Entity** - Created and stored in database
+2. 🔄 **Web Scraping** - Will scrape your product website (${product.website})
+3. 🔄 **Competitor Analysis** - Will analyze against all project competitors
+4. 🔄 **AI Comparison** - Will generate PRODUCT vs COMPETITOR insights
+5. 🔄 **Report Generation** - Will create comprehensive comparative report
+
+Ready to start the comparative analysis?`,
+          nextStep: 3,
+          stepDescription: 'Analysis Ready',
+          expectedInputType: 'text',
+        };
+      } catch (error) {
+        console.error('Failed to create PRODUCT entity:', error);
+        
+        return {
+          message: `❌ **Error Creating PRODUCT Entity**
+
+I encountered an error while creating your PRODUCT entity: ${error instanceof Error ? error.message : 'Unknown error'}
+
+Please try again, or we can proceed with the legacy analysis flow. Would you like to:
+
+1. **Retry** - Try creating the PRODUCT entity again
+2. **Continue** - Proceed with legacy competitor-only analysis
+
+Please respond with "retry" or "continue".`,
+          expectedInputType: 'text',
+          error: error instanceof Error ? error.message : 'Unknown error',
+        };
+      }
     }
 
-    // Check which product-related questions have been answered
-    const hasProductName = !!this.chatState.collectedData.productName;
-    const hasIndustry = !!this.chatState.collectedData.industry;
-    const hasPositioning = !!this.chatState.collectedData.positioning;
-    const hasCustomerProblems = !!this.chatState.collectedData.customerProblems;
-    const hasBusinessChallenges = !!this.chatState.collectedData.businessChallenges;
-
-    // Store the current answer and determine next question
-    if (!hasProductName) {
-      // First question: asking for product name
-      this.chatState.collectedData.productName = content;
-      return {
-        message: `Thanks! What is the industry that this product is operating in? Please be detailed.`,
-        expectedInputType: 'text',
-      };
-    } else if (!hasIndustry) {
-      // Second question: asking for industry
-      this.chatState.collectedData.industry = content;
-      return {
-        message: `What is the positioning of the product? Please share any financial, experience or trend data relevant for the analysis.`,
-        expectedInputType: 'text',
-      };
-    } else if (!hasPositioning) {
-      // Third question: asking for positioning
-      this.chatState.collectedData.positioning = content;
-      return {
-        message: `What are some of the core customer problems that the product addresses?`,
-        expectedInputType: 'text',
-      };
-    } else if (!hasCustomerProblems) {
-      // Fourth question: asking for customer problems
-      this.chatState.collectedData.customerProblems = content;
-      return {
-        message: `What are the challenges that the business faces?`,
-        expectedInputType: 'text',
-      };
-    } else if (!hasBusinessChallenges) {
-      // Fifth question: asking for business challenges
-      this.chatState.collectedData.businessChallenges = content;
-      return {
-        message: `Could you provide details about the customers? How many of them? How do you classify them? What are their demographics? Do you know anything about their behaviour? Any details are useful, the more detailed is your input the better I will be able to understand their needs.`,
-        nextStep: 2,
-        stepDescription: 'Customer Analysis',
-        expectedInputType: 'text',
-      };
-    }
-
-    // Fallback - shouldn't reach here, but ask for product name if we do
     return {
-      message: `What is the name of the product that you want to perform competitive analysis on?`,
+      message: `Would you like me to proceed with creating the PRODUCT entity and starting the comparative analysis? 
+
+This will create a PRODUCT record in the database with all the information you've provided, then begin scraping and analysis.
+
+Please respond with "yes" to continue.`,
       expectedInputType: 'text',
     };
   }
