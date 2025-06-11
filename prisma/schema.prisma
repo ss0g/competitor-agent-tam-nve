@@ -69,19 +69,21 @@ model Report {
   id           String           @id @default(cuid())
   name         String
   description  String?
-  competitorId String
+  competitorId String?          // Optional for comparative reports
   createdAt    DateTime         @default(now())
   updatedAt    DateTime         @updatedAt
   projectId    String?
   status       ReportStatus     @default(PENDING)
   title        String?
-  competitor   Competitor       @relation(fields: [competitorId], references: [id])
+  reportType   String           @default("INDIVIDUAL") // Temporarily use String instead of enum
+  competitor   Competitor?      @relation(fields: [competitorId], references: [id])
   project      Project?         @relation(fields: [projectId], references: [id])
   schedules    ReportSchedule[]
   versions     ReportVersion[]
 
   @@index([projectId])
   @@index([status])
+  @@index([reportType])
 }
 
 model ReportVersion {

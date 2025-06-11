@@ -526,6 +526,423 @@ export class ReportGenerator {
     });
   }
 
+  /**
+   * Generate a comparative report analyzing a product against its competitors
+   */
+  async generateComparativeReport(
+    projectId: string,
+    options?: {
+      reportName?: string;
+      template?: 'comprehensive' | 'executive' | 'technical' | 'strategic';
+      focusArea?: 'user_experience' | 'pricing' | 'features' | 'marketing' | 'overall';
+      includeRecommendations?: boolean;
+      userId?: string;
+    }
+  ): Promise<APIResponse<ReportData>> {
+    return logger.timeOperation('comparative_report_generation', async () => {
+      const correlationId = generateCorrelationId();
+      const context = {
+        projectId,
+        correlationId,
+        operation: 'generateComparativeReport',
+        template: options?.template || 'comprehensive',
+        focusArea: options?.focusArea || 'overall'
+      };
+
+      try {
+        trackReportFlow('comparative_report_generation_started', {
+          ...context,
+          stepStatus: 'started',
+          stepData: {
+            projectId,
+            reportName: options?.reportName,
+            template: options?.template,
+            focusArea: options?.focusArea
+          }
+        });
+
+        logger.info('Starting comparative report generation', context);
+
+        // Validate project exists and has product + competitors
+        trackReportFlow('project_validation', { ...context, stepStatus: 'started' });
+        
+        const project = await this.prisma.project.findUnique({
+          where: { id: projectId },
+          include: {
+            products: {
+              include: {
+                snapshots: {
+                  orderBy: { createdAt: 'desc' },
+                  take: 5
+                }
+              }
+            },
+            competitors: {
+              include: {
+                snapshots: {
+                  include: {
+                    analyses: {
+                      include: {
+                        trends: true
+                      }
+                    }
+                  },
+                  orderBy: { createdAt: 'desc' },
+                  take: 5
+                }
+              }
+            }
+          }
+        });
+
+        if (!project) {
+          trackReportFlow('project_validation', {
+            ...context,
+            stepStatus: 'failed',
+            stepData: { error: 'Project not found' }
+          });
+          logger.warn('Project not found for comparative report', context);
+          return { error: 'Project not found' };
+        }
+
+        if (!project.products || project.products.length === 0) {
+          trackReportFlow('project_validation', {
+            ...context,
+            stepStatus: 'failed',
+            stepData: { error: 'No product found in project' }
+          });
+          logger.warn('No product found in project', context);
+          return { error: 'Project must have a product for comparative analysis' };
+        }
+
+        if (!project.competitors || project.competitors.length === 0) {
+          trackReportFlow('project_validation', {
+            ...context,
+            stepStatus: 'failed',
+            stepData: { error: 'No competitors found in project' }
+          });
+          logger.warn('No competitors found in project', context);
+          return { error: 'Project must have competitors for comparative analysis' };
+        }
+
+        trackReportFlow('project_validation', { ...context, stepStatus: 'completed' });
+
+        // Generate comparative analysis using AI
+        trackReportFlow('ai_analysis', { ...context, stepStatus: 'started' });
+        
+        const analysisResult = await this.performComparativeAnalysis(
+          project.products[0],
+          project.competitors,
+          options || {}
+        );
+
+        trackReportFlow('ai_analysis', {
+          ...context,
+          stepStatus: 'completed',
+          stepData: {
+            analysisQuality: analysisResult.confidence,
+            competitorCount: project.competitors.length
+          }
+        });
+
+        // Build structured report
+        const reportData: ReportData = {
+          title: options?.reportName || `Comparative Analysis: ${project.products[0].name} vs Competitors`,
+          description: analysisResult.summary,
+          sections: [
+            {
+              title: 'Executive Summary',
+              content: analysisResult.summary,
+              type: 'summary',
+              order: 0
+            },
+            {
+              title: 'Product Strengths',
+              content: this.formatStringArray(analysisResult.strengths),
+              type: 'summary',
+              order: 1
+            },
+            {
+              title: 'Areas for Improvement',
+              content: this.formatStringArray(analysisResult.weaknesses),
+              type: 'recommendations',
+              order: 2
+            },
+            {
+              title: 'Competitive Analysis',
+              content: analysisResult.competitorComparisons,
+              type: 'changes',
+              order: 3
+            }
+          ],
+          metadata: {
+            competitor: {
+              name: project.products[0].name,
+              url: project.products[0].website
+            },
+            dateRange: {
+              start: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), // 30 days ago
+              end: new Date()
+            },
+            analysisCount: project.competitors.length,
+            significantChanges: analysisResult.opportunities.length
+          }
+        };
+
+        if (options?.includeRecommendations !== false) {
+          reportData.sections.push({
+            title: 'Strategic Recommendations',
+            content: this.formatStringArray(analysisResult.recommendations),
+            type: 'recommendations',
+            order: 4
+          });
+        }
+
+        // Store the report
+        trackReportFlow('report_storage', { ...context, stepStatus: 'started' });
+        
+        await this.storeComparativeReport(reportData, projectId, correlationId);
+
+        trackReportFlow('report_storage', { ...context, stepStatus: 'completed' });
+
+        trackReportFlow('comparative_report_generation_completed', {
+          ...context,
+          stepStatus: 'completed',
+          stepData: {
+            reportTitle: reportData.title,
+            sectionCount: reportData.sections.length,
+            confidence: analysisResult.confidence
+          }
+        });
+
+        logger.info('Comparative report generation completed successfully', {
+          ...context,
+          reportTitle: reportData.title,
+          confidence: analysisResult.confidence
+        });
+
+        return { data: reportData };
+
+      } catch (error) {
+        const enhancedError = this.enhanceReportError(error as Error, 'generateComparativeReport');
+        logger.error('Comparative report generation failed', enhancedError, context);
+        trackError(enhancedError, 'comparative_report_generation', context);
+        return { error: enhancedError.message };
+      }
+    });
+  }
+
+  private async performComparativeAnalysis(
+    product: any,
+    competitors: any[],
+    options: any
+  ): Promise<{
+    summary: string;
+    strengths: string[];
+    weaknesses: string[];
+    opportunities: string[];
+    recommendations: string[];
+    competitorComparisons: string;
+    confidence: number;
+  }> {
+    const prompt = this.buildComparativeAnalysisPrompt(product, competitors, options);
+    
+    try {
+      const command = new InvokeModelCommand({
+        modelId: 'anthropic.claude-3-sonnet-20240229-v1:0',
+        contentType: 'application/json',
+        accept: 'application/json',
+        body: JSON.stringify({
+          anthropic_version: 'bedrock-2023-05-31',
+          max_tokens: 4000,
+          temperature: 0.3,
+          messages: [
+            {
+              role: 'user',
+              content: prompt,
+            },
+          ],
+        }),
+      });
+
+      const response = await this.bedrock.send(command);
+      const rawResponse = new TextDecoder().decode(response.body);
+      const data = JSON.parse(rawResponse);
+      
+      const analysisText = data.content?.[0]?.text || '';
+      
+      // Parse the structured response
+      return this.parseComparativeAnalysis(analysisText, product, competitors);
+      
+    } catch (error) {
+      logger.error('AI comparative analysis failed, using fallback', error as Error);
+      return this.generateFallbackComparativeAnalysis(product, competitors);
+    }
+  }
+
+  private buildComparativeAnalysisPrompt(product: any, competitors: any[], options: any): string {
+    const focusArea = options.focusArea || 'overall';
+    const template = options.template || 'comprehensive';
+
+    return `
+As a competitive analysis expert, analyze the following product against its competitors with a focus on ${focusArea}.
+
+PRODUCT BEING ANALYZED:
+Name: ${product.name}
+Website: ${product.website}
+Industry: ${product.industry}
+Positioning: ${product.positioning}
+Customer Problem: ${product.userProblem}
+
+Recent Product Data:
+${product.snapshots?.slice(0, 2).map((snapshot: any, index: number) => `
+Snapshot ${index + 1} (${new Date(snapshot.createdAt).toLocaleDateString()}):
+${JSON.stringify(snapshot.content, null, 2)}
+`).join('\n')}
+
+COMPETITORS:
+${competitors.map((competitor, index) => `
+Competitor ${index + 1}: ${competitor.name}
+Website: ${competitor.website}
+Industry: ${competitor.industry}
+
+Recent Data:
+${competitor.snapshots?.slice(0, 2).map((snapshot: any, snapshotIndex: number) => `
+Snapshot ${snapshotIndex + 1} (${new Date(snapshot.createdAt).toLocaleDateString()}):
+${JSON.stringify(snapshot.content, null, 2)}
+`).join('\n')}
+`).join('\n\n')}
+
+Please provide a ${template} competitive analysis focusing on ${focusArea} with the following structure:
+
+EXECUTIVE_SUMMARY:
+[2-3 sentence overview of competitive position]
+
+PRODUCT_STRENGTHS:
+- [Strength 1]
+- [Strength 2]
+- [Strength 3]
+
+AREAS_FOR_IMPROVEMENT:
+- [Weakness 1]
+- [Weakness 2]
+- [Weakness 3]
+
+COMPETITOR_COMPARISONS:
+[Detailed comparison paragraph highlighting key differences and positioning]
+
+STRATEGIC_RECOMMENDATIONS:
+- [Recommendation 1]
+- [Recommendation 2]
+- [Recommendation 3]
+
+MARKET_OPPORTUNITIES:
+- [Opportunity 1]
+- [Opportunity 2]
+
+Focus on actionable insights and specific improvements based on the competitive landscape.
+`;
+  }
+
+  private parseComparativeAnalysis(analysisText: string, product: any, competitors: any[]): any {
+    try {
+      const sections = {
+        summary: this.extractSection(analysisText, 'EXECUTIVE_SUMMARY'),
+        strengths: this.extractListSection(analysisText, 'PRODUCT_STRENGTHS'),
+        weaknesses: this.extractListSection(analysisText, 'AREAS_FOR_IMPROVEMENT'),
+        recommendations: this.extractListSection(analysisText, 'STRATEGIC_RECOMMENDATIONS'),
+        opportunities: this.extractListSection(analysisText, 'MARKET_OPPORTUNITIES'),
+        competitorComparisons: this.extractSection(analysisText, 'COMPETITOR_COMPARISONS'),
+        confidence: 0.85 // Default confidence for successful AI analysis
+      };
+
+      return sections;
+    } catch (error) {
+      logger.error('Failed to parse comparative analysis', error as Error);
+      return this.generateFallbackComparativeAnalysis(product, competitors);
+    }
+  }
+
+  private extractSection(text: string, sectionName: string): string {
+    const regex = new RegExp(`${sectionName}:\\s*([\\s\\S]*?)(?=\\n[A-Z_]+:|$)`, 'i');
+    const match = text.match(regex);
+    return match ? match[1].trim() : '';
+  }
+
+  private extractListSection(text: string, sectionName: string): string[] {
+    const section = this.extractSection(text, sectionName);
+    return section
+      .split('\n')
+      .filter(line => line.trim().startsWith('-'))
+      .map(line => line.replace(/^-\s*/, '').trim())
+      .filter(line => line.length > 0);
+  }
+
+  private generateFallbackComparativeAnalysis(product: any, competitors: any[]): any {
+    return {
+      summary: `Competitive analysis of ${product.name} against ${competitors.length} competitors in the ${product.industry} space.`,
+      strengths: [
+        `Established presence in ${product.industry}`,
+        'Clear value proposition',
+        'Active web presence'
+      ],
+      weaknesses: [
+        'Competitive landscape analysis needed',
+        'Market positioning could be strengthened',
+        'Feature comparison required'
+      ],
+      recommendations: [
+        'Conduct detailed feature comparison',
+        'Enhance unique value proposition',
+        'Monitor competitor activities regularly'
+      ],
+      opportunities: [
+        'Market expansion potential',
+        'Feature differentiation opportunities'
+      ],
+      competitorComparisons: `Analysis shows ${product.name} competes with ${competitors.map(c => c.name).join(', ')} in the ${product.industry} market. Further analysis recommended.`,
+      confidence: 0.6
+    };
+  }
+
+  private formatStringArray(items: string[]): string {
+    return items.map(item => `• ${item}`).join('\n');
+  }
+
+  private async storeComparativeReport(reportData: ReportData, projectId: string, correlationId: string): Promise<void> {
+    try {
+      // Store the report in the database
+      await this.prisma.report.create({
+        data: {
+          name: reportData.title,
+          description: reportData.description,
+          projectId: projectId,
+          status: 'COMPLETED',
+          title: reportData.title,
+          reportType: 'COMPARATIVE',
+          versions: {
+            create: {
+              version: 1,
+              content: reportData
+            }
+          }
+        }
+      });
+
+      logger.info('Comparative report stored successfully', {
+        projectId,
+        correlationId,
+        reportTitle: reportData.title
+      });
+    } catch (error) {
+      logger.error('Failed to store comparative report', error as Error, {
+        projectId,
+        correlationId
+      });
+      throw error;
+    }
+  }
+
   private validateInputs(competitorId: string, timeframe: number): APIResponse<ReportData> | null {
     if (!competitorId || competitorId.trim() === '') {
       logger.warn('Competitor ID is required');

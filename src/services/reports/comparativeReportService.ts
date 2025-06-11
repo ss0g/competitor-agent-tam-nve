@@ -3,6 +3,7 @@ import Handlebars from 'handlebars';
 import { logger } from '@/lib/logger';
 import { BedrockService } from '../bedrock/bedrock.service';
 import { BedrockMessage } from '../bedrock/types';
+import { UserExperienceAnalyzer, UXAnalysisResult } from '../analysis/userExperienceAnalyzer';
 import { 
   ComparativeReport, 
   ComparativeReportSection, 
@@ -90,9 +91,11 @@ interface ReportContext {
 
 export class ComparativeReportService {
   private bedrockService: BedrockService;
+  private uxAnalyzer: UserExperienceAnalyzer;
 
   constructor() {
     this.bedrockService = new BedrockService();
+    this.uxAnalyzer = new UserExperienceAnalyzer();
   }
 
   /**
@@ -162,6 +165,86 @@ export class ComparativeReportService {
       logger.error('Failed to generate comparative report', error as Error, context);
       throw new ReportGenerationError(
         `Failed to generate comparative report: ${(error as Error).message}`,
+        { analysisId: analysis.id, productId: product.id }
+      );
+    }
+  }
+
+  /**
+   * Generate UX-enhanced comparative report with specialized user experience analysis
+   */
+  async generateUXEnhancedReport(
+    analysis: ComparativeAnalysis,
+    product: Product,
+    productSnapshot: ProductSnapshot,
+    competitorSnapshots: Array<{ competitor: { name: string; website: string }; snapshot: any }>,
+    options: ReportGenerationOptions = {}
+  ): Promise<ReportGenerationResult> {
+    const startTime = Date.now();
+    const context = {
+      analysisId: analysis.id,
+      productName: product.name,
+      reportTemplate: 'UX_ENHANCED'
+    };
+
+    try {
+      logger.info('Starting UX-enhanced comparative report generation', context);
+
+      // Generate specialized UX analysis
+      const uxAnalysis = await this.uxAnalyzer.analyzeProductVsCompetitors(
+        {
+          ...productSnapshot,
+          product: { name: product.name, website: product.website }
+        },
+        competitorSnapshots.map(cs => ({
+          ...cs.snapshot,
+          competitor: cs.competitor
+        })),
+        {
+          focus: 'both',
+          includeTechnical: true,
+          includeAccessibility: true,
+          maxCompetitors: 5
+        }
+      );
+
+      // Generate standard comparative report
+      const standardResult = await this.generateComparativeReport(
+        analysis,
+        product,
+        productSnapshot,
+        options
+      );
+
+      // Enhance the report with UX insights
+      const enhancedReport = this.enhanceReportWithUXAnalysis(
+        standardResult.report,
+        uxAnalysis
+      );
+
+      const generationTime = Date.now() - startTime;
+
+      logger.info('UX-enhanced comparative report generated successfully', {
+        ...context,
+        generationTime,
+        uxConfidence: uxAnalysis.confidence,
+        uxRecommendations: uxAnalysis.recommendations.length
+      });
+
+      return {
+        ...standardResult,
+        report: enhancedReport,
+        generationTime,
+        warnings: [
+          ...standardResult.warnings,
+          ...(uxAnalysis.confidence < 0.7 ? ['UX analysis confidence is below 70%'] : [])
+        ]
+      };
+
+    } catch (error) {
+      logger.error('Failed to generate UX-enhanced comparative report', error as Error, context);
+      throw new ReportGenerationError(
+        `Failed to generate UX-enhanced report: ${(error as Error).message}`,
         { analysisId: analysis.id, productId: product.id }
       );
     }
@@ -497,5 +580,135 @@ Use clear headings, bullet points, and professional business language.`;
   private calculateCost(tokens: number): number {
     // Rough estimation based on Claude pricing: $0.003 per 1K tokens
     return (tokens / 1000) * 0.003;
+  }
+
+  /**
+   * Enhance a standard comparative report with UX analysis insights
+   */
+  private enhanceReportWithUXAnalysis(
+    report: ComparativeReport,
+    uxAnalysis: UXAnalysisResult
+  ): ComparativeReport {
+    // Create UX-focused sections
+    const uxSections: ComparativeReportSection[] = [
+      {
+        id: createId(),
+        title: 'User Experience Analysis',
+        content: this.buildUXAnalysisContent(uxAnalysis),
+        type: 'ux_comparison',
+        order: 2, // Insert after executive summary
+        charts: [],
+        tables: [
+          {
+            id: createId(),
+            title: 'UX Comparison Matrix',
+            headers: ['Aspect', 'Your Product', 'Competitor Average', 'Recommendation'],
+            rows: this.buildUXComparisonTable(uxAnalysis),
+
+          }
+        ]
+      },
+      {
+        id: createId(),
+        title: 'Strategic UX Recommendations',
+        content: this.buildUXRecommendationsContent(uxAnalysis),
+        type: 'recommendations',
+        order: report.sections.length + 1,
+        charts: [],
+        tables: []
+      }
+    ];
+
+    // Insert UX sections into the report
+    const enhancedSections = [
+      ...report.sections.slice(0, 1), // Executive summary
+      ...uxSections,
+      ...report.sections.slice(1).map(section => ({
+        ...section,
+        order: section.order + uxSections.length
+      }))
+    ];
+
+    // Update metadata to reflect UX enhancement
+    const enhancedMetadata: ComparativeReportMetadata = {
+      ...report.metadata
+    };
+
+    return {
+      ...report,
+      sections: enhancedSections,
+      metadata: enhancedMetadata,
+      keyFindings: [
+        ...report.keyFindings,
+        `UX Analysis Confidence: ${Math.round(uxAnalysis.confidence * 100)}%`,
+        ...uxAnalysis.opportunities.slice(0, 2)
+      ]
+    };
+  }
+
+  private buildUXAnalysisContent(uxAnalysis: UXAnalysisResult): string {
+    return `
+## User Experience Competitive Analysis
+
+${uxAnalysis.summary}
+
+### Key UX Strengths
+${uxAnalysis.strengths.map(strength => `• ${strength}`).join('\n')}
+
+### UX Improvement Areas
+${uxAnalysis.weaknesses.map(weakness => `• ${weakness}`).join('\n')}
+
+### Market Opportunities
+${uxAnalysis.opportunities.map(opportunity => `• ${opportunity}`).join('\n')}
+
+### Competitor UX Insights
+${uxAnalysis.competitorComparisons.map(comp => `
+**${comp.competitorName}**
+- Strengths: ${comp.strengths.join(', ')}
+- Weaknesses: ${comp.weaknesses.join(', ')}
+- Key Learnings: ${comp.learnings.join(', ')}
+`).join('\n')}
+    `.trim();
+  }
+
+  private buildUXRecommendationsContent(uxAnalysis: UXAnalysisResult): string {
+    return `
+## Strategic UX Recommendations
+
+Based on our comprehensive user experience analysis, here are the prioritized recommendations:
+
+### Immediate Actions (0-3 months)
+${uxAnalysis.recommendations.slice(0, 3).map((rec, index) => `${index + 1}. ${rec}`).join('\n')}
+
+### Medium-term Improvements (3-12 months)
+${uxAnalysis.recommendations.slice(3, 6).map((rec, index) => `${index + 1}. ${rec}`).join('\n')}
+
+### Long-term Strategic Initiatives
+${uxAnalysis.recommendations.slice(6).map((rec, index) => `${index + 1}. ${rec}`).join('\n')}
+
+**Analysis Confidence:** ${Math.round(uxAnalysis.confidence * 100)}%
+**Generated:** ${uxAnalysis.metadata.analyzedAt}
+    `.trim();
+  }
+
+  private buildUXComparisonTable(uxAnalysis: UXAnalysisResult): string[][] {
+    const rows: string[][] = [];
+    
+    // Add UX strengths
+    uxAnalysis.strengths.slice(0, 3).forEach(strength => {
+      rows.push(['Strength', strength, 'Below average', 'Maintain advantage']);
+    });
+
+    // Add UX weaknesses
+    uxAnalysis.weaknesses.slice(0, 3).forEach(weakness => {
+      rows.push(['Weakness', weakness, 'Above average', 'Priority improvement']);
+    });
+
+    // Add opportunities
+    uxAnalysis.opportunities.slice(0, 2).forEach(opportunity => {
+      rows.push(['Opportunity', 'Not addressed', 'Partially addressed', opportunity]);
+    });
+
+    return rows;
   }
 } 

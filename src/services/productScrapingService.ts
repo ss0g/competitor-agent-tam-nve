@@ -205,6 +205,76 @@ export class ProductScrapingService implements ProductScraper {
     await this.websiteScraper.close();
     logger.info('ProductScrapingService cleanup completed');
   }
+
+  /**
+   * Ensures product data is recent (within specified days) or triggers fresh scraping
+   */
+  public async ensureRecentProductData(
+    productId: string, 
+    maxAgeInDays: number = 7
+  ): Promise<ProductSnapshot> {
+    const context = { productId, maxAgeInDays };
+    logger.info('Checking product data freshness', context);
+
+    try {
+      // Get the latest product snapshot
+      const latestSnapshot = await productSnapshotRepository.findByProductId(productId);
+      const mostRecentSnapshot = latestSnapshot.length > 0 ? latestSnapshot[0] : null;
+
+      if (mostRecentSnapshot) {
+        const ageInMs = Date.now() - mostRecentSnapshot.createdAt.getTime();
+        const ageInDays = ageInMs / (24 * 60 * 60 * 1000);
+
+        if (ageInDays <= maxAgeInDays) {
+          logger.info('Product data is recent, using existing snapshot', {
+            ...context,
+            snapshotId: mostRecentSnapshot.id,
+            ageInDays: ageInDays.toFixed(2),
+            createdAt: mostRecentSnapshot.createdAt
+          });
+          return mostRecentSnapshot;
+        }
+
+        logger.info('Product data is stale, triggering fresh scraping', {
+          ...context,
+          snapshotId: mostRecentSnapshot.id,
+          ageInDays: ageInDays.toFixed(2),
+          threshold: maxAgeInDays
+        });
+      } else {
+        logger.info('No existing product data found, triggering initial scraping', context);
+      }
+
+      // Data is stale or doesn't exist, trigger fresh scraping
+      const freshSnapshot = await this.scrapeProductById(productId);
+
+      logger.info('Fresh product data obtained', {
+        ...context,
+        snapshotId: freshSnapshot.id,
+        contentLength: JSON.stringify(freshSnapshot.content).length
+      });
+
+      return freshSnapshot;
+
+    } catch (error) {
+      logger.error('Failed to ensure recent product data', error as Error, context);
+      
+      // If scraping fails but we have old data, return it with a warning
+      if (error instanceof Error && error.message.includes('scraping failed')) {
+        const latestSnapshot = await productSnapshotRepository.findByProductId(productId);
+        if (latestSnapshot.length > 0) {
+          logger.warn('Scraping failed, using stale data as fallback', {
+            ...context,
+            snapshotId: latestSnapshot[0].id,
+            fallbackAge: Math.round((Date.now() - latestSnapshot[0].createdAt.getTime()) / (24 * 60 * 60 * 1000))
+          });
+          return latestSnapshot[0];
+        }
+      }
+      
+      throw error;
+    }
+  }
 }
 
 export const productScrapingService = new ProductScrapingService(); 

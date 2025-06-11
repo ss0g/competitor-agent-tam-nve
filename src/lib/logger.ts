@@ -358,4 +358,211 @@ export const trackReportFlow = (
 
 export const trackCorrelation = (correlationId: string, event: string, context?: LogContext) => {
   logger.correlation(correlationId, event, context);
-}; 
+};
+
+// NEW: Enhanced error correlation tracking for Phase 2.1
+export const trackErrorWithCorrelation = (
+  error: Error, 
+  operation: string, 
+  correlationId: string,
+  context?: LogContext & {
+    service?: string;
+    method?: string;
+    stepNumber?: number;
+    totalSteps?: number;
+    retryAttempt?: number;
+    maxRetries?: number;
+    errorCode?: string;
+    isRecoverable?: boolean;
+    suggestedAction?: string;
+    affectedResources?: string[];
+  }
+): void => {
+  const errorContext = {
+    ...context,
+    correlationId,
+    operation,
+    error: {
+      name: error.name,
+      message: error.message,
+      stack: error.stack,
+      timestamp: new Date().toISOString()
+    },
+    errorMetadata: {
+      service: context?.service || 'unknown',
+      method: context?.method || 'unknown',
+      stepNumber: context?.stepNumber,
+      totalSteps: context?.totalSteps,
+      retryAttempt: context?.retryAttempt,
+      maxRetries: context?.maxRetries,
+      errorCode: context?.errorCode,
+      isRecoverable: context?.isRecoverable ?? false,
+      suggestedAction: context?.suggestedAction,
+      affectedResources: context?.affectedResources || []
+    }
+  };
+
+  logger.error(`[${correlationId}] Error in ${operation}`, error, errorContext);
+
+  // Track specific error pattern for debugging
+  trackBusinessEvent('error_with_correlation', {
+    correlationId,
+    operation,
+    errorType: error.name,
+    errorMessage: error.message,
+    service: context?.service,
+    method: context?.method,
+    stepNumber: context?.stepNumber,
+    isRecoverable: context?.isRecoverable,
+    retryAttempt: context?.retryAttempt
+  }, errorContext);
+};
+
+// NEW: Track cross-service operations with correlation
+export const trackCrossServiceOperation = (
+  correlationId: string,
+  operation: string,
+  fromService: string,
+  toService: string,
+  operationData?: Record<string, any>,
+  context?: LogContext
+): void => {
+  const crossServiceContext = {
+    ...context,
+    correlationId,
+    operation,
+    fromService,
+    toService,
+    operationType: 'cross_service',
+    operationData,
+    timestamp: new Date().toISOString()
+  };
+
+  logger.info(`[${correlationId}] Cross-service: ${fromService} → ${toService} | ${operation}`, crossServiceContext);
+
+  trackBusinessEvent('cross_service_operation', {
+    correlationId,
+    operation,
+    fromService,
+    toService,
+    operationData
+  }, crossServiceContext);
+};
+
+// NEW: Track queue operations with correlation
+export const trackQueueOperation = (
+  correlationId: string,
+  queueName: string,
+  operation: 'enqueue' | 'dequeue' | 'process' | 'complete' | 'fail',
+  taskData?: Record<string, any>,
+  context?: LogContext & {
+    queuePosition?: number;
+    estimatedProcessingTime?: number;
+    retryCount?: number;
+    priority?: string;
+  }
+): void => {
+  const queueContext = {
+    ...context,
+    correlationId,
+    queueName,
+    operation,
+    operationType: 'queue',
+    taskData,
+    queueMetadata: {
+      queuePosition: context?.queuePosition,
+      estimatedProcessingTime: context?.estimatedProcessingTime,
+      retryCount: context?.retryCount,
+      priority: context?.priority
+    },
+    timestamp: new Date().toISOString()
+  };
+
+  logger.info(`[${correlationId}] Queue[${queueName}]: ${operation}`, queueContext);
+
+  trackBusinessEvent('queue_operation', {
+    correlationId,
+    queueName,
+    operation,
+    queuePosition: context?.queuePosition,
+    priority: context?.priority,
+    retryCount: context?.retryCount
+  }, queueContext);
+};
+
+// NEW: Track data pipeline operations with correlation
+export const trackDataPipelineOperation = (
+  correlationId: string,
+  pipelineStep: string,
+  operation: 'started' | 'completed' | 'failed' | 'skipped',
+  inputData?: Record<string, any>,
+  outputData?: Record<string, any>,
+  context?: LogContext & {
+    stepNumber?: number;
+    totalSteps?: number;
+    processingTime?: number;
+    dataSize?: number;
+    transformationType?: string;
+  }
+): void => {
+  const pipelineContext = {
+    ...context,
+    correlationId,
+    pipelineStep,
+    operation,
+    operationType: 'data_pipeline',
+    inputData,
+    outputData,
+    pipelineMetadata: {
+      stepNumber: context?.stepNumber,
+      totalSteps: context?.totalSteps,
+      processingTime: context?.processingTime,
+      dataSize: context?.dataSize,
+      transformationType: context?.transformationType
+    },
+    timestamp: new Date().toISOString()
+  };
+
+  logger.info(`[${correlationId}] Pipeline[${pipelineStep}]: ${operation}`, pipelineContext);
+
+  trackBusinessEvent('data_pipeline_operation', {
+    correlationId,
+    pipelineStep,
+    operation,
+    stepNumber: context?.stepNumber,
+    totalSteps: context?.totalSteps,
+    processingTime: context?.processingTime,
+    dataSize: context?.dataSize
+  }, pipelineContext);
+};
+
+// NEW: Enhanced correlation ID generation with metadata
+export const generateEnhancedCorrelationId = (
+  operationType: string,
+  service?: string
+): string => {
+  const timestamp = Date.now();
+  const random = Math.random().toString(36).substring(2, 8);
+  const servicePrefix = service ? `${service.substring(0, 3).toUpperCase()}-` : '';
+  const typePrefix = operationType.substring(0, 3).toUpperCase();
+  
+  return `${servicePrefix}${typePrefix}-${timestamp}-${random}`;
+};
+
+// NEW: Create correlation context for service operations
+export const createCorrelationContext = (
+  correlationId: string,
+  service: string,
+  operation: string,
+  additionalContext?: LogContext
+): LogContext => {
+  return {
+    ...additionalContext,
+    correlationId,
+    service,
+    operation,
+    operationStartTime: new Date().toISOString()
+  };
+};
+
+export default logger; 

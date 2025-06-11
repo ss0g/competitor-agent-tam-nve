@@ -27,7 +27,7 @@ module.exports = {
   
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json', 'node'],
   
-  testPathIgnorePatterns: ['/node_modules/', '/.next/', '/e2e/'],
+  testPathIgnorePatterns: ['/node_modules/', '/.next/'],
   
   // Multiple test environments for different test types
   projects: [
@@ -74,6 +74,46 @@ module.exports = {
       testEnvironment: 'jsdom',
       testMatch: ['<rootDir>/src/__tests__/components/**/*.test.tsx'],
       setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
+      moduleNameMapper: {
+        '^@/(.*)$': '<rootDir>/src/$1',
+        '^@/lib/(.*)$': '<rootDir>/src/lib/$1',
+        '^@/components/(.*)$': '<rootDir>/src/components/$1',
+        '^@/types/(.*)$': '<rootDir>/src/types/$1',
+        '^@/services/(.*)$': '<rootDir>/src/services/$1',
+        '^@/utils/(.*)$': '<rootDir>/src/utils/$1',
+      },
+      transform: {
+        '^.+\\.tsx?$': ['ts-jest', {
+          tsconfig: 'tsconfig.jest.json',
+        }],
+      },
+    },
+    {
+      displayName: 'e2e',
+      testEnvironment: 'node',
+      testMatch: ['<rootDir>/src/__tests__/e2e/**/*.test.ts'],
+      setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
+      timeout: 300000, // 5 minute timeout for e2e tests
+      moduleNameMapper: {
+        '^@/(.*)$': '<rootDir>/src/$1',
+        '^@/lib/(.*)$': '<rootDir>/src/lib/$1',
+        '^@/components/(.*)$': '<rootDir>/src/components/$1',
+        '^@/types/(.*)$': '<rootDir>/src/types/$1',
+        '^@/services/(.*)$': '<rootDir>/src/services/$1',
+        '^@/utils/(.*)$': '<rootDir>/src/utils/$1',
+      },
+      transform: {
+        '^.+\\.tsx?$': ['ts-jest', {
+          tsconfig: 'tsconfig.jest.json',
+        }],
+      },
+    },
+    {
+      displayName: 'performance',
+      testEnvironment: 'node',
+      testMatch: ['<rootDir>/src/__tests__/performance/**/*.test.ts'],
+      setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
+      timeout: 600000, // 10 minute timeout for performance tests
       moduleNameMapper: {
         '^@/(.*)$': '<rootDir>/src/$1',
         '^@/lib/(.*)$': '<rootDir>/src/lib/$1',

@@ -5,6 +5,7 @@ import { parseFrequency, frequencyToString } from '@/utils/frequencyParser';
 import { projectScrapingService } from '@/services/projectScrapingService';
 import { productChatProcessor } from './productChatProcessor';
 import { productService } from '@/services/productService';
+import { enhancedProjectExtractor, EnhancedChatProjectData } from './enhancedProjectExtractor';
 
 export class ConversationManager {
   private chatState: ChatState;
@@ -140,30 +141,42 @@ Please tell me:
   }
 
   private async handleStep0(content: string): Promise<ChatResponse> {
-    // Parse email, frequency, and report name from user input
-    const lines = content.split('\n').map(line => line.trim()).filter(line => line);
+    // Use enhanced project extractor for intelligent parsing
+    const extractionResult = enhancedProjectExtractor.extractProjectData(content);
     
-    if (lines.length < 3) {
+    if (!extractionResult.success) {
+      const errorMessage = enhancedProjectExtractor.createActionableErrorMessage(extractionResult);
       return {
-        message: 'Please provide all three pieces of information:\n1. Your email address\n2. Report frequency\n3. Report name',
+        message: errorMessage,
         expectedInputType: 'text',
       };
     }
 
-    const email = lines[0];
-    const frequency = lines[1];
-    const reportName = lines[2];
+    const extractedData = extractionResult.data!;
 
-    // Store collected data
+    // Store collected data in enhanced format
     this.chatState.collectedData = {
-      userEmail: email,
-      reportFrequency: frequency,
-      reportName: reportName,
+      userEmail: extractedData.userEmail,
+      reportFrequency: extractedData.frequency,
+      reportName: extractedData.projectName,
+      // Enhanced: Product information
+      productName: extractedData.productName || undefined,
+      productUrl: extractedData.productWebsite || undefined,
+      industry: extractedData.industry || undefined,
+      positioning: extractedData.positioning || undefined,
+      customerData: extractedData.customerData || undefined,
+      userProblem: extractedData.userProblem || undefined,
     };
+
+    // Use enhanced confirmation message for better UX
+    const confirmationMessage = enhancedProjectExtractor.createConfirmationMessage(
+      extractedData, 
+      extractionResult.suggestions
+    );
 
     try {
       // Create actual database project with all competitors auto-assigned
-      const databaseProject = await this.createProjectWithAllCompetitors(reportName, email);
+      const databaseProject = await this.createProjectWithAllCompetitors(extractedData.projectName, extractedData.userEmail);
       
       this.chatState.projectId = databaseProject.id;
       this.chatState.projectName = databaseProject.name;
@@ -171,7 +184,7 @@ Please tell me:
 
       const competitorCount = databaseProject.competitors?.length || 0;
       const competitorNames = databaseProject.competitors?.map((c: any) => c.name).join(', ') || 'None';
-      const parsedFreq = parseFrequency(frequency);
+      const parsedFreq = parseFrequency(extractedData.frequency);
 
       return {
         message: `Thanks for the input! The following project has been created: ${databaseProject.id}
@@ -184,7 +197,7 @@ Please tell me:
 
 🕕 **Automated Scraping Scheduled:** Your competitors will be automatically scraped ${frequencyToString(parsedFreq.frequency).toLowerCase()} to ensure fresh data for reports.
 
-All reports can be found in a folder of that name and the email address: ${email} will receive the new report.
+All reports can be found in a folder of that name and the email address: ${extractedData.userEmail} will receive the new report.
 
 Now, what is the name of the product that you want to perform competitive analysis on?`,
         nextStep: 1,
@@ -197,7 +210,7 @@ Now, what is the name of the product that you want to perform competitive analys
       
       // Try to create project without scraping scheduling
       try {
-        const databaseProject = await this.createProjectWithoutScraping(reportName, email);
+        const databaseProject = await this.createProjectWithoutScraping(extractedData.projectName, extractedData.userEmail);
         
         this.chatState.projectId = databaseProject.id;
         this.chatState.projectName = databaseProject.name;
@@ -216,7 +229,7 @@ Now, what is the name of the product that you want to perform competitive analys
 
 ⚠️ **Note:** Automated scraping scheduling failed, but project was created successfully in database. You can manually trigger scraping later.
 
-All reports can be found in a folder of that name and the email address: ${email} will receive the new report.
+All reports can be found in a folder of that name and the email address: ${extractedData.userEmail} will receive the new report.
 
 Now, what is the name of the product that you want to perform competitive analysis on?`,
           nextStep: 1,
@@ -228,9 +241,9 @@ Now, what is the name of the product that you want to perform competitive analys
         console.error('Failed to create project even without scraping:', fallbackError);
         
         // Final fallback to file system only
-        const projectId = this.generateProjectId(reportName);
+        const projectId = this.generateProjectId(extractedData.projectName);
         this.chatState.projectId = projectId;
-        this.chatState.projectName = reportName;
+        this.chatState.projectName = extractedData.projectName;
         this.chatState.databaseProjectCreated = false;
 
         return {
@@ -238,7 +251,7 @@ Now, what is the name of the product that you want to perform competitive analys
 
 ⚠️ **Note:** Project created in file system only (database creation failed).
 
-All reports can be found in a folder of that name and the email address: ${email} will receive the new report.
+All reports can be found in a folder of that name and the email address: ${extractedData.userEmail} will receive the new report.
 
 Now, what is the name of the product that you want to perform competitive analysis on?`,
           nextStep: 1,
