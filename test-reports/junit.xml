@@ -1,0 +1,269 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites name="jest tests" tests="41" failures="8" errors="0" time="5.646">
+  <testsuite name="EnhancedProductChatProcessor" errors="0" failures="0" skipped="0" timestamp="2025-06-11T21:06:31" time="3.227" tests="24">
+    <testcase classname="EnhancedProductChatProcessor collectProductData Product Name Collection should collect product name when none exists" name="EnhancedProductChatProcessor collectProductData Product Name Collection should collect product name when none exists" time="0.003">
+    </testcase>
+    <testcase classname="EnhancedProductChatProcessor collectProductData Product Name Collection should handle empty product name" name="EnhancedProductChatProcessor collectProductData Product Name Collection should handle empty product name" time="0.001">
+    </testcase>
+    <testcase classname="EnhancedProductChatProcessor collectProductData Product Name Collection should handle product name with quotes" name="EnhancedProductChatProcessor collectProductData Product Name Collection should handle product name with quotes" time="0">
+    </testcase>
+    <testcase classname="EnhancedProductChatProcessor collectProductData Product Name Collection should reject extremely long product names" name="EnhancedProductChatProcessor collectProductData Product Name Collection should reject extremely long product names" time="0.001">
+    </testcase>
+    <testcase classname="EnhancedProductChatProcessor collectProductData Product URL Collection should collect valid URL with https" name="EnhancedProductChatProcessor collectProductData Product URL Collection should collect valid URL with https" time="0">
+    </testcase>
+    <testcase classname="EnhancedProductChatProcessor collectProductData Product URL Collection should collect valid URL without protocol and add https" name="EnhancedProductChatProcessor collectProductData Product URL Collection should collect valid URL without protocol and add https" time="0">
+    </testcase>
+    <testcase classname="EnhancedProductChatProcessor collectProductData Product URL Collection should handle URL with http protocol" name="EnhancedProductChatProcessor collectProductData Product URL Collection should handle URL with http protocol" time="0.001">
+    </testcase>
+    <testcase classname="EnhancedProductChatProcessor collectProductData Product URL Collection should reject invalid URLs" name="EnhancedProductChatProcessor collectProductData Product URL Collection should reject invalid URLs" time="0">
+    </testcase>
+    <testcase classname="EnhancedProductChatProcessor collectProductData Product URL Collection should reject URLs with invalid protocols" name="EnhancedProductChatProcessor collectProductData Product URL Collection should reject URLs with invalid protocols" time="0.001">
+    </testcase>
+    <testcase classname="EnhancedProductChatProcessor collectProductData Positioning Collection should collect positioning information" name="EnhancedProductChatProcessor collectProductData Positioning Collection should collect positioning information" time="0.001">
+    </testcase>
+    <testcase classname="EnhancedProductChatProcessor collectProductData Positioning Collection should trim whitespace from positioning" name="EnhancedProductChatProcessor collectProductData Positioning Collection should trim whitespace from positioning" time="0.006">
+    </testcase>
+    <testcase classname="EnhancedProductChatProcessor collectProductData Customer Data Collection should collect customer data" name="EnhancedProductChatProcessor collectProductData Customer Data Collection should collect customer data" time="0.001">
+    </testcase>
+    <testcase classname="EnhancedProductChatProcessor collectProductData User Problem Collection should collect user problems" name="EnhancedProductChatProcessor collectProductData User Problem Collection should collect user problems" time="0">
+    </testcase>
+    <testcase classname="EnhancedProductChatProcessor collectProductData Industry Collection should collect industry and complete the flow" name="EnhancedProductChatProcessor collectProductData Industry Collection should collect industry and complete the flow" time="0.001">
+    </testcase>
+    <testcase classname="EnhancedProductChatProcessor validateProductData should return false for empty chat state" name="EnhancedProductChatProcessor validateProductData should return false for empty chat state" time="0">
+    </testcase>
+    <testcase classname="EnhancedProductChatProcessor validateProductData should return false for incomplete data" name="EnhancedProductChatProcessor validateProductData should return false for incomplete data" time="0">
+    </testcase>
+    <testcase classname="EnhancedProductChatProcessor validateProductData should return true for complete data" name="EnhancedProductChatProcessor validateProductData should return true for complete data" time="0">
+    </testcase>
+    <testcase classname="EnhancedProductChatProcessor getNextProductStep should return step 1 for no collected data" name="EnhancedProductChatProcessor getNextProductStep should return step 1 for no collected data" time="0">
+    </testcase>
+    <testcase classname="EnhancedProductChatProcessor getNextProductStep should return correct step numbers for partial data" name="EnhancedProductChatProcessor getNextProductStep should return correct step numbers for partial data" time="0.001">
+    </testcase>
+    <testcase classname="EnhancedProductChatProcessor getNextProductStep should return null for complete data" name="EnhancedProductChatProcessor getNextProductStep should return null for complete data" time="0">
+    </testcase>
+    <testcase classname="EnhancedProductChatProcessor URL parsing edge cases should handle URLs with paths and parameters" name="EnhancedProductChatProcessor URL parsing edge cases should handle URLs with paths and parameters" time="0">
+    </testcase>
+    <testcase classname="EnhancedProductChatProcessor URL parsing edge cases should handle URLs with ports" name="EnhancedProductChatProcessor URL parsing edge cases should handle URLs with ports" time="0">
+    </testcase>
+    <testcase classname="EnhancedProductChatProcessor URL parsing edge cases should reject URLs with very short hostnames" name="EnhancedProductChatProcessor URL parsing edge cases should reject URLs with very short hostnames" time="0">
+    </testcase>
+    <testcase classname="EnhancedProductChatProcessor Integration flow test should complete full product data collection flow" name="EnhancedProductChatProcessor Integration flow test should complete full product data collection flow" time="0.001">
+    </testcase>
+  </testsuite>
+  <testsuite name="EnhancedProjectExtractor" errors="0" failures="8" skipped="0" timestamp="2025-06-11T21:06:31" time="5.258" tests="17">
+    <testcase classname="EnhancedProjectExtractor Structured Input (Backward Compatible) should extract basic project information from structured input" name="EnhancedProjectExtractor Structured Input (Backward Compatible) should extract basic project information from structured input" time="0.007">
+      <failure>Error: expect(received).toEqual(expected) // deep equality
+
+- Expected  - 2
++ Received  + 2
+
+  Object {
+    &quot;customerData&quot;: undefined,
+    &quot;frequency&quot;: &quot;Weekly&quot;,
+-   &quot;industry&quot;: &quot;Food Delivery&quot;,
++   &quot;industry&quot;: &quot;food delivery&quot;,
+    &quot;positioning&quot;: undefined,
+    &quot;productName&quot;: &quot;Good Chop&quot;,
+-   &quot;productWebsite&quot;: &quot;https://goodchop.com&quot;,
++   &quot;productWebsite&quot;: &quot;https://goodchop.com/&quot;,
+    &quot;projectName&quot;: &quot;Good Chop Analysis&quot;,
+    &quot;userEmail&quot;: &quot;user@company.com&quot;,
+    &quot;userProblem&quot;: undefined,
+  }
+    at Object.&lt;anonymous&gt; (/Users/nikita.gorshkov/competitor-research-agent/src/__tests__/unit/lib/chat/enhancedProjectExtractor.test.ts:18:27)
+    at Promise.then.completed (/Users/nikita.gorshkov/competitor-research-agent/node_modules/jest-circus/build/utils.js:298:28)
+    at new Promise (&lt;anonymous&gt;)
+    at callAsyncCircusFn (/Users/nikita.gorshkov/competitor-research-agent/node_modules/jest-circus/build/utils.js:231:10)
+    at _callCircusTest (/Users/nikita.gorshkov/competitor-research-agent/node_modules/jest-circus/build/run.js:316:40)
+    at processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at _runTest (/Users/nikita.gorshkov/competitor-research-agent/node_modules/jest-circus/build/run.js:252:3)
+    at _runTestsForDescribeBlock (/Users/nikita.gorshkov/competitor-research-agent/node_modules/jest-circus/build/run.js:126:9)
+    at _runTestsForDescribeBlock (/Users/nikita.gorshkov/competitor-research-agent/node_modules/jest-circus/build/run.js:121:9)
+    at _runTestsForDescribeBlock (/Users/nikita.gorshkov/competitor-research-agent/node_modules/jest-circus/build/run.js:121:9)
+    at run (/Users/nikita.gorshkov/competitor-research-agent/node_modules/jest-circus/build/run.js:71:3)
+    at runAndTransformResultsToJestFormat (/Users/nikita.gorshkov/competitor-research-agent/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapterInit.js:122:21)
+    at jestAdapter (/Users/nikita.gorshkov/competitor-research-agent/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapter.js:79:19)
+    at runTestInternal (/Users/nikita.gorshkov/competitor-research-agent/node_modules/jest-runner/build/runTest.js:367:16)
+    at runTest (/Users/nikita.gorshkov/competitor-research-agent/node_modules/jest-runner/build/runTest.js:444:34)
+    at Object.worker (/Users/nikita.gorshkov/competitor-research-agent/node_modules/jest-runner/build/testWorker.js:106:12)</failure>
+    </testcase>
+    <testcase classname="EnhancedProjectExtractor Structured Input (Backward Compatible) should handle missing product website gracefully" name="EnhancedProjectExtractor Structured Input (Backward Compatible) should handle missing product website gracefully" time="0.001">
+    </testcase>
+    <testcase classname="EnhancedProjectExtractor Structured Input (Backward Compatible) should fail with insufficient information" name="EnhancedProjectExtractor Structured Input (Backward Compatible) should fail with insufficient information" time="0.001">
+    </testcase>
+    <testcase classname="EnhancedProjectExtractor Structured Input (Backward Compatible) should validate email format" name="EnhancedProjectExtractor Structured Input (Backward Compatible) should validate email format" time="0.001">
+    </testcase>
+    <testcase classname="EnhancedProjectExtractor Structured Input (Backward Compatible) should validate frequency format" name="EnhancedProjectExtractor Structured Input (Backward Compatible) should validate frequency format" time="0">
+    </testcase>
+    <testcase classname="EnhancedProjectExtractor Unstructured Input (Intelligent Parsing) should extract information from natural language input" name="EnhancedProjectExtractor Unstructured Input (Intelligent Parsing) should extract information from natural language input" time="0.001">
+      <failure>Error: expect(received).toBe(expected) // Object.is equality
+
+Expected: &quot;MyStartup Tool&quot;
+Received: undefined
+    at Object.&lt;anonymous&gt; (/Users/nikita.gorshkov/competitor-research-agent/src/__tests__/unit/lib/chat/enhancedProjectExtractor.test.ts:103:40)
+    at Promise.then.completed (/Users/nikita.gorshkov/competitor-research-agent/node_modules/jest-circus/build/utils.js:298:28)
+    at new Promise (&lt;anonymous&gt;)
+    at callAsyncCircusFn (/Users/nikita.gorshkov/competitor-research-agent/node_modules/jest-circus/build/utils.js:231:10)
+    at _callCircusTest (/Users/nikita.gorshkov/competitor-research-agent/node_modules/jest-circus/build/run.js:316:40)
+    at processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at _runTest (/Users/nikita.gorshkov/competitor-research-agent/node_modules/jest-circus/build/run.js:252:3)
+    at _runTestsForDescribeBlock (/Users/nikita.gorshkov/competitor-research-agent/node_modules/jest-circus/build/run.js:126:9)
+    at _runTestsForDescribeBlock (/Users/nikita.gorshkov/competitor-research-agent/node_modules/jest-circus/build/run.js:121:9)
+    at _runTestsForDescribeBlock (/Users/nikita.gorshkov/competitor-research-agent/node_modules/jest-circus/build/run.js:121:9)
+    at run (/Users/nikita.gorshkov/competitor-research-agent/node_modules/jest-circus/build/run.js:71:3)
+    at runAndTransformResultsToJestFormat (/Users/nikita.gorshkov/competitor-research-agent/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapterInit.js:122:21)
+    at jestAdapter (/Users/nikita.gorshkov/competitor-research-agent/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapter.js:79:19)
+    at runTestInternal (/Users/nikita.gorshkov/competitor-research-agent/node_modules/jest-runner/build/runTest.js:367:16)
+    at runTest (/Users/nikita.gorshkov/competitor-research-agent/node_modules/jest-runner/build/runTest.js:444:34)
+    at Object.worker (/Users/nikita.gorshkov/competitor-research-agent/node_modules/jest-runner/build/testWorker.js:106:12)</failure>
+    </testcase>
+    <testcase classname="EnhancedProjectExtractor Unstructured Input (Intelligent Parsing) should handle mixed format input" name="EnhancedProjectExtractor Unstructured Input (Intelligent Parsing) should handle mixed format input" time="0.001">
+      <failure>Error: expect(received).toBe(expected) // Object.is equality
+
+Expected: &quot;Food Delivery Analysis&quot;
+Received: &quot;Project name: Food Delivery Analysis&quot;
+    at Object.&lt;anonymous&gt; (/Users/nikita.gorshkov/competitor-research-agent/src/__tests__/unit/lib/chat/enhancedProjectExtractor.test.ts:120:40)
+    at Promise.then.completed (/Users/nikita.gorshkov/competitor-research-agent/node_modules/jest-circus/build/utils.js:298:28)
+    at new Promise (&lt;anonymous&gt;)
+    at callAsyncCircusFn (/Users/nikita.gorshkov/competitor-research-agent/node_modules/jest-circus/build/utils.js:231:10)
+    at _callCircusTest (/Users/nikita.gorshkov/competitor-research-agent/node_modules/jest-circus/build/run.js:316:40)
+    at processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at _runTest (/Users/nikita.gorshkov/competitor-research-agent/node_modules/jest-circus/build/run.js:252:3)
+    at _runTestsForDescribeBlock (/Users/nikita.gorshkov/competitor-research-agent/node_modules/jest-circus/build/run.js:126:9)
+    at _runTestsForDescribeBlock (/Users/nikita.gorshkov/competitor-research-agent/node_modules/jest-circus/build/run.js:121:9)
+    at _runTestsForDescribeBlock (/Users/nikita.gorshkov/competitor-research-agent/node_modules/jest-circus/build/run.js:121:9)
+    at run (/Users/nikita.gorshkov/competitor-research-agent/node_modules/jest-circus/build/run.js:71:3)
+    at runAndTransformResultsToJestFormat (/Users/nikita.gorshkov/competitor-research-agent/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapterInit.js:122:21)
+    at jestAdapter (/Users/nikita.gorshkov/competitor-research-agent/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapter.js:79:19)
+    at runTestInternal (/Users/nikita.gorshkov/competitor-research-agent/node_modules/jest-runner/build/runTest.js:367:16)
+    at runTest (/Users/nikita.gorshkov/competitor-research-agent/node_modules/jest-runner/build/runTest.js:444:34)
+    at Object.worker (/Users/nikita.gorshkov/competitor-research-agent/node_modules/jest-runner/build/testWorker.js:106:12)</failure>
+    </testcase>
+    <testcase classname="EnhancedProjectExtractor Unstructured Input (Intelligent Parsing) should fail gracefully with missing required information" name="EnhancedProjectExtractor Unstructured Input (Intelligent Parsing) should fail gracefully with missing required information" time="0.001">
+      <failure>Error: expect(received).toContain(expected) // indexOf
+
+Expected value: &quot;Email address not found in message&quot;
+Received array: [&quot;Invalid email address format in first line&quot;, &quot;Invalid frequency in second line&quot;, &quot;Project name too short or missing in third line&quot;]
+    at Object.&lt;anonymous&gt; (/Users/nikita.gorshkov/competitor-research-agent/src/__tests__/unit/lib/chat/enhancedProjectExtractor.test.ts:133:29)
+    at Promise.then.completed (/Users/nikita.gorshkov/competitor-research-agent/node_modules/jest-circus/build/utils.js:298:28)
+    at new Promise (&lt;anonymous&gt;)
+    at callAsyncCircusFn (/Users/nikita.gorshkov/competitor-research-agent/node_modules/jest-circus/build/utils.js:231:10)
+    at _callCircusTest (/Users/nikita.gorshkov/competitor-research-agent/node_modules/jest-circus/build/run.js:316:40)
+    at processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at _runTest (/Users/nikita.gorshkov/competitor-research-agent/node_modules/jest-circus/build/run.js:252:3)
+    at _runTestsForDescribeBlock (/Users/nikita.gorshkov/competitor-research-agent/node_modules/jest-circus/build/run.js:126:9)
+    at _runTestsForDescribeBlock (/Users/nikita.gorshkov/competitor-research-agent/node_modules/jest-circus/build/run.js:121:9)
+    at _runTestsForDescribeBlock (/Users/nikita.gorshkov/competitor-research-agent/node_modules/jest-circus/build/run.js:121:9)
+    at run (/Users/nikita.gorshkov/competitor-research-agent/node_modules/jest-circus/build/run.js:71:3)
+    at runAndTransformResultsToJestFormat (/Users/nikita.gorshkov/competitor-research-agent/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapterInit.js:122:21)
+    at jestAdapter (/Users/nikita.gorshkov/competitor-research-agent/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapter.js:79:19)
+    at runTestInternal (/Users/nikita.gorshkov/competitor-research-agent/node_modules/jest-runner/build/runTest.js:367:16)
+    at runTest (/Users/nikita.gorshkov/competitor-research-agent/node_modules/jest-runner/build/runTest.js:444:34)
+    at Object.worker (/Users/nikita.gorshkov/competitor-research-agent/node_modules/jest-runner/build/testWorker.js:106:12)</failure>
+    </testcase>
+    <testcase classname="EnhancedProjectExtractor URL Validation should validate and clean URLs correctly" name="EnhancedProjectExtractor URL Validation should validate and clean URLs correctly" time="0">
+      <failure>Error: expect(received).toBe(expected) // Object.is equality
+
+Expected: &quot;https://example.com/&quot;
+Received: undefined
+    at /Users/nikita.gorshkov/competitor-research-agent/src/__tests__/unit/lib/chat/enhancedProjectExtractor.test.ts:160:45
+    at Array.forEach (&lt;anonymous&gt;)
+    at Object.&lt;anonymous&gt; (/Users/nikita.gorshkov/competitor-research-agent/src/__tests__/unit/lib/chat/enhancedProjectExtractor.test.ts:150:17)
+    at Promise.then.completed (/Users/nikita.gorshkov/competitor-research-agent/node_modules/jest-circus/build/utils.js:298:28)
+    at new Promise (&lt;anonymous&gt;)
+    at callAsyncCircusFn (/Users/nikita.gorshkov/competitor-research-agent/node_modules/jest-circus/build/utils.js:231:10)
+    at _callCircusTest (/Users/nikita.gorshkov/competitor-research-agent/node_modules/jest-circus/build/run.js:316:40)
+    at processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at _runTest (/Users/nikita.gorshkov/competitor-research-agent/node_modules/jest-circus/build/run.js:252:3)
+    at _runTestsForDescribeBlock (/Users/nikita.gorshkov/competitor-research-agent/node_modules/jest-circus/build/run.js:126:9)
+    at _runTestsForDescribeBlock (/Users/nikita.gorshkov/competitor-research-agent/node_modules/jest-circus/build/run.js:121:9)
+    at _runTestsForDescribeBlock (/Users/nikita.gorshkov/competitor-research-agent/node_modules/jest-circus/build/run.js:121:9)
+    at run (/Users/nikita.gorshkov/competitor-research-agent/node_modules/jest-circus/build/run.js:71:3)
+    at runAndTransformResultsToJestFormat (/Users/nikita.gorshkov/competitor-research-agent/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapterInit.js:122:21)
+    at jestAdapter (/Users/nikita.gorshkov/competitor-research-agent/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapter.js:79:19)
+    at runTestInternal (/Users/nikita.gorshkov/competitor-research-agent/node_modules/jest-runner/build/runTest.js:367:16)
+    at runTest (/Users/nikita.gorshkov/competitor-research-agent/node_modules/jest-runner/build/runTest.js:444:34)
+    at Object.worker (/Users/nikita.gorshkov/competitor-research-agent/node_modules/jest-runner/build/testWorker.js:106:12)</failure>
+    </testcase>
+    <testcase classname="EnhancedProjectExtractor URL Validation should reject invalid URLs" name="EnhancedProjectExtractor URL Validation should reject invalid URLs" time="0">
+    </testcase>
+    <testcase classname="EnhancedProjectExtractor Error Messages should create actionable error messages" name="EnhancedProjectExtractor Error Messages should create actionable error messages" time="0.001">
+    </testcase>
+    <testcase classname="EnhancedProjectExtractor Error Messages should return empty string for successful extractions" name="EnhancedProjectExtractor Error Messages should return empty string for successful extractions" time="0">
+    </testcase>
+    <testcase classname="EnhancedProjectExtractor Confirmation Messages should create comprehensive confirmation messages" name="EnhancedProjectExtractor Confirmation Messages should create comprehensive confirmation messages" time="0.001">
+    </testcase>
+    <testcase classname="EnhancedProjectExtractor Confirmation Messages should include suggestions when provided" name="EnhancedProjectExtractor Confirmation Messages should include suggestions when provided" time="0">
+    </testcase>
+    <testcase classname="EnhancedProjectExtractor Product Name Extraction should extract product name from project name patterns" name="EnhancedProjectExtractor Product Name Extraction should extract product name from project name patterns" time="0">
+      <failure>Error: expect(received).toBe(expected) // Object.is equality
+
+Expected: &quot;Spotify&quot;
+Received: &quot;Spotify vs&quot;
+    at /Users/nikita.gorshkov/competitor-research-agent/src/__tests__/unit/lib/chat/enhancedProjectExtractor.test.ts:274:42
+    at Array.forEach (&lt;anonymous&gt;)
+    at Object.&lt;anonymous&gt; (/Users/nikita.gorshkov/competitor-research-agent/src/__tests__/unit/lib/chat/enhancedProjectExtractor.test.ts:266:17)
+    at Promise.then.completed (/Users/nikita.gorshkov/competitor-research-agent/node_modules/jest-circus/build/utils.js:298:28)
+    at new Promise (&lt;anonymous&gt;)
+    at callAsyncCircusFn (/Users/nikita.gorshkov/competitor-research-agent/node_modules/jest-circus/build/utils.js:231:10)
+    at _callCircusTest (/Users/nikita.gorshkov/competitor-research-agent/node_modules/jest-circus/build/run.js:316:40)
+    at processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at _runTest (/Users/nikita.gorshkov/competitor-research-agent/node_modules/jest-circus/build/run.js:252:3)
+    at _runTestsForDescribeBlock (/Users/nikita.gorshkov/competitor-research-agent/node_modules/jest-circus/build/run.js:126:9)
+    at _runTestsForDescribeBlock (/Users/nikita.gorshkov/competitor-research-agent/node_modules/jest-circus/build/run.js:121:9)
+    at _runTestsForDescribeBlock (/Users/nikita.gorshkov/competitor-research-agent/node_modules/jest-circus/build/run.js:121:9)
+    at run (/Users/nikita.gorshkov/competitor-research-agent/node_modules/jest-circus/build/run.js:71:3)
+    at runAndTransformResultsToJestFormat (/Users/nikita.gorshkov/competitor-research-agent/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapterInit.js:122:21)
+    at jestAdapter (/Users/nikita.gorshkov/competitor-research-agent/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapter.js:79:19)
+    at runTestInternal (/Users/nikita.gorshkov/competitor-research-agent/node_modules/jest-runner/build/runTest.js:367:16)
+    at runTest (/Users/nikita.gorshkov/competitor-research-agent/node_modules/jest-runner/build/runTest.js:444:34)
+    at Object.worker (/Users/nikita.gorshkov/competitor-research-agent/node_modules/jest-runner/build/testWorker.js:106:12)</failure>
+    </testcase>
+    <testcase classname="EnhancedProjectExtractor Product Name Extraction should prioritize explicit product declarations" name="EnhancedProjectExtractor Product Name Extraction should prioritize explicit product declarations" time="0">
+      <failure>Error: expect(received).toBe(expected) // Object.is equality
+
+Expected: &quot;Specific Product Name&quot;
+Received: &quot;Generic&quot;
+    at Object.&lt;anonymous&gt; (/Users/nikita.gorshkov/competitor-research-agent/src/__tests__/unit/lib/chat/enhancedProjectExtractor.test.ts:287:40)
+    at Promise.then.completed (/Users/nikita.gorshkov/competitor-research-agent/node_modules/jest-circus/build/utils.js:298:28)
+    at new Promise (&lt;anonymous&gt;)
+    at callAsyncCircusFn (/Users/nikita.gorshkov/competitor-research-agent/node_modules/jest-circus/build/utils.js:231:10)
+    at _callCircusTest (/Users/nikita.gorshkov/competitor-research-agent/node_modules/jest-circus/build/run.js:316:40)
+    at processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at _runTest (/Users/nikita.gorshkov/competitor-research-agent/node_modules/jest-circus/build/run.js:252:3)
+    at _runTestsForDescribeBlock (/Users/nikita.gorshkov/competitor-research-agent/node_modules/jest-circus/build/run.js:126:9)
+    at _runTestsForDescribeBlock (/Users/nikita.gorshkov/competitor-research-agent/node_modules/jest-circus/build/run.js:121:9)
+    at _runTestsForDescribeBlock (/Users/nikita.gorshkov/competitor-research-agent/node_modules/jest-circus/build/run.js:121:9)
+    at run (/Users/nikita.gorshkov/competitor-research-agent/node_modules/jest-circus/build/run.js:71:3)
+    at runAndTransformResultsToJestFormat (/Users/nikita.gorshkov/competitor-research-agent/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapterInit.js:122:21)
+    at jestAdapter (/Users/nikita.gorshkov/competitor-research-agent/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapter.js:79:19)
+    at runTestInternal (/Users/nikita.gorshkov/competitor-research-agent/node_modules/jest-runner/build/runTest.js:367:16)
+    at runTest (/Users/nikita.gorshkov/competitor-research-agent/node_modules/jest-runner/build/runTest.js:444:34)
+    at Object.worker (/Users/nikita.gorshkov/competitor-research-agent/node_modules/jest-runner/build/testWorker.js:106:12)</failure>
+    </testcase>
+    <testcase classname="EnhancedProjectExtractor Industry Detection should detect industry from various patterns" name="EnhancedProjectExtractor Industry Detection should detect industry from various patterns" time="0">
+      <failure>Error: expect(received).toBe(expected) // Object.is equality
+
+Expected: &quot;Food Technology&quot;
+Received: &quot;food technology&quot;
+    at /Users/nikita.gorshkov/competitor-research-agent/src/__tests__/unit/lib/chat/enhancedProjectExtractor.test.ts:308:39
+    at Array.forEach (&lt;anonymous&gt;)
+    at Object.&lt;anonymous&gt; (/Users/nikita.gorshkov/competitor-research-agent/src/__tests__/unit/lib/chat/enhancedProjectExtractor.test.ts:299:17)
+    at Promise.then.completed (/Users/nikita.gorshkov/competitor-research-agent/node_modules/jest-circus/build/utils.js:298:28)
+    at new Promise (&lt;anonymous&gt;)
+    at callAsyncCircusFn (/Users/nikita.gorshkov/competitor-research-agent/node_modules/jest-circus/build/utils.js:231:10)
+    at _callCircusTest (/Users/nikita.gorshkov/competitor-research-agent/node_modules/jest-circus/build/run.js:316:40)
+    at processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at _runTest (/Users/nikita.gorshkov/competitor-research-agent/node_modules/jest-circus/build/run.js:252:3)
+    at _runTestsForDescribeBlock (/Users/nikita.gorshkov/competitor-research-agent/node_modules/jest-circus/build/run.js:126:9)
+    at _runTestsForDescribeBlock (/Users/nikita.gorshkov/competitor-research-agent/node_modules/jest-circus/build/run.js:121:9)
+    at _runTestsForDescribeBlock (/Users/nikita.gorshkov/competitor-research-agent/node_modules/jest-circus/build/run.js:121:9)
+    at run (/Users/nikita.gorshkov/competitor-research-agent/node_modules/jest-circus/build/run.js:71:3)
+    at runAndTransformResultsToJestFormat (/Users/nikita.gorshkov/competitor-research-agent/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapterInit.js:122:21)
+    at jestAdapter (/Users/nikita.gorshkov/competitor-research-agent/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapter.js:79:19)
+    at runTestInternal (/Users/nikita.gorshkov/competitor-research-agent/node_modules/jest-runner/build/runTest.js:367:16)
+    at runTest (/Users/nikita.gorshkov/competitor-research-agent/node_modules/jest-runner/build/runTest.js:444:34)
+    at Object.worker (/Users/nikita.gorshkov/competitor-research-agent/node_modules/jest-runner/build/testWorker.js:106:12)</failure>
+    </testcase>
+  </testsuite>
+</testsuites>

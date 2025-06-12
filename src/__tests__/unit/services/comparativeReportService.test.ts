@@ -56,7 +56,11 @@ describe('ComparativeReportService', () => {
   };
 
   const sampleAnalysis: ComparativeAnalysis = {
-    id: 'test-analysis-id',
+    id: 'test_analysis_123',
+    projectId: 'proj_123',
+    productId: 'prod_123',
+    competitorIds: ['comp_1', 'comp_2'],
+    analysisDate: new Date('2024-01-01'),
     summary: {
       overallPosition: 'competitive',
       keyStrengths: ['Strong AI capabilities', 'User-friendly interface', 'Comprehensive automation'],
@@ -94,12 +98,15 @@ describe('ComparativeReportService', () => {
         },
         competitorPositioning: [
           {
+            competitorId: 'comp_1',
             competitorName: 'Competitor A',
             primaryMessage: 'Simple Automation Solutions',
             valueProposition: 'Easy-to-use automation for small teams',
-            targetAudience: 'Small businesses'
+            targetAudience: 'Small businesses',
+            differentiators: ['Simplicity', 'Low cost']
           }
         ],
+        positioningGaps: ['Market education', 'Brand awareness'],
         marketOpportunities: ['Enterprise market expansion', 'Industry-specific solutions'],
         messagingEffectiveness: 82
       },
@@ -112,10 +119,12 @@ describe('ComparativeReportService', () => {
         },
         competitorUX: [
           {
+            competitorId: 'comp_1',
             competitorName: 'Competitor A',
             designQuality: 70,
             usabilityScore: 75,
-            navigationStructure: 'Traditional menu-based navigation'
+            navigationStructure: 'Traditional menu-based navigation',
+            keyUserFlows: ['Simple workflow', 'Basic dashboard']
           }
         ],
         uxStrengths: ['Clean interface design', 'Intuitive workflow builder'],
@@ -130,9 +139,11 @@ describe('ComparativeReportService', () => {
         },
         competitorTargeting: [
           {
+            competitorId: 'comp_1',
             competitorName: 'Competitor A',
             primarySegments: ['Small business'],
-            customerTypes: ['Small business owners']
+            customerTypes: ['Small business owners'],
+            useCases: ['Simple automation', 'Basic workflows']
           }
         ],
         targetingOverlap: ['Process automation', 'Workflow management'],
@@ -444,7 +455,7 @@ Immediate focus should be on expanding API capabilities and improving mobile res
     });
 
     it('should warn for low confidence analysis but not throw', () => {
-      const loggerSpy = jest.spyOn(require('@/lib/logger').logger, 'warn').mockImplementation();
+      const loggerSpy = jest.spyOn(require('@/lib/logger').logger, 'warn').mockImplementation(() => {});
 
       const lowConfidenceAnalysis = {
         ...sampleAnalysis,

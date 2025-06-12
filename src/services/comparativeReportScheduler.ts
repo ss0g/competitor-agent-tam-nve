@@ -465,7 +465,7 @@ export class ComparativeReportScheduler {
         return '0 9 * * 1'; // 9 AM every Monday
       case 'MONTHLY':
         return '0 9 1 * *'; // 9 AM on the 1st of every month
-      case 'QUARTERLY':
+      case 'QUARTERLY' as any:
         return '0 9 1 */3 *'; // 9 AM on the 1st of every 3rd month
       default:
         return '0 9 * * 1'; // Default to weekly

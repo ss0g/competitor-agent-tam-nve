@@ -1,0 +1,12 @@
+{
+  "testRunId": "2025-06-11T21-06-31-542Z",
+  "timestamp": "2025-06-11T21:06:37.238Z",
+  "environment": "test",
+  "coverage": {
+    "reportPath": "/Users/nikita.gorshkov/competitor-research-agent/test-reports/lcov-report/index.html"
+  },
+  "reports": {
+    "junit": "/Users/nikita.gorshkov/competitor-research-agent/test-reports/junit.xml",
+    "html": "/Users/nikita.gorshkov/competitor-research-agent/test-reports/regression-test-report.html"
+  }
+}

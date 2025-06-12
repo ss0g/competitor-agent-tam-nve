@@ -8,12 +8,10 @@ import {
   REPORT_TEMPLATES 
 } from '@/types/comparativeReport';
 
-// Mock BedrockService
-jest.mock('@/services/bedrock/bedrock.service', () => ({
-  BedrockService: jest.fn().mockImplementation(() => ({
-    generateCompletion: jest.fn().mockResolvedValue('Mock AI response content')
-  }))
-}));
+// Mock AI service
+const mockAIService = {
+  generateCompletion: jest.fn().mockResolvedValue('Mock AI response content' as any)
+};
 
 describe('ComparativeReportService - Core Functionality', () => {
   let service: ComparativeReportService;

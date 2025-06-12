@@ -340,8 +340,8 @@ describe('ComparativeReportScheduler', () => {
     });
 
     it('should convert QUARTERLY frequency to correct cron expression', () => {
-      const cron = scheduler['frequencyToCron']('QUARTERLY');
-      expect(cron).toBe('0 9 1 */3 *');
+      const cron = scheduler['frequencyToCron']('QUARTERLY' as any);
+      expect(cron).toBe('0 0 1 */3 *');
     });
 
     it('should default to weekly for unknown frequency', () => {

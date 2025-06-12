@@ -923,7 +923,7 @@ Focus on actionable insights and specific improvements based on the competitive 
           versions: {
             create: {
               version: 1,
-              content: reportData
+              content: reportData as any
             }
           }
         }

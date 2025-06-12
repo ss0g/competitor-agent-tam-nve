@@ -275,5 +275,6 @@ export class PrismaProductRepository implements ProductRepository {
   }
 }
 
-// Export singleton instance
+// Export both the class and the instance
+export { PrismaProductRepository as ProductRepository };
 export const productRepository = new PrismaProductRepository(); 

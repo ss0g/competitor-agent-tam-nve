@@ -46,91 +46,95 @@ describe('ComparativeReportService - UX Enhancement', () => {
       competitorIds: ['competitor-1', 'competitor-2'],
       analysisDate: new Date(),
       summary: {
-        overallPosition: 'Strong competitive position',
+        overallPosition: 'competitive',
         keyStrengths: ['Feature A', 'Feature B'],
         keyWeaknesses: ['Area C', 'Area D'],
-        immediateRecommendations: ['Improve X', 'Enhance Y'],
         opportunityScore: 75,
-        threatLevel: 'Medium',
-        confidenceScore: 85
+        threatLevel: 'medium',
       },
       detailed: {
         featureComparison: {
           productFeatures: ['Feature 1', 'Feature 2'],
           competitorFeatures: [
-            { competitorId: 'comp-1', competitorName: 'Competitor 1', features: ['Feature A'] }
+            {
+              competitorId: 'comp_1',
+              competitorName: 'Competitor A',
+              features: ['Feature X', 'Feature Y']
+            }
           ],
-          uniqueToProduct: ['Unique Feature'],
-          featureGaps: ['Missing Feature'],
+          uniqueToProduct: ['Unique Feature A'],
+          uniqueToCompetitors: ['Unique Feature B'],
+          commonFeatures: ['Shared Feature C'],
+          featureGaps: ['Gap 1', 'Gap 2'],
           innovationScore: 80
         },
         positioningAnalysis: {
           productPositioning: {
-            primaryMessage: 'Test message',
-            valueProposition: 'Test value',
-            targetAudience: 'Test audience',
-            differentiators: ['Diff 1']
+            primaryMessage: 'Our primary message',
+            valueProposition: 'Our value prop',
+            targetAudience: 'Our target',
+            differentiators: ['Diff 1', 'Diff 2']
           },
           competitorPositioning: [
             {
-              competitorId: 'comp-1',
-              competitorName: 'Competitor 1',
-              primaryMessage: 'Comp message',
-              valueProposition: 'Comp value',
-              targetAudience: 'Comp audience',
-              differentiators: ['Comp diff']
+              competitorId: 'comp_1',
+              competitorName: 'Competitor A',
+              primaryMessage: 'Simple Automation Solutions',
+              valueProposition: 'Easy-to-use automation for small teams',
+              targetAudience: 'Small businesses',
+              differentiators: ['Simplicity', 'Low cost']
             }
           ],
-          positioningGaps: ['Gap 1'],
-          marketOpportunities: ['Opportunity 1'],
-          messagingEffectiveness: 75
+          positioningGaps: ['Market education', 'Brand awareness'],
+          marketOpportunities: ['Enterprise market expansion', 'Industry-specific solutions'],
+          messagingEffectiveness: 82
         },
         userExperienceComparison: {
           productUX: {
-            designQuality: 8,
-            usabilityScore: 7,
-            navigationStructure: 'Modern navigation',
-            keyUserFlows: ['Flow 1']
+            designQuality: 85,
+            usabilityScore: 90,
+            navigationStructure: 'Modern sidebar navigation',
+            keyUserFlows: ['Onboarding', 'Dashboard', 'Settings']
           },
           competitorUX: [
             {
-              competitorId: 'comp-1',
-              competitorName: 'Competitor 1',
-              designQuality: 6,
-              usabilityScore: 7,
-              navigationStructure: 'Traditional navigation',
-              keyUserFlows: ['Flow A']
+              competitorId: 'comp_1',
+              competitorName: 'Competitor A',
+              designQuality: 70,
+              usabilityScore: 75,
+              navigationStructure: 'Traditional menu-based navigation',
+              keyUserFlows: ['Simple workflow', 'Basic dashboard']
             }
           ],
-          uxStrengths: ['Strength 1'],
-          uxWeaknesses: ['Weakness 1'],
-          uxRecommendations: ['UX Rec 1']
+          uxStrengths: ['Modern design', 'Intuitive navigation'],
+          uxWeaknesses: ['Complex setup', 'Learning curve'],
+          uxRecommendations: ['Simplify onboarding', 'Add tutorials']
         },
         customerTargeting: {
           productTargeting: {
-            primarySegments: ['Segment 1'],
-            customerTypes: ['Type 1'],
-            useCases: ['Use case 1']
+            primarySegments: ['SMB', 'Enterprise'],
+            customerTypes: ['Business owners', 'Operations managers'],
+            useCases: ['Workflow automation', 'Data processing']
           },
           competitorTargeting: [
             {
-              competitorId: 'comp-1',
-              competitorName: 'Competitor 1',
-              primarySegments: ['Segment A'],
-              customerTypes: ['Type A'],
-              useCases: ['Use case A']
+              competitorId: 'comp_1',
+              competitorName: 'Competitor A',
+              primarySegments: ['Small business'],
+              customerTypes: ['Small business owners'],
+              useCases: ['Simple automation', 'Basic workflows']
             }
           ],
-          targetingOverlap: ['Overlap 1'],
-          untappedSegments: ['Untapped 1']
+          targetingOverlap: ['Small business'],
+          untappedSegments: ['Mid-market', 'Industry-specific'],
+          competitiveAdvantage: ['Enterprise scalability', 'Advanced features']
         }
       },
       recommendations: {
-        competitiveAdvantage: ['Advantage 1'],
-        priorityScore: 85,
-        immediateActions: ['Action 1'],
-        shortTermActions: ['Short action 1'],
-        longTermActions: ['Long action 1']
+        immediate: ['Improve X', 'Enhance Y'],
+        shortTerm: ['Strategy A', 'Initiative B'],
+        longTerm: ['Vision C', 'Goal D'],
+        priorityScore: 85
       },
       metadata: {
         analysisMethod: 'ai_powered',
@@ -142,13 +146,16 @@ describe('ComparativeReportService - UX Enhancement', () => {
     };
 
     mockProduct = {
-      id: 'product-1',
+      id: 'prod_123',
       name: 'Test Product',
       website: 'https://testproduct.com',
-      positioning: 'Premium solution',
-      customerData: 'Enterprise customers',
-      userProblem: 'Efficiency problem',
-      industry: 'Technology'
+      positioning: 'Leading automation platform',
+      customerData: 'SMB and Enterprise customers',
+      userProblem: 'Manual processes are inefficient',
+      industry: 'SaaS',
+      projectId: 'proj_123',
+      createdAt: new Date(),
+      updatedAt: new Date()
     };
 
     mockProductSnapshot = {
@@ -224,6 +231,9 @@ describe('ComparativeReportService - UX Enhancement', () => {
           id: 'report-1',
           title: 'Standard Report',
           description: 'A standard comparative report',
+          projectId: 'proj_123',
+          productId: 'prod_123',
+          analysisId: 'analysis_123',
           sections: [
             {
               id: 'section-1',
@@ -235,14 +245,37 @@ describe('ComparativeReportService - UX Enhancement', () => {
               tables: []
             }
           ],
+          executiveSummary: 'Executive summary content',
           keyFindings: ['Finding 1', 'Finding 2'],
-          keyThreats: ['Threat 1'],
+          strategicRecommendations: {
+            immediate: ['Action 1'],
+            shortTerm: ['Strategy 1'],
+            longTerm: ['Vision 1'],
+            priorityScore: 85
+          },
+          competitiveIntelligence: {
+            marketPosition: 'competitive',
+            keyThreats: ['Threat 1'],
+            opportunities: ['Opportunity 1'],
+            competitiveAdvantages: ['Advantage 1']
+          },
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          status: 'completed' as const,
+          format: 'markdown' as const,
           metadata: {
             productName: 'Test Product',
+            productUrl: 'https://testproduct.com',
             competitorCount: 1,
             analysisDate: new Date(),
-            generatedAt: new Date(),
-            reportVersion: '1.0'
+            reportGeneratedAt: new Date(),
+            analysisId: 'analysis_123',
+            analysisMethod: 'ai_powered' as const,
+            confidenceScore: 85,
+            dataQuality: 'high' as const,
+            reportVersion: '1.0',
+            focusAreas: ['features', 'positioning'],
+            analysisDepth: 'detailed' as const
           }
         },
         generationTime: 5000,
@@ -316,10 +349,17 @@ describe('ComparativeReportService - UX Enhancement', () => {
           keyThreats: [],
           metadata: {
             productName: 'Test Product',
+            productUrl: 'https://testproduct.com',
             competitorCount: 1,
             analysisDate: new Date(),
-            generatedAt: new Date(),
-            reportVersion: '1.0'
+            reportGeneratedAt: new Date(),
+            analysisId: 'analysis_123',
+            analysisMethod: 'ai_powered' as const,
+            confidenceScore: 85,
+            dataQuality: 'high' as const,
+            reportVersion: '1.0',
+            focusAreas: ['features', 'positioning'],
+            analysisDepth: 'detailed' as const
           }
         },
         generationTime: 5000,
@@ -379,10 +419,17 @@ describe('ComparativeReportService - UX Enhancement', () => {
           keyThreats: [],
           metadata: {
             productName: 'Test Product',
+            productUrl: 'https://testproduct.com',
             competitorCount: 7,
             analysisDate: new Date(),
-            generatedAt: new Date(),
-            reportVersion: '1.0'
+            reportGeneratedAt: new Date(),
+            analysisId: 'analysis_123',
+            analysisMethod: 'ai_powered' as const,
+            confidenceScore: 85,
+            dataQuality: 'high' as const,
+            reportVersion: '1.0',
+            focusAreas: ['features', 'positioning'],
+            analysisDepth: 'detailed' as const
           }
         },
         generationTime: 5000,

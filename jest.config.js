@@ -93,7 +93,7 @@ module.exports = {
       testEnvironment: 'node',
       testMatch: ['<rootDir>/src/__tests__/e2e/**/*.test.ts'],
       setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
-      timeout: 300000, // 5 minute timeout for e2e tests
+      testTimeout: 300000, // 5 minute timeout for e2e tests
       moduleNameMapper: {
         '^@/(.*)$': '<rootDir>/src/$1',
         '^@/lib/(.*)$': '<rootDir>/src/lib/$1',
@@ -113,7 +113,7 @@ module.exports = {
       testEnvironment: 'node',
       testMatch: ['<rootDir>/src/__tests__/performance/**/*.test.ts'],
       setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
-      timeout: 600000, // 10 minute timeout for performance tests
+      testTimeout: 600000, // 10 minute timeout for performance tests
       moduleNameMapper: {
         '^@/(.*)$': '<rootDir>/src/$1',
         '^@/lib/(.*)$': '<rootDir>/src/lib/$1',
@@ -133,7 +133,7 @@ module.exports = {
       testEnvironment: 'node',
       testMatch: ['<rootDir>/src/__tests__/regression/**/*.test.ts'],
       setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
-      timeout: 60000, // Longer timeout for regression tests
+      testTimeout: 60000, // Longer timeout for regression tests
       moduleNameMapper: {
         '^@/(.*)$': '<rootDir>/src/$1',
         '^@/lib/(.*)$': '<rootDir>/src/lib/$1',

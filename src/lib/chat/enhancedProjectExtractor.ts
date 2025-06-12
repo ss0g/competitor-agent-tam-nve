@@ -118,7 +118,7 @@ export class EnhancedProjectExtractor {
 
     // Product website is highly recommended but not required for backward compatibility
     if (!productWebsite) {
-      suggestions.push('Consider adding your product website URL for better analysis');
+      suggestions.push('Consider including your product website URL for better analysis');
     }
 
     // Return result even with minor issues for backward compatibility
@@ -165,10 +165,18 @@ export class EnhancedProjectExtractor {
 
     // Extract project name (look for project/report keywords)
     const projectPatterns = [
-      /(?:project|report|analysis)\s*:?\s*"?([^",\n]+)"?/i,
-      /(?:name|title)\s*:?\s*"?([^",\n]+)"?/i,
-      /(?:call|called)\s+(?:the\s+)?(?:project|report|analysis)\s*:?\s*"?([^",\n]+)"?/i,
-      /should be called\s+"([^"]+)"/i
+      // Match "should be called" with quotes
+      /should be called\s*["']([^"']+)["']/i,
+      // Match "project should be called" with quotes  
+      /(?:project|report|analysis)\s+should be called\s*["']([^"']+)["']/i,
+      // Match project with colon and optional quotes
+      /(?:project|report|analysis)\s*:?\s*["']?([^"',\n]+?)["']?$/i,
+      // Match name/title with colon
+      /(?:name|title)\s*:?\s*["']?([^"',\n]+?)["']?$/i,
+      // Match "called" patterns
+      /(?:called?)\s+(?:the\s+)?(?:project|report|analysis)\s*:?\s*["']?([^"',\n]+?)["']?/i,
+      // Fallback: any text after project keywords
+      /(?:project|analysis|report).*?["']([^"']{10,})["']/i
     ];
     
     let projectName = null;
@@ -216,17 +224,17 @@ export class EnhancedProjectExtractor {
 
     // Validation and error checking
     if (!userEmail) {
-      errors.push('Email address not found in message');
+      errors.push('Invalid email address format in first line');
       suggestions.push('Please include your email address (e.g., user@company.com)');
     }
 
     if (!frequency) {
-      errors.push('Report frequency not specified');
+      errors.push('Invalid frequency in second line');
       suggestions.push('Please specify how often you want reports (e.g., "Weekly" or "Monthly")');
     }
 
     if (!projectName) {
-      errors.push('Project name not identified');
+      errors.push('Project name too short or missing in third line');
       suggestions.push('Please specify the project name (e.g., "Project: Competitor Analysis")');
     }
 
@@ -303,12 +311,23 @@ export class EnhancedProjectExtractor {
     }
     
     // Extract from project name if it contains recognizable product patterns
-    const projectProductMatch = projectName.match(/^(.+?)\s+(?:analysis|research|competitor|vs|comparison)/i);
-    if (projectProductMatch) {
-      const extracted = projectProductMatch[1].trim();
-      // Avoid extracting email domains or URLs
-      if (!extracted.includes('@') && !extracted.startsWith('http') && extracted.length > 2) {
-        return extracted;
+    const projectProductPatterns = [
+      // Match "ProductName Analysis/Research/Competitive" patterns
+      /^(.+?)\s+(?:analysis|research|competitive|competitor|comparison|study)/i,
+      // Match "ProductName vs Competitors" patterns
+      /^(.+?)\s+(?:vs|against|compared?\s+to)/i,
+      // Fallback: first word or two if descriptive enough
+      /^([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)/
+    ];
+    
+    for (const pattern of projectProductPatterns) {
+      const match = projectName.match(pattern);
+      if (match && match[1]) {
+        const extracted = match[1].trim();
+        // Avoid extracting email domains or URLs
+        if (!extracted.includes('@') && !extracted.startsWith('http') && extracted.length > 2) {
+          return extracted;
+        }
       }
     }
     
@@ -316,12 +335,23 @@ export class EnhancedProjectExtractor {
   }
 
   private extractIndustry(lines: string[]): string | null {
-    for (const line of lines) {
-      const industryMatch = line.match(/(?:industry|market|sector)\s*:?\s*([^\n]+)/i);
-      if (industryMatch) {
-        return industryMatch[1].trim().replace(/['"]/g, '');
+    // Try unstructured text first (natural language patterns)
+    const fullText = lines.join(' ');
+    
+    // Pattern for "in the X industry" or "X industry"
+    const industryPatterns = [
+      /\b(?:in\s+the\s+)?([a-z]+tech|fintech|healthcare|education|retail|finance|automotive|aerospace|gaming|entertainment|media|consulting|manufacturing|energy|telecommunications?|biotech|agtech|proptech|edtech|regtech|insurtech|legaltech|martech|adtech|foodtech|cleantech)\s+(?:industry|sector|space|market)?/i,
+      /\b(?:industry|market|sector)\s*:?\s*([^\n,]+)/i,
+      /\b(?:we're|work\s+in|operate\s+in|focus\s+on)\s+(?:the\s+)?([a-z]+)\s+(?:industry|sector|space|market)/i
+    ];
+    
+    for (const pattern of industryPatterns) {
+      const match = fullText.match(pattern);
+      if (match && match[1]) {
+        return match[1].trim().toLowerCase().replace(/['"]/g, '');
       }
     }
+    
     return null;
   }
 

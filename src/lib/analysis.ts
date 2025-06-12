@@ -269,6 +269,22 @@ export class ContentAnalyzer {
       'ENOTFOUND'
     ];
 
+    // Don't retry credential errors
+    const nonRetryableCredentialErrors = [
+      'InvalidClientTokenId',
+      'UnrecognizedClientException',
+      'AccessDeniedException',
+      'ExpiredTokenException',
+      'CredentialsError'
+    ];
+
+    if (nonRetryableCredentialErrors.some(credError => 
+      error.name.includes(credError) || 
+      error.message.includes(credError)
+    )) {
+      return false;
+    }
+
     return retryableErrors.some(retryableError => 
       error.name.includes(retryableError) || 
       error.message.includes(retryableError)
@@ -276,11 +292,39 @@ export class ContentAnalyzer {
   }
 
   private enhanceAnalysisError(error: Error): Error {
-    if (error.name === 'ExpiredTokenException') {
+    // Handle specific AWS credential errors
+    if (error.name.includes('InvalidClientTokenId') || error.message.includes('InvalidClientTokenId')) {
       const enhancedError = new Error(
-        'Content analysis failed: AWS credentials have expired. Please refresh your AWS session token.'
+        'Content analysis failed: AWS credentials are invalid or expired. Please refresh your AWS session token.'
+      );
+      enhancedError.name = 'AnalysisCredentialsInvalidError';
+      enhancedError.stack = error.stack;
+      return enhancedError;
+    }
+
+    if (error.name.includes('UnrecognizedClientException') || error.message.includes('UnrecognizedClientException')) {
+      const enhancedError = new Error(
+        'Content analysis failed: AWS client not recognized. Please check your credentials and region configuration.'
+      );
+      enhancedError.name = 'AnalysisCredentialsInvalidError';
+      enhancedError.stack = error.stack;
+      return enhancedError;
+    }
+
+    if (error.name === 'ExpiredTokenException' || error.message.includes('ExpiredTokenException')) {
+      const enhancedError = new Error(
+        'Content analysis failed: AWS session token has expired. Please refresh your AWS session token.'
       );
       enhancedError.name = 'AnalysisCredentialsExpiredError';
+      enhancedError.stack = error.stack;
+      return enhancedError;
+    }
+
+    if (error.name.includes('AccessDeniedException') || error.message.includes('AccessDeniedException')) {
+      const enhancedError = new Error(
+        'Content analysis failed: Access denied to AWS Bedrock. Please check your IAM permissions.'
+      );
+      enhancedError.name = 'AnalysisAccessDeniedError';
       enhancedError.stack = error.stack;
       return enhancedError;
     }
@@ -560,7 +604,7 @@ export class ContentAnalyzer {
         contentType: 'application/json',
         accept: 'application/json',
         body: JSON.stringify({
-          anthropic_version: '2023-06-01',
+          anthropic_version: 'bedrock-2023-05-31',
           max_tokens: 1500,
           temperature: 0.7,
           system: `You are an expert competitive analyst. Analyze website changes and provide strategic insights.

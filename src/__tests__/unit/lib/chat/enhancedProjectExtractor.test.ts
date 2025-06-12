@@ -99,7 +99,7 @@ describe('EnhancedProjectExtractor', () => {
       expect(result.data?.userEmail).toBe('john@startup.com');
       expect(result.data?.frequency).toBe('weekly');
       expect(result.data?.projectName).toBe('Startup Competitive Analysis');
-      expect(result.data?.productWebsite).toBe('https://mystartup.com');
+      expect(result.data?.productWebsite).toBe('https://mystartup.com/');
       expect(result.data?.productName).toBe('MyStartup Tool');
     });
 
@@ -118,7 +118,7 @@ describe('EnhancedProjectExtractor', () => {
       expect(result.data?.userEmail).toBe('sarah@foodtech.com');
       expect(result.data?.frequency).toBe('monthly');
       expect(result.data?.projectName).toBe('Food Delivery Analysis');
-      expect(result.data?.productWebsite).toBe('https://fooddelivery.app');
+      expect(result.data?.productWebsite).toBe('https://fooddelivery.app/');
       expect(result.data?.industry).toBe('Food Technology');
     });
 

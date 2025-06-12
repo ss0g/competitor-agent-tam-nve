@@ -64,3 +64,4 @@ logs
 # Environment backup files
 .env.backup.*
 .env.*.backup
+.env.bak

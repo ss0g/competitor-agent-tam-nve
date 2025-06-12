@@ -16,16 +16,18 @@ jest.mock('@/lib/repositories', () => ({
   },
 }));
 
-// Mock the scraper
+// Mock the scraper functions
+jest.mock('@/lib/scraper', () => ({
+  WebsiteScraper: jest.fn().mockImplementation(() => ({
+    takeSnapshot: jest.fn(),
+    close: jest.fn(),
+  })),
+}));
+
 const mockTakeSnapshot = jest.fn();
 const mockClose = jest.fn();
 
-jest.mock('@/lib/scraper', () => ({
-  WebsiteScraper: jest.fn().mockImplementation(() => ({
-    takeSnapshot: mockTakeSnapshot,
-    close: mockClose,
-  })),
-}));
+const mockWebsiteScraper = WebsiteScraper as jest.MockedClass<typeof WebsiteScraper>;
 
 const mockProductRepository = productRepository as jest.Mocked<typeof productRepository>;
 const mockProductSnapshotRepository = productSnapshotRepository as jest.Mocked<typeof productSnapshotRepository>;
@@ -37,6 +39,12 @@ describe('ProductScrapingService', () => {
   let mockWebsiteSnapshot: any;
 
       beforeEach(() => {
+    // Set up mock implementations before creating the service
+    (WebsiteScraper as jest.MockedClass<typeof WebsiteScraper>).mockImplementation(() => ({
+      takeSnapshot: mockTakeSnapshot,
+      close: mockClose,
+    } as any));
+    
     productScrapingService = new ProductScrapingService();
     
     mockProduct = {
@@ -177,13 +185,13 @@ describe('ProductScrapingService', () => {
     it('should successfully scrape product by ID', async () => {
       mockProductRepository.findById.mockResolvedValue(mockProduct);
       mockProductRepository.findByWebsite.mockResolvedValue(mockProduct);
-      mockWebsiteScraper.prototype.takeSnapshot.mockResolvedValue(mockWebsiteSnapshot);
+      mockTakeSnapshot.mockResolvedValue(mockWebsiteSnapshot);
       mockProductSnapshotRepository.create.mockResolvedValue(mockProductSnapshot);
 
       const result = await productScrapingService.scrapeProductById('prod_123');
 
       expect(mockProductRepository.findById).toHaveBeenCalledWith('prod_123');
-      expect(mockWebsiteScraper.prototype.takeSnapshot).toHaveBeenCalledWith('https://hellofresh.com');
+      expect(mockTakeSnapshot).toHaveBeenCalledWith('https://hellofresh.com');
       expect(result).toEqual(mockProductSnapshot);
     });
 
@@ -195,7 +203,7 @@ describe('ProductScrapingService', () => {
       ).rejects.toThrow('Product not found with ID: nonexistent');
 
       expect(mockProductRepository.findById).toHaveBeenCalledWith('nonexistent');
-      expect(mockWebsiteScraper.prototype.takeSnapshot).not.toHaveBeenCalled();
+      expect(mockTakeSnapshot).not.toHaveBeenCalled();
     });
   });
 
@@ -218,7 +226,7 @@ describe('ProductScrapingService', () => {
       mockProductRepository.findByWebsite
         .mockResolvedValueOnce(products[0])
         .mockResolvedValueOnce(products[1]);
-      mockWebsiteScraper.prototype.takeSnapshot
+      mockTakeSnapshot
         .mockResolvedValueOnce({ ...mockWebsiteSnapshot, url: 'https://product1.com' })
         .mockResolvedValueOnce({ ...mockWebsiteSnapshot, url: 'https://product2.com' });
       mockProductSnapshotRepository.create
@@ -230,7 +238,7 @@ describe('ProductScrapingService', () => {
       expect(mockProductRepository.list).toHaveBeenCalled();
       expect(result).toHaveLength(2);
       expect(result).toEqual(snapshots);
-      expect(mockWebsiteScraper.prototype.takeSnapshot).toHaveBeenCalledTimes(2);
+      expect(mockTakeSnapshot).toHaveBeenCalledTimes(2);
     });
 
     it('should handle empty project with no products', async () => {
@@ -240,7 +248,7 @@ describe('ProductScrapingService', () => {
 
       expect(mockProductRepository.list).toHaveBeenCalled();
       expect(result).toEqual([]);
-      expect(mockWebsiteScraper.prototype.takeSnapshot).not.toHaveBeenCalled();
+      expect(mockTakeSnapshot).not.toHaveBeenCalled();
     });
 
     it('should continue scraping other products when one fails', async () => {
@@ -258,7 +266,7 @@ describe('ProductScrapingService', () => {
       mockProductRepository.findByWebsite
         .mockRejectedValueOnce(new Error('Scraping failed for product 1'))
         .mockResolvedValueOnce(products[1]);
-      mockWebsiteScraper.prototype.takeSnapshot
+      mockTakeSnapshot
         .mockResolvedValueOnce({ ...mockWebsiteSnapshot, url: 'https://product2.com' });
       mockProductSnapshotRepository.create
         .mockResolvedValueOnce(successfulSnapshot);
@@ -331,7 +339,7 @@ describe('ProductScrapingService', () => {
     it('should close the website scraper', async () => {
       await productScrapingService.cleanup();
 
-      expect(mockWebsiteScraper.prototype.close).toHaveBeenCalled();
+      expect(mockClose).toHaveBeenCalled();
     });
   });
 
@@ -339,7 +347,7 @@ describe('ProductScrapingService', () => {
     it('should handle complete product scraping workflow', async () => {
       // Test the full workflow: scrape product → get status
       mockProductRepository.findByWebsite.mockResolvedValue(mockProduct);
-      mockWebsiteScraper.prototype.takeSnapshot.mockResolvedValue(mockWebsiteSnapshot);
+      mockTakeSnapshot.mockResolvedValue(mockWebsiteSnapshot);
       mockProductSnapshotRepository.create.mockResolvedValue(mockProductSnapshot);
 
       // Step 1: Scrape a product
@@ -367,7 +375,7 @@ describe('ProductScrapingService', () => {
       // First product succeeds
       mockProductRepository.findById.mockResolvedValueOnce(products[0]);
       mockProductRepository.findByWebsite.mockResolvedValueOnce(products[0]);
-      mockWebsiteScraper.prototype.takeSnapshot.mockResolvedValueOnce(mockWebsiteSnapshot);
+      mockTakeSnapshot.mockResolvedValueOnce(mockWebsiteSnapshot);
       mockProductSnapshotRepository.create.mockResolvedValueOnce(mockProductSnapshot);
 
       // Second product fails
@@ -377,7 +385,7 @@ describe('ProductScrapingService', () => {
       // Third product succeeds
       mockProductRepository.findById.mockResolvedValueOnce(products[2]);
       mockProductRepository.findByWebsite.mockResolvedValueOnce(products[2]);
-      mockWebsiteScraper.prototype.takeSnapshot.mockResolvedValueOnce(mockWebsiteSnapshot);
+      mockTakeSnapshot.mockResolvedValueOnce(mockWebsiteSnapshot);
       mockProductSnapshotRepository.create.mockResolvedValueOnce({ ...mockProductSnapshot, id: 'snap_3' });
 
       const result = await productScrapingService.triggerManualProductScraping('proj_456');

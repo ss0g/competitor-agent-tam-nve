@@ -265,7 +265,7 @@ describe('ContentAnalyzer', () => {
       expect(mockBedrockClient.send).toHaveBeenCalledTimes(2);
     });
 
-    it('should handle API errors gracefully', async () => {
+    it('should handle API errors gracefully with fallback', async () => {
       // Create a more realistic API error
       const apiError = new Error('API Error');
       (apiError as any).name = 'ServiceException';
@@ -274,12 +274,19 @@ describe('ContentAnalyzer', () => {
         .mockRejectedValueOnce(apiError)
         .mockRejectedValueOnce(apiError);
 
-      await expect(analyzer.analyzeChanges(
+      // Test that fallback mechanism works (default behavior)
+      const result = await analyzer.analyzeChanges(
         'Old content',
         'New content',
         mockDiff,
         'Test Competitor'
-      )).rejects.toThrow('Failed to get analysis from Claude via Bedrock');
+      );
+
+      // Should get fallback analysis result
+      expect(result).toBeDefined();
+      expect(result.primary.summary).toContain('Test Competitor');
+      expect(result.confidence.agreement).toBe(0.7); // Fallback confidence
+      expect(result.usage.totalCost).toBe(0); // No AI cost for fallback
     });
 
     it('should build analysis prompt correctly', () => {

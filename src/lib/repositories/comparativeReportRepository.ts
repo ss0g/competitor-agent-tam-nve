@@ -564,5 +564,6 @@ ${sections}
   }
 }
 
-// Default export
+// Export both the class and the instance
+export { FileBasedComparativeReportRepository as ComparativeReportRepository };
 export const comparativeReportRepository = new FileBasedComparativeReportRepository(); 
