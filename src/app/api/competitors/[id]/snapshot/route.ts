@@ -33,7 +33,6 @@ export async function POST(
     const competitor = await prisma.competitor.findFirst({
       where: {
         id: params.id,
-        userId: mockUser.id,
       },
     });
 
@@ -44,22 +43,13 @@ export async function POST(
     // Take a snapshot
     const scraper = new WebsiteScraper();
     try {
-      const snapshot = await scraper.takeSnapshot(competitor.url);
+      const snapshot = await scraper.takeSnapshot(competitor.website);
 
       // Store the snapshot in the database
       const savedSnapshot = await prisma.snapshot.create({
         data: {
           competitorId: competitor.id,
-          url: snapshot.url,
-          title: snapshot.title,
-          description: snapshot.description,
-          html: snapshot.html,
-          text: snapshot.text,
-          timestamp: snapshot.timestamp,
-          statusCode: snapshot.metadata.statusCode,
-          headers: snapshot.metadata.headers,
-          contentLength: snapshot.metadata.contentLength,
-          lastModified: snapshot.metadata.lastModified,
+          metadata: JSON.parse(JSON.stringify(snapshot)),
         },
       });
 

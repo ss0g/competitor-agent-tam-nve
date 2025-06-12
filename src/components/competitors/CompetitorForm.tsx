@@ -7,7 +7,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 
 const competitorSchema = z.object({
   name: z.string().min(1, 'Name is required'),
-  url: z.string().url('Please enter a valid URL'),
+  website: z.string().url('Please enter a valid URL'),
   description: z.string().optional(),
 })
 
@@ -65,18 +65,18 @@ export function CompetitorForm({ initialData, onSubmit, isLoading }: CompetitorF
       </div>
 
       <div>
-        <label htmlFor="url" className="block text-sm font-medium text-gray-700">
+        <label htmlFor="website" className="block text-sm font-medium text-gray-700">
           Website URL
         </label>
         <input
           type="url"
-          id="url"
-          {...register('url')}
+          id="website"
+          {...register('website')}
           className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
           placeholder="https://www.example.com"
         />
-        {errors.url && (
-          <p className="mt-1 text-sm text-red-600">{errors.url.message}</p>
+        {errors.website && (
+          <p className="mt-1 text-sm text-red-600">{errors.website.message}</p>
         )}
       </div>
 

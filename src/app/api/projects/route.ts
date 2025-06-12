@@ -3,6 +3,8 @@ import { prisma } from '@/lib/prisma';
 import { getAutoReportService } from '@/services/autoReportGenerationService';
 import { logger, trackBusinessEvent, generateCorrelationId } from '@/lib/logger';
 import { ProductScrapingService } from '@/services/productScrapingService';
+import { SmartSchedulingService } from '@/services/smartSchedulingService';
+import { smartAIService } from '@/services/smartAIService'; // PHASE AI-2: Import SmartAIService
 import { productRepository } from '@/lib/repositories';
 
 // Default mock user for testing without authentication
@@ -65,6 +67,10 @@ interface EnhancedProjectRequest {
   autoGenerateInitialReport?: boolean;
   reportName?: string;
   parameters?: any;
+  // PHASE AI-2: Auto-AI analysis configuration
+  enableAIAnalysis?: boolean;       // Auto-enable AI analysis for ACTIVE projects (default: true)
+  aiAnalysisTypes?: ('competitive' | 'trend' | 'comprehensive')[];
+  aiAutoTrigger?: boolean;          // Trigger initial AI analysis immediately
 }
 
 // POST /api/projects
@@ -128,6 +134,7 @@ export async function POST(request: Request) {
         data: {
           name: json.name,
           description: json.description,
+          status: 'ACTIVE', // ← PHASE 1.3: Auto-activate projects
           userId: mockUser.id,
           parameters: {
             ...json.parameters || {},
@@ -164,13 +171,144 @@ export async function POST(request: Request) {
 
     const finalResult = { project: result.project, product };
 
+    // ← PHASE 1.3: Trigger smart scheduling immediately after project creation
+    let smartSchedulingStatus = null;
+    try {
+      const smartScheduler = new SmartSchedulingService();
+      smartSchedulingStatus = await smartScheduler.checkAndTriggerScraping(finalResult.project.id);
+      
+      logger.info('Smart scheduling triggered successfully', {
+        ...context,
+        projectId: finalResult.project.id,
+        smartSchedulingTriggered: smartSchedulingStatus.triggered,
+        tasksExecuted: smartSchedulingStatus.tasksExecuted
+      });
+    } catch (schedulingError) {
+      logger.warn('Smart scheduling failed but project creation successful', {
+        ...context,
+        projectId: finalResult.project.id,
+        error: (schedulingError as Error).message
+      });
+    }
+
+    // ← PHASE AI-2: Auto-setup AI analysis for ACTIVE projects
+    let aiAnalysisStatus = null;
+    const enableAIAnalysis = json.enableAIAnalysis !== false; // Default to true
+    const aiAnalysisTypes = json.aiAnalysisTypes || ['competitive', 'comprehensive'];
+    const aiAutoTrigger = json.aiAutoTrigger !== false; // Default to true
+
+    if (finalResult.project.status === 'ACTIVE' && enableAIAnalysis) {
+      try {
+        logger.info('Setting up AI analysis for ACTIVE project', {
+          ...context,
+          projectId: finalResult.project.id,
+          aiAnalysisTypes,
+          aiAutoTrigger
+        });
+
+        // Setup auto AI analysis configuration
+        const aiFrequency = json.frequency === 'biweekly' ? 'weekly' : 
+                           (json.frequency && ['daily', 'weekly', 'monthly'].includes(json.frequency)) ? 
+                           json.frequency as 'daily' | 'weekly' | 'monthly' : 'weekly';
+        
+        await smartAIService.setupAutoAnalysis(finalResult.project.id, {
+          frequency: aiFrequency,
+          analysisTypes: aiAnalysisTypes,
+          autoTrigger: aiAutoTrigger,
+          dataCutoffDays: 7
+        });
+
+        // If auto-trigger is enabled, perform initial AI analysis with fresh data
+        if (aiAutoTrigger && smartSchedulingStatus?.triggered) {
+          // Wait a moment for scraping to stabilize
+          await new Promise(resolve => setTimeout(resolve, 3000));
+          
+          logger.info('Triggering initial AI analysis', {
+            ...context,
+            projectId: finalResult.project.id,
+            analysisTypes: aiAnalysisTypes
+          });
+
+          const initialAnalysis = await smartAIService.analyzeWithSmartScheduling({
+            projectId: finalResult.project.id,
+            analysisType: 'comprehensive',
+            forceFreshData: false, // Data should be fresh from smart scheduling
+            context: { 
+              setupReason: 'initial_project_creation',
+              projectName: finalResult.project.name,
+              productWebsite: json.productWebsite
+            }
+          });
+
+          aiAnalysisStatus = {
+            setupComplete: true,
+            initialAnalysisTriggered: true,
+            analysisLength: initialAnalysis.analysis.length,
+            dataFreshGuaranteed: initialAnalysis.analysisMetadata.dataFreshGuaranteed,
+            correlationId: initialAnalysis.analysisMetadata.correlationId
+          };
+
+          trackBusinessEvent('initial_ai_analysis_completed', {
+            ...context,
+            projectId: finalResult.project.id,
+            analysisCorrelationId: initialAnalysis.analysisMetadata.correlationId,
+            dataFreshGuaranteed: initialAnalysis.analysisMetadata.dataFreshGuaranteed
+          });
+        } else {
+          aiAnalysisStatus = {
+            setupComplete: true,
+            initialAnalysisTriggered: false,
+            reason: aiAutoTrigger ? 'waiting_for_data' : 'auto_trigger_disabled'
+          };
+        }
+
+        logger.info('AI analysis setup completed', {
+          ...context,
+          projectId: finalResult.project.id,
+          aiAnalysisStatus
+        });
+
+      } catch (aiError) {
+        logger.warn('AI analysis setup failed but project creation successful', {
+          ...context,
+          projectId: finalResult.project.id,
+          error: (aiError as Error).message
+        });
+
+        aiAnalysisStatus = {
+          setupComplete: false,
+          error: (aiError as Error).message,
+          initialAnalysisTriggered: false
+        };
+      }
+    } else {
+      logger.info('AI analysis not enabled for project', {
+        ...context,
+        projectId: finalResult.project.id,
+        status: finalResult.project.status,
+        enableAIAnalysis
+      });
+
+      aiAnalysisStatus = {
+        setupComplete: false,
+        reason: finalResult.project.status !== 'ACTIVE' ? 
+          'project_not_active' : 'ai_analysis_disabled',
+        initialAnalysisTriggered: false
+      };
+    }
+
     trackBusinessEvent('project_with_product_created_successfully', {
       ...context,
       projectId: finalResult.project.id,
       productId: finalResult.product.id,
       projectName: finalResult.project.name,
       productName: finalResult.product.name,
-      competitorCount: finalResult.project.competitors.length
+      competitorCount: finalResult.project.competitors.length,
+      smartSchedulingTriggered: smartSchedulingStatus?.triggered || false,
+      // PHASE AI-2: Track AI analysis setup
+      aiAnalysisEnabled: enableAIAnalysis,
+      aiAnalysisSetupComplete: aiAnalysisStatus?.setupComplete || false,
+      aiInitialAnalysisTriggered: aiAnalysisStatus?.initialAnalysisTriggered || false
     });
 
     logger.info('Project with product created successfully', {
@@ -179,7 +317,8 @@ export async function POST(request: Request) {
       productId: finalResult.product.id,
       projectName: finalResult.project.name,
       productName: finalResult.product.name,
-      competitorCount: finalResult.project.competitors.length
+      competitorCount: finalResult.project.competitors.length,
+      smartSchedulingStatus
     });
 
     const productScrapingService = new ProductScrapingService();
@@ -225,15 +364,15 @@ export async function POST(request: Request) {
         reportGenerationInfo = {
           initialReportQueued: true,
           taskId: reportTask.taskId,
-          queuePosition: reportTask.queuePosition,
-          estimatedCompletion: new Date(Date.now() + (reportTask.queuePosition * 120000)) // 2 min per report
+          queuePosition: reportTask.queuePosition || 0,
+          estimatedCompletion: new Date(Date.now() + ((reportTask.queuePosition || 0) * 120000)) // 2 min per report
         };
 
         trackBusinessEvent('initial_report_generation_queued', {
           ...context,
           projectId: result.project.id,
           taskId: reportTask.taskId,
-          queuePosition: reportTask.queuePosition
+          queuePosition: reportTask.queuePosition || 0
         });
 
         logger.info('Initial report generation queued', {
@@ -306,6 +445,8 @@ export async function POST(request: Request) {
       ...finalResult.project,
       product: finalResult.product,
       reportGeneration: reportGenerationInfo,
+      smartScheduling: smartSchedulingStatus, // ← PHASE 1.3: Include smart scheduling status in response
+      aiAnalysis: aiAnalysisStatus, // ← PHASE AI-2: Include AI analysis status in response
       correlationId
     };
 

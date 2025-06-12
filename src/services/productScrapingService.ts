@@ -1,7 +1,7 @@
 import { Product, ProductSnapshot, CreateProductSnapshotInput } from '@/types/product';
 import { productRepository, productSnapshotRepository } from '@/lib/repositories';
 import { WebsiteScraper, WebsiteSnapshot } from '@/lib/scraper';
-import { logger } from '@/lib/logger';
+import { logger, generateCorrelationId, trackErrorWithCorrelation, trackPerformance } from '@/lib/logger';
 import { ReportScheduleFrequency } from '@prisma/client';
 import prisma from '@/lib/prisma';
 
@@ -17,88 +17,272 @@ export interface ProductScrapingStatus {
   totalSnapshots: number;
 }
 
+// Enhanced interfaces for Phase 1.1
+export interface ScrapingResult {
+  success: boolean;
+  snapshot?: ProductSnapshot;
+  error?: Error;
+  attempts: number;
+  duration: number;
+}
+
+export interface ScrapedContent {
+  html: string;
+  text: string;
+  title: string;
+  metadata: any;
+  duration: number;
+}
+
 export class ProductScrapingService implements ProductScraper {
   private websiteScraper: WebsiteScraper;
+  private readonly MAX_RETRIES = 3;
+  private readonly MIN_CONTENT_LENGTH = 100;
+  private readonly BASE_RETRY_DELAY = 1000; // 1 second
 
   constructor() {
     this.websiteScraper = new WebsiteScraper();
   }
 
   /**
+   * Enhanced scraping with retry logic and content validation
+   * Phase 1.1 implementation for 90%+ success rate
+   */
+  public async scrapeProductWebsite(productId: string): Promise<ProductSnapshot> {
+    const correlationId = generateCorrelationId();
+    const context = { productId, correlationId, operation: 'scrapeProductWebsite' };
+    
+    try {
+      logger.info('Product scraping started', context);
+      
+      const product = await productRepository.findById(productId);
+      
+      if (!product) {
+        throw new Error(`Product ${productId} not found`);
+      }
+
+      // Enhanced scraping with retry logic
+      const scrapedData = await this.scrapeWithRetry(product.website, this.MAX_RETRIES, correlationId);
+      
+      // Validate scraped content
+      if (!scrapedData.html || scrapedData.html.length < this.MIN_CONTENT_LENGTH) {
+        throw new Error(`Insufficient content scraped from ${product.website}. Got ${scrapedData.html?.length || 0} characters, minimum required: ${this.MIN_CONTENT_LENGTH}`);
+      }
+
+      // Create enhanced snapshot with comprehensive metadata
+      const productSnapshotData: CreateProductSnapshotInput = {
+        productId,
+        content: {
+          html: scrapedData.html,
+          text: scrapedData.text,
+          title: scrapedData.title,
+          description: '', // Add default description
+          url: product.website,
+          timestamp: new Date()
+        },
+        metadata: {
+          scrapedAt: new Date().toISOString(),
+          correlationId,
+          url: product.website,
+          contentLength: scrapedData.html.length,
+          scrapingDuration: scrapedData.duration,
+          textLength: scrapedData.text?.length || 0,
+          titleLength: scrapedData.title?.length || 0,
+          scrapingMethod: 'enhanced_retry',
+          validationPassed: true,
+          retryCount: 0, // Will be updated by retry logic
+          headers: scrapedData.metadata?.headers || {},
+          statusCode: scrapedData.metadata?.statusCode || 200,
+          lastModified: scrapedData.metadata?.lastModified,
+          scrapingTimestamp: new Date(),
+          htmlLength: scrapedData.html.length
+        }
+      };
+
+      const snapshot = await productSnapshotRepository.create(productSnapshotData);
+      
+      logger.info('Product scraping completed successfully', {
+        ...context,
+        snapshotId: snapshot.id,
+        contentLength: scrapedData.html.length,
+        textLength: scrapedData.text?.length || 0,
+        scrapingDuration: scrapedData.duration
+      });
+      
+      return snapshot;
+    } catch (error) {
+      trackErrorWithCorrelation(
+        error as Error,
+        'scrapeProductWebsite',
+        correlationId,
+        {
+          ...context,
+          service: 'ProductScrapingService',
+          method: 'scrapeProductWebsite',
+          isRecoverable: false,
+          suggestedAction: 'Check product website URL and network connectivity'
+        }
+      );
+      throw error;
+    }
+  }
+
+  /**
+   * Enhanced retry logic with exponential backoff
+   * Phase 1.1 core enhancement for reliability
+   */
+  private async scrapeWithRetry(
+    url: string, 
+    maxRetries: number, 
+    correlationId: string
+  ): Promise<ScrapedContent> {
+    const startTime = Date.now();
+    let lastError: Error | null = null;
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      const attemptContext = { 
+        url, 
+        attempt, 
+        maxRetries, 
+        correlationId,
+        operation: 'scrapeWithRetry'
+      };
+
+      try {
+        logger.info(`Scraping attempt ${attempt}/${maxRetries}`, attemptContext);
+        
+        const attemptStartTime = Date.now();
+        const websiteSnapshot: WebsiteSnapshot = await this.websiteScraper.takeSnapshot(url);
+        const attemptDuration = Date.now() - attemptStartTime;
+
+        // Validate content immediately after scraping
+        if (!websiteSnapshot.html || websiteSnapshot.html.length < this.MIN_CONTENT_LENGTH) {
+          throw new Error(`Insufficient content from attempt ${attempt}. Got ${websiteSnapshot.html?.length || 0} characters`);
+        }
+
+        // Success - track performance and return
+        trackPerformance('product_scraping_attempt_success', attemptDuration, {
+          ...attemptContext,
+          contentLength: websiteSnapshot.html.length
+        });
+
+        logger.info('Scraping attempt succeeded', {
+          ...attemptContext,
+          contentLength: websiteSnapshot.html.length,
+          duration: attemptDuration
+        });
+
+        return {
+          html: websiteSnapshot.html,
+          text: websiteSnapshot.text,
+          title: websiteSnapshot.title,
+          metadata: websiteSnapshot.metadata,
+          duration: Date.now() - startTime
+        };
+
+      } catch (error) {
+        lastError = error as Error;
+        
+        trackErrorWithCorrelation(
+          lastError,
+          'scrapeWithRetry',
+          correlationId,
+          {
+            ...attemptContext,
+            service: 'ProductScrapingService',
+            method: 'scrapeWithRetry',
+            retryAttempt: attempt,
+            maxRetries,
+            isRecoverable: attempt < maxRetries,
+            suggestedAction: attempt < maxRetries ? 'Will retry with exponential backoff' : 'All retries exhausted'
+          }
+        );
+
+        if (attempt === maxRetries) {
+          throw new Error(`All ${maxRetries} scraping attempts failed. Last error: ${lastError.message}`);
+        }
+        
+        // Exponential backoff with jitter
+        const delay = Math.pow(2, attempt) * this.BASE_RETRY_DELAY + Math.random() * 1000;
+        logger.warn(`Scraping attempt ${attempt} failed, retrying in ${delay}ms`, { 
+          ...attemptContext, 
+          error: lastError.message, 
+          nextRetryDelay: delay 
+        });
+        
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+
+    throw lastError;
+  }
+
+  /**
    * Scrapes a product website and stores the snapshot
+   * Enhanced version with validation and error handling
    */
   public async scrapeProduct(productUrl: string): Promise<ProductSnapshot> {
-    const context = { productUrl };
+    const correlationId = generateCorrelationId();
+    const context = { productUrl, correlationId, operation: 'scrapeProduct' };
     logger.info('Starting product website scraping', context);
 
     try {
-      // Use the existing website scraper to get the content
-      const websiteSnapshot: WebsiteSnapshot = await this.websiteScraper.takeSnapshot(productUrl);
-
       // Find the product by URL to get the productId
       const product = await productRepository.findByWebsite(productUrl);
       if (!product) {
         throw new Error(`No product found with website URL: ${productUrl}`);
       }
 
-      // Convert website snapshot to product snapshot format
-      const productSnapshotData: CreateProductSnapshotInput = {
-        productId: product.id,
-        content: {
-          html: websiteSnapshot.html,
-          text: websiteSnapshot.text,
-          title: websiteSnapshot.title,
-          description: websiteSnapshot.description,
-          url: websiteSnapshot.url,
-          timestamp: websiteSnapshot.timestamp
-        },
-        metadata: {
-          headers: websiteSnapshot.metadata.headers,
-          statusCode: websiteSnapshot.metadata.statusCode,
-          contentLength: websiteSnapshot.metadata.contentLength,
-          lastModified: websiteSnapshot.metadata.lastModified,
-          scrapingTimestamp: new Date(),
-          scrapingMethod: 'automated',
-          textLength: websiteSnapshot.text.length,
-          htmlLength: websiteSnapshot.html.length
-        }
-      };
-
-      // Store the product snapshot
-      const productSnapshot = await productSnapshotRepository.create(productSnapshotData);
-
-      logger.info('Product website scraping completed successfully', {
-        ...context,
-        productId: product.id,
-        productName: product.name,
-        snapshotId: productSnapshot.id,
-        contentLength: websiteSnapshot.html.length,
-        statusCode: websiteSnapshot.metadata.statusCode
-      });
-
-      return productSnapshot;
+      // Use the enhanced scraping method
+      return await this.scrapeProductWebsite(product.id);
+      
     } catch (error) {
-      logger.error('Failed to scrape product website', error as Error, context);
+      trackErrorWithCorrelation(
+        error as Error,
+        'scrapeProduct',
+        correlationId,
+        {
+          ...context,
+          service: 'ProductScrapingService',
+          method: 'scrapeProduct',
+          isRecoverable: false
+        }
+      );
       throw error;
     }
   }
 
   /**
    * Scrapes a product by its ID
+   * Enhanced with correlation tracking
    */
   public async scrapeProductById(productId: string): Promise<ProductSnapshot> {
-    const product = await productRepository.findById(productId);
-    if (!product) {
-      throw new Error(`Product not found with ID: ${productId}`);
+    const correlationId = generateCorrelationId();
+    const context = { productId, correlationId, operation: 'scrapeProductById' };
+
+    try {
+      const product = await productRepository.findById(productId);
+      if (!product) {
+        throw new Error(`Product not found with ID: ${productId}`);
+      }
+
+      logger.info('Scraping product by ID', { 
+        ...context,
+        productName: product.name, 
+        productUrl: product.website 
+      });
+
+      return await this.scrapeProductWebsite(productId);
+      
+    } catch (error) {
+      trackErrorWithCorrelation(
+        error as Error,
+        'scrapeProductById',
+        correlationId,
+        context
+      );
+      throw error;
     }
-
-    logger.info('Scraping product by ID', { 
-      productId, 
-      productName: product.name, 
-      productUrl: product.website 
-    });
-
-    return this.scrapeProduct(product.website);
   }
 
   /**
