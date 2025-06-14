@@ -3,8 +3,46 @@ import { UserExperienceAnalyzer } from '@/services/analysis/userExperienceAnalyz
 import { ComparativeAnalysis } from '@/types/analysis';
 import { Product, ProductSnapshot } from '@/types/product';
 
+// Create a mock class that will replace the real UserExperienceAnalyzer
+const MockUserExperienceAnalyzer = jest.fn().mockImplementation(() => ({
+  analyzeProductVsCompetitors: jest.fn().mockResolvedValue({
+    summary: 'Strong UX foundation with room for mobile improvements',
+    strengths: ['Clean design', 'Fast loading', 'Intuitive navigation'],
+    weaknesses: ['Limited mobile optimization', 'Accessibility gaps'],
+    opportunities: ['Mobile-first redesign', 'Voice interface'],
+    recommendations: [
+      'Implement responsive design',
+      'Add accessibility features',
+      'Optimize mobile performance',
+      'Enhance user onboarding',
+      'Improve search functionality',
+      'Add dark mode support'
+    ],
+    competitorComparisons: [
+      {
+        competitorName: 'Competitor 1',
+        competitorWebsite: 'https://competitor1.com',
+        strengths: ['Better mobile experience'],
+        weaknesses: ['Slower loading times'],
+        keyDifferences: ['Different navigation approach'],
+        learnings: ['Mobile-first design principles']
+      }
+    ],
+    confidence: 0.85,
+    metadata: {
+      correlationId: 'test-correlation-id',
+      analyzedAt: '2024-01-01T00:00:00Z',
+      competitorCount: 1,
+      analysisType: 'ux_focused'
+    }
+  })
+}));
+
 // Mock the dependencies
-jest.mock('@/services/analysis/userExperienceAnalyzer');
+jest.mock('@/services/analysis/userExperienceAnalyzer', () => ({
+  UserExperienceAnalyzer: MockUserExperienceAnalyzer
+}));
+
 jest.mock('@/services/bedrock/bedrock.service', () => ({
   BedrockService: jest.fn().mockImplementation(() => ({
     generateCompletion: jest.fn().mockResolvedValue('Mock AI response')
@@ -32,11 +70,61 @@ describe('ComparativeReportService - UX Enhancement', () => {
     // Reset mocks
     jest.clearAllMocks();
     
-    // Create service instance
+    // Create service instance 
     service = new ComparativeReportService();
     
-    // Get the mocked UX analyzer
-    mockUXAnalyzer = (service as any).uxAnalyzer as jest.Mocked<UserExperienceAnalyzer>;
+    // Create a mock UX analyzer and directly assign it to the service
+    mockUXAnalyzer = {
+      analyzeProductVsCompetitors: jest.fn().mockResolvedValue({
+        summary: 'Strong UX foundation with room for mobile improvements',
+        strengths: ['Clean design', 'Fast loading', 'Intuitive navigation'],
+        weaknesses: ['Limited mobile optimization', 'Accessibility gaps'],
+        opportunities: ['Mobile-first redesign', 'Voice interface'],
+        recommendations: [
+          'Implement responsive design',
+          'Add accessibility features',
+          'Optimize mobile performance',
+          'Enhance user onboarding',
+          'Improve search functionality',
+          'Add dark mode support'
+        ],
+        competitorComparisons: [
+          {
+            competitorName: 'Competitor 1',
+            competitorWebsite: 'https://competitor1.com',
+            strengths: ['Better mobile experience'],
+            weaknesses: ['Slower loading times'],
+            keyDifferences: ['Different navigation approach'],
+            learnings: ['Mobile-first design principles']
+          }
+        ],
+        confidence: 0.85,
+        metadata: {
+          correlationId: 'test-correlation-id',
+          analyzedAt: '2024-01-01T00:00:00Z',
+          competitorCount: 1,
+          analysisType: 'ux_focused'
+        }
+      }),
+      generateFocusedAnalysis: jest.fn().mockResolvedValue({
+        summary: 'Focused UX analysis',
+        strengths: [],
+        weaknesses: [],
+        opportunities: [],
+        recommendations: [],
+        competitorComparisons: [],
+        confidence: 0.8,
+        metadata: {
+          correlationId: 'test-correlation-id',
+          analyzedAt: '2024-01-01T00:00:00Z',
+          competitorCount: 0,
+          analysisType: 'ux_focused'
+        }
+      })
+    } as unknown as jest.Mocked<UserExperienceAnalyzer>;
+    
+    // Directly replace the service's uxAnalyzer with our mock
+    (service as any).uxAnalyzer = mockUXAnalyzer;
     
     // Setup mock data
     mockAnalysis = {
@@ -188,39 +276,6 @@ describe('ComparativeReportService - UX Enhancement', () => {
         }
       }
     ];
-
-    // Mock UX analyzer response
-    mockUXAnalyzer.analyzeProductVsCompetitors.mockResolvedValue({
-      summary: 'Strong UX foundation with room for mobile improvements',
-      strengths: ['Clean design', 'Fast loading', 'Intuitive navigation'],
-      weaknesses: ['Limited mobile optimization', 'Accessibility gaps'],
-      opportunities: ['Mobile-first redesign', 'Voice interface'],
-      recommendations: [
-        'Implement responsive design',
-        'Add accessibility features',
-        'Optimize mobile performance',
-        'Enhance user onboarding',
-        'Improve search functionality',
-        'Add dark mode support'
-      ],
-      competitorComparisons: [
-        {
-          competitorName: 'Competitor 1',
-          competitorWebsite: 'https://competitor1.com',
-          strengths: ['Better mobile experience'],
-          weaknesses: ['Slower loading times'],
-          keyDifferences: ['Different navigation approach'],
-          learnings: ['Mobile-first design principles']
-        }
-      ],
-      confidence: 0.85,
-      metadata: {
-        correlationId: 'test-correlation-id',
-        analyzedAt: '2024-01-01T00:00:00Z',
-        competitorCount: 1,
-        analysisType: 'ux_focused'
-      }
-    });
   });
 
   describe('generateUXEnhancedReport', () => {

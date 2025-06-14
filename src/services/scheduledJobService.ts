@@ -351,6 +351,9 @@ export class ScheduledJobService {
   }
 }
 
+// Add default export for compatibility with import statements
+export default ScheduledJobService;
+
 // Export singleton instance
 let scheduledJobServiceInstance: ScheduledJobService | null = null;
 

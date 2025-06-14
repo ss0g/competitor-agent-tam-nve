@@ -3,12 +3,14 @@ import { ComparativeReportService } from '@/services/reports/comparativeReportSe
 import { UserExperienceAnalyzer } from '@/services/analysis/userExperienceAnalyzer';
 import { AutoReportGenerationService } from '@/services/autoReportGenerationService';
 import { logger } from '@/lib/logger';
+import { WorkflowMocks } from './mocks/workflowMocks';
 
 describe('Cross-Service Integration Tests', () => {
   let analysisService: ComparativeAnalysisService;
   let reportService: ComparativeReportService;
   let uxAnalyzer: UserExperienceAnalyzer;
   let autoReportService: AutoReportGenerationService;
+  let mockWorkflow: any;
 
   beforeAll(async () => {
     // Initialize services
@@ -17,7 +19,9 @@ describe('Cross-Service Integration Tests', () => {
     uxAnalyzer = new UserExperienceAnalyzer();
     autoReportService = new AutoReportGenerationService();
 
-    logger.info('Integration Test Setup Complete');
+    // Initialize realistic data flow patterns with workflow mocks
+    mockWorkflow = WorkflowMocks.createAnalysisToReportWorkflow();
+    logger.info('Integration Test Setup Complete with Workflow Mocks');
   });
 
   describe('Phase 4.1: Integration Testing', () => {
@@ -497,6 +501,300 @@ describe('Cross-Service Integration Tests', () => {
       // This would typically check database connections, external service availability, etc.
       
       logger.info('Service initialization validation completed');
+    });
+  });
+
+  describe('Phase 7.1b: Realistic Data Flow Patterns', () => {
+    it('should integrate analysis service with report service using realistic data flow', async () => {
+      // Mock analysis input with realistic structure
+      const mockAnalysisInput = {
+        product: {
+          id: 'integration-product-001',
+          name: 'Integration Test Product',
+          website: 'https://integrationtest.com',
+          positioning: 'Test positioning',
+          customerData: 'Test customers',
+          userProblem: 'Test problem',
+          industry: 'Test Industry'
+        },
+        productSnapshot: {
+          id: 'integration-snapshot-001',
+          productId: 'integration-product-001',
+          content: {
+            title: 'Integration Test Product',
+            description: 'Product for integration testing',
+            features: ['Feature 1', 'Feature 2', 'Feature 3'],
+            text: 'Detailed product content for analysis'
+          },
+          metadata: {
+            url: 'https://integrationtest.com',
+            scrapedAt: new Date().toISOString()
+          },
+          createdAt: new Date()
+        },
+        competitors: [
+          {
+            competitor: {
+              id: 'integration-comp-001',
+              name: 'Integration Competitor A',
+              website: 'https://competitora-integration.com',
+              description: 'Test competitor A',
+              industry: 'Test Industry',
+              createdAt: new Date(),
+              updatedAt: new Date()
+            },
+            snapshot: {
+              id: 'integration-comp-snapshot-001',
+              competitorId: 'integration-comp-001',
+              metadata: {
+                title: 'Competitor A',
+                description: 'Competitor A for testing',
+                features: ['Comp Feature 1', 'Comp Feature 2']
+              },
+              createdAt: new Date(),
+              updatedAt: new Date()
+            }
+          }
+        ]
+      };
+
+      // Step 1: Generate comparative analysis using workflow mock
+      const analysis = await mockWorkflow.analysisService.analyzeProductVsCompetitors(mockAnalysisInput);
+
+      // Validate realistic analysis response with proper data flow
+      expect(analysis).toBeDefined();
+      expect(analysis.id).toBeDefined();
+      expect(analysis.productId).toBe(mockAnalysisInput.product.id);
+      expect(analysis.competitorIds).toContain('integration-comp-001');
+      expect(analysis.metadata.correlationId).toBeDefined();
+      expect(analysis.metadata.inputProductId).toBe(mockAnalysisInput.product.id);
+      expect(analysis.metadata.competitorCount).toBe(1);
+
+      // Step 2: Generate report using analysis data with realistic data flow
+      const mockProduct = {
+        id: mockAnalysisInput.product.id,
+        name: mockAnalysisInput.product.name,
+        website: mockAnalysisInput.product.website,
+        positioning: mockAnalysisInput.product.positioning,
+        customerData: mockAnalysisInput.product.customerData,
+        userProblem: mockAnalysisInput.product.userProblem,
+        industry: mockAnalysisInput.product.industry,
+        projectId: 'integration-project-001',
+        createdAt: new Date(),
+        updatedAt: new Date()
+      };
+
+      const reportResult = await mockWorkflow.reportService.generateComparativeReport(
+        analysis,
+        mockProduct,
+        mockAnalysisInput.productSnapshot,
+        { template: 'comprehensive', format: 'markdown' }
+      );
+
+      // Validate realistic report generation with proper data flow
+      expect(reportResult).toBeDefined();
+      expect(reportResult.report).toBeDefined();
+      expect(reportResult.report.analysisId).toBe(analysis.id);
+      expect(reportResult.report.productId).toBe(mockProduct.id);
+      expect(reportResult.report.metadata.correlationId).toBe(analysis.metadata.correlationId);
+      expect(reportResult.report.metadata.basedOnAnalysis).toBe(analysis.id);
+      expect(reportResult.report.sections.length).toBeGreaterThan(0);
+      
+      // Verify content is based on analysis data
+      const executiveSummary = reportResult.report.sections.find(s => s.id === 'executive-summary');
+      expect(executiveSummary?.content).toContain(analysis.id);
+      expect(executiveSummary?.content).toContain(analysis.summary.overallPosition);
+
+      // Step 3: Store report with realistic repository workflow
+      const storedReport = await mockWorkflow.repository.create(reportResult.report);
+
+      // Validate realistic repository storage with data flow
+      expect(storedReport.id).toBe(reportResult.report.id);
+      expect(storedReport.analysisId).toBe(analysis.id);
+      expect(storedReport.metadata.correlationId).toBe(analysis.metadata.correlationId);
+
+      // Step 4: Verify realistic data flow patterns
+      const workflowExecution = mockWorkflow.verifyWorkflowExecution();
+      expect(workflowExecution.analysisServiceCalled).toBe(true);
+      expect(workflowExecution.reportServiceCalled).toBe(true);
+      expect(workflowExecution.repositoryCalled).toBe(true);
+      expect(workflowExecution.workflowCompleted).toBe(true);
+
+      const dataFlow = mockWorkflow.verifyDataFlow();
+      expect(dataFlow.dataFlowValid).toBe(true);
+      expect(dataFlow.validationErrors).toHaveLength(0);
+      expect(dataFlow.servicesConnected).toBe(3);
+
+      logger.info('Realistic data flow pattern validation completed', {
+        analysisId: analysis.id,
+        reportId: reportResult.report.id,
+        correlationId: analysis.metadata.correlationId,
+        workflowCompleted: workflowExecution.workflowCompleted,
+        dataFlowValid: dataFlow.dataFlowValid
+      });
+    });
+
+    it('should validate UX analyzer integration with realistic data flow patterns', async () => {
+      // Create UX analyzer workflow
+      const uxWorkflow = WorkflowMocks.createUXAnalyzerWorkflow();
+
+      // Mock UX analysis data with realistic structure
+      const mockProductData = {
+        id: 'ux-integration-snapshot',
+        productId: 'ux-integration-product',
+        content: {
+          title: 'UX Integration Test Product',
+          description: 'Product for UX integration testing',
+          features: ['UX Feature 1', 'UX Feature 2'],
+          navigation: 'Modern sidebar navigation',
+          userExperience: 'Clean, intuitive interface'
+        },
+        metadata: {
+          url: 'https://uxintegrationtest.com',
+          scrapedAt: new Date().toISOString()
+        },
+        createdAt: new Date(),
+        product: {
+          name: 'UX Integration Test Product',
+          website: 'https://uxintegrationtest.com'
+        }
+      };
+
+      const mockCompetitorData = [
+        {
+          id: 'ux-comp-snapshot-001',
+          competitorId: 'ux-comp-001',
+          metadata: {
+            title: 'UX Competitor A',
+            description: 'UX competitor for testing',
+            features: ['UX Comp Feature 1'],
+            navigation: 'Traditional menu navigation',
+            userExperience: 'Functional but dated interface'
+          },
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          competitor: {
+            name: 'UX Competitor A',
+            website: 'https://uxcompetitora.com'
+          }
+        }
+      ];
+
+      // Generate UX analysis with realistic workflow
+      const uxAnalysis = await uxWorkflow.uxAnalyzer.analyzeProductVsCompetitors(
+        mockProductData,
+        mockCompetitorData,
+        { focus: 'both', includeTechnical: true, includeAccessibility: true }
+      );
+
+      // Validate realistic UX analysis response
+      expect(uxAnalysis).toBeDefined();
+      expect(uxAnalysis.summary).toBeDefined();
+      expect(uxAnalysis.recommendations).toBeInstanceOf(Array);
+      expect(uxAnalysis.confidence).toBeGreaterThan(0);
+      expect(uxAnalysis.metadata.correlationId).toBeDefined();
+      expect(uxAnalysis.metadata.competitorsAnalyzed).toBe(1);
+
+      // Verify UX workflow execution
+      const uxWorkflowExecution = uxWorkflow.verifyUXWorkflow();
+      expect(uxWorkflowExecution.uxAnalyzerCalled).toBe(true);
+
+      logger.info('UX analyzer realistic data flow validation completed', {
+        uxSummary: uxAnalysis.summary,
+        confidence: uxAnalysis.confidence,
+        correlationId: uxAnalysis.metadata.correlationId,
+        competitorsAnalyzed: uxAnalysis.metadata.competitorsAnalyzed
+      });
+    });
+
+    it('should validate cross-service data flow with UX-enhanced report generation', async () => {
+      // Use main workflow for cross-service integration
+      const analysisInput = {
+        product: {
+          id: 'cross-service-product',
+          name: 'Cross-Service Test Product',
+          website: 'https://crossservice.com'
+        },
+        competitors: [
+          {
+            competitor: { id: 'cross-comp-1', name: 'Cross Competitor' },
+            snapshot: { id: 'cross-snapshot-1', competitorId: 'cross-comp-1' }
+          }
+        ]
+      };
+
+      // Step 1: Generate analysis
+      const analysis = await mockWorkflow.analysisService.analyzeProductVsCompetitors(analysisInput);
+      
+      // Step 2: Generate UX-enhanced report with cross-service data flow
+      const mockCompetitorSnapshots = [
+        {
+          competitor: { name: 'Cross Competitor', website: 'https://crosscompetitor.com' },
+          snapshot: {
+            id: 'cross-snapshot-1',
+            competitorId: 'cross-comp-1',
+            metadata: { title: 'Cross Competitor', features: ['Cross Feature'] }
+          }
+        }
+      ];
+
+      const uxReportResult = await mockWorkflow.reportService.generateUXEnhancedReport(
+        analysis,
+        analysisInput.product,
+        { id: 'product-snapshot', content: { features: ['Product Feature'] }},
+        mockCompetitorSnapshots
+      );
+
+      // Validate cross-service data flow in UX-enhanced report
+      expect(uxReportResult.report.analysisId).toBe(analysis.id);
+      expect(uxReportResult.report.metadata.correlationId).toBe(analysis.metadata.correlationId);
+      expect(uxReportResult.report.metadata.uxIntegration).toBe(true);
+      expect(uxReportResult.report.metadata.competitorsAnalyzed).toBe(1);
+      expect(uxReportResult.report.uxAnalysisData).toBeDefined();
+
+      // Verify data flow maintains correlation throughout the workflow
+      expect(uxReportResult.report.metadata.correlationId).toBe(analysis.metadata.correlationId);
+
+      logger.info('Cross-service UX integration data flow validated', {
+        analysisId: analysis.id,
+        uxReportId: uxReportResult.report.id,
+        correlationId: analysis.metadata.correlationId,
+        uxIntegration: uxReportResult.report.metadata.uxIntegration
+      });
+    });
+
+    it('should validate error handling in realistic data flow patterns', async () => {
+      // Test error handling with invalid input
+      await expect(
+        mockWorkflow.analysisService.analyzeProductVsCompetitors({})
+      ).rejects.toThrow('Invalid analysis input for workflow');
+
+      // Test error handling with missing correlation data
+      const invalidAnalysis = { id: 'invalid', metadata: {} };
+      await expect(
+        mockWorkflow.reportService.generateComparativeReport(
+          invalidAnalysis,
+          { id: 'product' },
+          {},
+          {}
+        )
+      ).rejects.toThrow('Analysis missing required correlation metadata for report generation');
+
+      // Test error handling with missing product data
+      const validAnalysis = {
+        id: 'valid',
+        metadata: { correlationId: 'test-correlation' }
+      };
+      await expect(
+        mockWorkflow.reportService.generateComparativeReport(
+          validAnalysis,
+          {},
+          {},
+          {}
+        )
+      ).rejects.toThrow('Product data missing for report generation');
+
+      logger.info('Error handling validation in realistic data flow patterns completed');
     });
   });
 }); 

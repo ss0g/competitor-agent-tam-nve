@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, JSX } from 'react';
 import { ReportData } from '@/types/report';
 import { useObservability } from '@/hooks/useObservability';
 
@@ -160,68 +160,106 @@ interface ReportSectionProps {
 function ReportSectionComponent({ section }: ReportSectionProps) {
   // Process content to handle markdown-like formatting
   const processContent = (content: string) => {
-    // Split content into paragraphs and handle basic formatting
-    const paragraphs = content.split('\n\n').filter(p => p.trim());
+    const elements: JSX.Element[] = [];
+    let elementIndex = 0;
     
-    return paragraphs.map((paragraph, index) => {
-      const trimmed = paragraph.trim();
+    // Split content into lines and process more granularly
+    const lines = content.split('\n');
+    let i = 0;
+    
+    while (i < lines.length) {
+      const line = lines[i].trim();
+      
+      if (!line) {
+        i++;
+        continue;
+      }
+      
+      // Handle sub-headers (### or ####)
+      if (line.startsWith('### ') || line.startsWith('#### ')) {
+        const headerText = line.replace(/^#{3,4}\s+/, '');
+        elements.push(
+          <h3 key={elementIndex++} className="text-lg font-semibold text-gray-800 mt-6 mb-3">
+            {headerText}
+          </h3>
+        );
+        i++;
+        continue;
+      }
       
       // Handle bullet points
-      if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
-        const items = trimmed.split('\n').filter(line => 
-          line.trim().startsWith('- ') || line.trim().startsWith('* ')
-        );
+      if (line.startsWith('- ') || line.startsWith('* ')) {
+        const items: string[] = [];
         
-        return (
-          <ul key={index} className="list-disc list-inside space-y-1 mb-4">
+        // Collect consecutive bullet points
+        while (i < lines.length && (lines[i].trim().startsWith('- ') || lines[i].trim().startsWith('* '))) {
+          items.push(lines[i].trim().replace(/^[-*]\s+/, ''));
+          i++;
+        }
+        
+        elements.push(
+          <ul key={elementIndex++} className="list-disc list-inside space-y-1 mb-4">
             {items.map((item, itemIndex) => (
               <li key={itemIndex} className="text-gray-700">
-                {item.replace(/^[-*]\s+/, '')}
+                {item}
               </li>
             ))}
           </ul>
         );
+        continue;
       }
       
       // Handle numbered lists
-      if (/^\d+\.\s/.test(trimmed)) {
-        const items = trimmed.split('\n').filter(line => 
-          /^\d+\.\s/.test(line.trim())
-        );
+      if (/^\d+\.\s/.test(line)) {
+        const items: string[] = [];
         
-        return (
-          <ol key={index} className="list-decimal list-inside space-y-1 mb-4">
+        // Collect consecutive numbered items
+        while (i < lines.length && /^\d+\.\s/.test(lines[i].trim())) {
+          items.push(lines[i].trim().replace(/^\d+\.\s+/, ''));
+          i++;
+        }
+        
+        elements.push(
+          <ol key={elementIndex++} className="list-decimal list-inside space-y-1 mb-4">
             {items.map((item, itemIndex) => (
               <li key={itemIndex} className="text-gray-700">
-                {item.replace(/^\d+\.\s+/, '')}
+                {item}
               </li>
             ))}
           </ol>
         );
+        continue;
       }
       
-      // Handle sub-headers (### or ####)
-      if (trimmed.startsWith('### ') || trimmed.startsWith('#### ')) {
-        const headerText = trimmed.replace(/^#{3,4}\s+/, '');
-        return (
-          <h3 key={index} className="text-lg font-semibold text-gray-800 mt-6 mb-3">
-            {headerText}
-          </h3>
+      // Handle regular paragraphs
+      const paragraphLines: string[] = [];
+      
+      // Collect lines until we hit an empty line or special formatting
+      while (i < lines.length && lines[i].trim() && 
+             !lines[i].trim().startsWith('### ') && 
+             !lines[i].trim().startsWith('#### ') &&
+             !lines[i].trim().startsWith('- ') && 
+             !lines[i].trim().startsWith('* ') &&
+             !/^\d+\.\s/.test(lines[i].trim())) {
+        paragraphLines.push(lines[i].trim());
+        i++;
+      }
+      
+      if (paragraphLines.length > 0) {
+        const paragraphText = paragraphLines.join(' ');
+        const processedText = paragraphText.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+        
+        elements.push(
+          <p 
+            key={elementIndex++} 
+            className="text-gray-700 leading-relaxed mb-4"
+            dangerouslySetInnerHTML={{ __html: processedText }}
+          />
         );
       }
-      
-      // Handle bold text (**text**)
-      const processedText = trimmed.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-      
-      // Regular paragraphs
-      return (
-        <p 
-          key={index} 
-          className="text-gray-700 leading-relaxed mb-4"
-          dangerouslySetInnerHTML={{ __html: processedText }}
-        />
-      );
-    });
+    }
+    
+    return elements;
   };
 
   return (

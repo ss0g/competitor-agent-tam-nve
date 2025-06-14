@@ -171,7 +171,10 @@ describe('ReportsPage - Read Report Feature (Step 1)', () => {
       render(<ReportsPage />);
       
       expect(screen.queryByText('Read Report')).not.toBeInTheDocument();
-      expect(screen.getByText(/loading/i)).toBeInTheDocument();
+      // The component shows a spinner - look for the element with animate-spin class
+      const spinner = document.querySelector('.animate-spin');
+      expect(spinner).toBeInTheDocument();
+      expect(spinner).toHaveClass('rounded-full', 'border-b-2', 'border-blue-600');
     });
 
     it('should not show Read Report buttons when reports list is empty', async () => {
@@ -195,7 +198,7 @@ describe('ReportsPage - Read Report Feature (Step 1)', () => {
 
       await waitFor(() => {
         expect(screen.queryByText('Read Report')).not.toBeInTheDocument();
-        expect(screen.getByText('Failed to fetch reports')).toBeInTheDocument();
+        expect(screen.getByText('Network error')).toBeInTheDocument();
       });
     });
   });

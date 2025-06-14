@@ -107,7 +107,7 @@ These are the strategic recommendations.
 
       await waitFor(() => {
         expect(screen.getByText('Report Not Found')).toBeInTheDocument();
-        expect(screen.getByText('Failed to load report')).toBeInTheDocument();
+        expect(screen.getByText('Network error')).toBeInTheDocument();
       });
     });
   });

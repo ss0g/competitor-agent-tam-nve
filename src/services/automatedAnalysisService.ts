@@ -464,6 +464,9 @@ export class AutomatedAnalysisService {
   }
 }
 
+// Add default export for compatibility with import statements
+export default AutomatedAnalysisService;
+
 // Export singleton instance
 let automatedAnalysisServiceInstance: AutomatedAnalysisService | null = null;
 

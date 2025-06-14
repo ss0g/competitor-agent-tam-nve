@@ -1,6 +1,9 @@
 import { UserExperienceAnalyzer } from '@/services/analysis/userExperienceAnalyzer';
 import { Snapshot } from '@prisma/client';
 
+// Bypass any global mocks for this service
+jest.unmock('@/services/analysis/userExperienceAnalyzer');
+
 // Mock the BedrockService
 jest.mock('@/services/bedrock/bedrock.service', () => ({
   BedrockService: jest.fn().mockImplementation(() => ({

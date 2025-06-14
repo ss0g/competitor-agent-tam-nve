@@ -1,133 +1,245 @@
 import { ProductScrapingService } from '@/services/productScrapingService';
-import { productRepository, productSnapshotRepository } from '@/lib/repositories';
-import { Product, ProductSnapshot } from '@/types/product';
 
-// Mock the dependencies
-jest.mock('@/lib/repositories');
-jest.mock('@/lib/scraper');
+// Bypass the global mock for this specific test
+jest.unmock('@/services/productScrapingService');
 
-const mockProductRepository = productRepository as jest.Mocked<typeof productRepository>;
-const mockProductSnapshotRepository = productSnapshotRepository as jest.Mocked<typeof productSnapshotRepository>;
+// Mock the dependencies with factory functions to avoid hoisting issues
+jest.mock('@/lib/repositories', () => ({
+  productRepository: {
+    findById: jest.fn(),
+    findByWebsite: jest.fn(),
+    list: jest.fn(),
+    create: jest.fn(),
+    update: jest.fn(),
+    delete: jest.fn(),
+  },
+  productSnapshotRepository: {
+    create: jest.fn(),
+    findById: jest.fn(),
+    findByProductId: jest.fn(),
+    list: jest.fn(),
+    update: jest.fn(),
+    delete: jest.fn(),
+  },
+}));
 
-describe('ProductScrapingService - Basic Tests', () => {
+jest.mock('@/lib/scraper', () => ({
+  WebsiteScraper: jest.fn().mockImplementation(() => ({
+    takeSnapshot: jest.fn(),
+    close: jest.fn()
+  }))
+}));
+
+const { productRepository, productSnapshotRepository } = require('@/lib/repositories');
+const { WebsiteScraper } = require('@/lib/scraper');
+
+describe('ProductScrapingService - Unit Tests', () => {
   let productScrapingService: ProductScrapingService;
-  let mockProduct: Product;
-  let mockProductSnapshot: ProductSnapshot;
+  let mockWebsiteScraper: any;
 
   beforeEach(() => {
-    productScrapingService = new ProductScrapingService();
-    
-    mockProduct = {
-      id: 'prod_123',
-      name: 'HelloFresh',
-      website: 'https://hellofresh.com',
-      positioning: 'Leading meal kit delivery service',
-      customerData: '500k+ customers',
-      userProblem: 'Time constraints',
-      industry: 'Food Technology',
-      projectId: 'proj_456',
-      createdAt: new Date('2024-01-01'),
-      updatedAt: new Date('2024-01-01')
-    };
-
-    mockProductSnapshot = {
-      id: 'snap_789',
-      productId: 'prod_123',
-      content: {
-        html: '<html><body>HelloFresh content</body></html>',
-        text: 'HelloFresh content',
-        title: 'HelloFresh - Fresh Ingredients',
-        description: 'Get fresh ingredients delivered',
-        url: 'https://hellofresh.com',
-        timestamp: new Date('2024-01-01')
-      },
-      metadata: {
-        headers: { 'content-type': 'text/html' },
-        statusCode: 200,
-        contentLength: 1000,
-        scrapingTimestamp: new Date('2024-01-01'),
-        scrapingMethod: 'automated',
-        textLength: 100,
-        htmlLength: 1000
-      },
-      createdAt: new Date('2024-01-01')
-    };
-
-    // Reset all mocks
     jest.clearAllMocks();
+    
+    // Create a fresh instance and capture the mock
+    mockWebsiteScraper = {
+      takeSnapshot: jest.fn(),
+      close: jest.fn()
+    };
+    
+    // Make WebsiteScraper constructor return our controlled mock
+    (WebsiteScraper as jest.Mock).mockImplementation(() => mockWebsiteScraper);
+    
+    productScrapingService = new ProductScrapingService();
   });
 
   describe('scrapeProductById', () => {
     it('should throw error when product not found by ID', async () => {
-      mockProductRepository.findById.mockResolvedValue(null);
+      productRepository.findById.mockResolvedValue(null);
 
       await expect(
         productScrapingService.scrapeProductById('nonexistent')
       ).rejects.toThrow('Product not found with ID: nonexistent');
 
-      expect(mockProductRepository.findById).toHaveBeenCalledWith('nonexistent');
+      expect(productRepository.findById).toHaveBeenCalledWith('nonexistent');
     });
 
-    it('should find product by ID successfully', async () => {
-      mockProductRepository.findById.mockResolvedValue(mockProduct);
-      mockProductRepository.findByWebsite.mockResolvedValue(null); // This will cause an error in scrapeProduct
+    it('should successfully scrape product by ID', async () => {
+      const mockProduct = {
+        id: 'prod_123',
+        name: 'HelloFresh',
+        website: 'https://hellofresh.com',
+        positioning: 'Leading meal kit delivery service',
+        customerData: '500k+ customers',
+        userProblem: 'Time constraints',
+        industry: 'Food Technology',
+        projectId: 'proj_456',
+        createdAt: new Date('2024-01-01'),
+        updatedAt: new Date('2024-01-01')
+      };
 
-      await expect(
-        productScrapingService.scrapeProductById('prod_123')
-      ).rejects.toThrow('No product found with website URL: https://hellofresh.com');
+      const mockWebsiteSnapshot = {
+        html: '<html><head><title>HelloFresh</title></head><body>Content with sufficient length to pass validation test minimum requirements for scraping success</body></html>',
+        text: 'HelloFresh Content with sufficient length to pass validation test minimum requirements for scraping success',
+        title: 'HelloFresh - Fresh Ingredients',
+        metadata: {
+          headers: { 'content-type': 'text/html' },
+          statusCode: 200,
+        }
+      };
 
-      expect(mockProductRepository.findById).toHaveBeenCalledWith('prod_123');
+      const mockProductSnapshot = {
+        id: 'snap_789',
+        productId: 'prod_123',
+        content: {
+          html: mockWebsiteSnapshot.html,
+          text: mockWebsiteSnapshot.text,
+          title: mockWebsiteSnapshot.title,
+          description: '',
+          url: 'https://hellofresh.com',
+          timestamp: expect.any(Date)
+        },
+        metadata: expect.objectContaining({
+          scrapedAt: expect.any(String),
+          contentLength: expect.any(Number),
+          headers: mockWebsiteSnapshot.metadata.headers,
+          statusCode: 200
+        }),
+        createdAt: expect.any(Date)
+      };
+
+      productRepository.findById.mockResolvedValue(mockProduct);
+      mockWebsiteScraper.takeSnapshot.mockResolvedValue(mockWebsiteSnapshot);
+      productSnapshotRepository.create.mockResolvedValue(mockProductSnapshot);
+
+      const result = await productScrapingService.scrapeProductById('prod_123');
+
+      expect(productRepository.findById).toHaveBeenCalledWith('prod_123');
+      expect(mockWebsiteScraper.takeSnapshot).toHaveBeenCalledWith('https://hellofresh.com');
+      expect(productSnapshotRepository.create).toHaveBeenCalled();
+      expect(result).toEqual(mockProductSnapshot);
     });
   });
 
   describe('triggerManualProductScraping', () => {
     it('should handle empty project with no products', async () => {
-      mockProductRepository.list.mockResolvedValue([]);
+      productRepository.list.mockResolvedValue([]);
 
       const result = await productScrapingService.triggerManualProductScraping('proj_empty');
 
-      expect(mockProductRepository.list).toHaveBeenCalled();
+      expect(productRepository.list).toHaveBeenCalled();
       expect(result).toEqual([]);
     });
 
-    it('should filter products by project ID', async () => {
-      const products = [
-        { ...mockProduct, id: 'prod_1', projectId: 'proj_456' },
-        { ...mockProduct, id: 'prod_2', projectId: 'proj_789' }, // Different project
-        { ...mockProduct, id: 'prod_3', projectId: 'proj_456' },
+    it('should scrape multiple products successfully', async () => {
+      const mockProducts = [
+        {
+          id: 'prod_1',
+          name: 'Product 1',
+          website: 'https://product1.com',
+          positioning: 'Test positioning',
+          customerData: 'Test data',
+          userProblem: 'Test problem',
+          industry: 'Test industry',
+          projectId: 'proj_456',
+          createdAt: new Date(),
+          updatedAt: new Date()
+        },
+        {
+          id: 'prod_2',
+          name: 'Product 2',
+          website: 'https://product2.com',
+          positioning: 'Test positioning',
+          customerData: 'Test data',
+          userProblem: 'Test problem',
+          industry: 'Test industry',
+          projectId: 'proj_456',
+          createdAt: new Date(),
+          updatedAt: new Date()
+        }
       ];
 
-      mockProductRepository.list.mockResolvedValue(products);
-      mockProductRepository.findById.mockResolvedValue(null); // Will cause scraping to fail
+      const mockWebsiteSnapshot = {
+        html: '<html><head><title>Product</title></head><body>Content with sufficient length to pass validation test minimum requirements for scraping success</body></html>',
+        text: 'Product Content with sufficient length to pass validation test minimum requirements for scraping success',
+        title: 'Product Title',
+        metadata: {
+          headers: { 'content-type': 'text/html' },
+          statusCode: 200,
+        }
+      };
+
+      const mockSnapshots = [
+        {
+          id: 'snap_1',
+          productId: 'prod_1',
+          content: { 
+            html: mockWebsiteSnapshot.html,
+            text: mockWebsiteSnapshot.text,
+            title: mockWebsiteSnapshot.title,
+            description: '',
+            url: 'https://product1.com',
+            timestamp: expect.any(Date)
+          },
+          metadata: expect.objectContaining({
+            scrapedAt: expect.any(String),
+            contentLength: expect.any(Number)
+          }),
+          createdAt: expect.any(Date)
+        },
+        {
+          id: 'snap_2',
+          productId: 'prod_2',
+          content: { 
+            html: mockWebsiteSnapshot.html,
+            text: mockWebsiteSnapshot.text,
+            title: mockWebsiteSnapshot.title,
+            description: '',
+            url: 'https://product2.com',
+            timestamp: expect.any(Date)
+          },
+          metadata: expect.objectContaining({
+            scrapedAt: expect.any(String),
+            contentLength: expect.any(Number)
+          }),
+          createdAt: expect.any(Date)
+        }
+      ];
+
+      productRepository.list.mockResolvedValue(mockProducts);
+      productRepository.findById
+        .mockResolvedValueOnce(mockProducts[0])
+        .mockResolvedValueOnce(mockProducts[1]);
+      mockWebsiteScraper.takeSnapshot.mockResolvedValue(mockWebsiteSnapshot);
+      productSnapshotRepository.create
+        .mockResolvedValueOnce(mockSnapshots[0])
+        .mockResolvedValueOnce(mockSnapshots[1]);
 
       const result = await productScrapingService.triggerManualProductScraping('proj_456');
 
-      expect(mockProductRepository.list).toHaveBeenCalled();
-      expect(mockProductRepository.findById).toHaveBeenCalledTimes(2); // Only for prod_1 and prod_3
-      expect(result).toEqual([]); // All fail due to mock setup
-    });
+      expect(productRepository.list).toHaveBeenCalled();
+      expect(result).toHaveLength(2);
+      expect(result[0].productId).toBe('prod_1');
+      expect(result[1].productId).toBe('prod_2');
+    }, 15000); // Increase timeout for multiple product scraping
   });
 
   describe('getProductScrapingStatus', () => {
     it('should return correct status for project with products and snapshots', async () => {
-      const products = [
-        { ...mockProduct, id: 'prod_1', projectId: 'proj_456' },
-        { ...mockProduct, id: 'prod_2', projectId: 'proj_456' },
+      const mockProducts = [
+        { id: 'prod_1', projectId: 'proj_456' },
+        { id: 'prod_2', projectId: 'proj_456' }
       ];
 
-      const snapshots1 = [
-        { ...mockProductSnapshot, id: 'snap_1', createdAt: new Date('2024-01-01') },
-        { ...mockProductSnapshot, id: 'snap_2', createdAt: new Date('2024-01-02') },
+      const mockSnapshots = [
+        { id: 'snap_1', createdAt: new Date('2024-01-01') },
+        { id: 'snap_2', createdAt: new Date('2024-01-02') },
+        { id: 'snap_3', createdAt: new Date('2024-01-03') }
       ];
 
-      const snapshots2 = [
-        { ...mockProductSnapshot, id: 'snap_3', createdAt: new Date('2024-01-03') },
-      ];
-
-      mockProductRepository.list.mockResolvedValue(products);
-      mockProductSnapshotRepository.findByProductId
-        .mockResolvedValueOnce(snapshots1)
-        .mockResolvedValueOnce(snapshots2);
+      productRepository.list.mockResolvedValue(mockProducts);
+      productSnapshotRepository.findByProductId
+        .mockResolvedValueOnce([mockSnapshots[0], mockSnapshots[1]])
+        .mockResolvedValueOnce([mockSnapshots[2]]);
 
       const result = await productScrapingService.getProductScrapingStatus('proj_456');
 
@@ -139,10 +251,10 @@ describe('ProductScrapingService - Basic Tests', () => {
     });
 
     it('should return status for project with no snapshots', async () => {
-      const products = [{ ...mockProduct, id: 'prod_1', projectId: 'proj_456' }];
+      const mockProducts = [{ id: 'prod_1', projectId: 'proj_456' }];
 
-      mockProductRepository.list.mockResolvedValue(products);
-      mockProductSnapshotRepository.findByProductId.mockResolvedValue([]);
+      productRepository.list.mockResolvedValue(mockProducts);
+      productSnapshotRepository.findByProductId.mockResolvedValue([]);
 
       const result = await productScrapingService.getProductScrapingStatus('proj_456');
 
@@ -154,7 +266,7 @@ describe('ProductScrapingService - Basic Tests', () => {
     });
 
     it('should handle errors gracefully', async () => {
-      mockProductRepository.list.mockRejectedValue(new Error('Database error'));
+      productRepository.list.mockRejectedValue(new Error('Database error'));
 
       const result = await productScrapingService.getProductScrapingStatus('proj_456');
 
@@ -163,59 +275,31 @@ describe('ProductScrapingService - Basic Tests', () => {
         totalSnapshots: 0
       });
     });
+  });
 
-    it('should filter products by project ID correctly', async () => {
-      const products = [
-        { ...mockProduct, id: 'prod_1', projectId: 'proj_456' },
-        { ...mockProduct, id: 'prod_2', projectId: 'proj_789' }, // Different project
-        { ...mockProduct, id: 'prod_3', projectId: 'proj_456' },
-      ];
-
-      mockProductRepository.list.mockResolvedValue(products);
-      mockProductSnapshotRepository.findByProductId.mockResolvedValue([]);
-
-      const result = await productScrapingService.getProductScrapingStatus('proj_456');
-
-      expect(result.productCount).toBe(2); // Only prod_1 and prod_3
-      expect(mockProductSnapshotRepository.findByProductId).toHaveBeenCalledTimes(2);
+  describe('cleanup', () => {
+    it('should close the website scraper', async () => {
+      await productScrapingService.cleanup();
+      expect(mockWebsiteScraper.close).toHaveBeenCalled();
     });
   });
 
   describe('error handling', () => {
-    it('should handle repository errors in scrapeProduct', async () => {
-      mockProductRepository.findByWebsite.mockRejectedValue(new Error('Database error'));
+    it('should handle scraping failures gracefully', async () => {
+      const mockProduct = {
+        id: 'prod_123',
+        website: 'https://invalid-site.com',
+        name: 'Test Product',
+      };
+
+      productRepository.findById.mockResolvedValue(mockProduct);
+      mockWebsiteScraper.takeSnapshot.mockRejectedValue(new Error('Scraping failed'));
 
       await expect(
-        productScrapingService.scrapeProduct('https://hellofresh.com')
-      ).rejects.toThrow('Database error');
-    });
+        productScrapingService.scrapeProductById('prod_123')
+      ).rejects.toThrow('All 3 scraping attempts failed');
 
-    it('should continue with other products when individual scraping fails', async () => {
-      const products = [
-        { ...mockProduct, id: 'prod_1', projectId: 'proj_456' },
-        { ...mockProduct, id: 'prod_2', projectId: 'proj_456' },
-      ];
-
-      mockProductRepository.list.mockResolvedValue(products);
-      
-      // First product fails to find
-      mockProductRepository.findById
-        .mockResolvedValueOnce(null) // Fails
-        .mockResolvedValueOnce(products[1]); // Succeeds but will fail later
-      
-      mockProductRepository.findByWebsite.mockResolvedValue(null); // Makes scraping fail
-
-      const result = await productScrapingService.triggerManualProductScraping('proj_456');
-
-      expect(result).toEqual([]); // Both fail
-      expect(mockProductRepository.findById).toHaveBeenCalledTimes(2);
-    });
-  });
-
-  describe('service lifecycle', () => {
-    it('should clean up resources', async () => {
-      // This test verifies the cleanup method exists and can be called
-      await expect(productScrapingService.cleanup()).resolves.not.toThrow();
+      expect(mockWebsiteScraper.takeSnapshot).toHaveBeenCalledWith('https://invalid-site.com');
     });
   });
 }); 

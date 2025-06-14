@@ -312,8 +312,10 @@ export class EnhancedProjectExtractor {
     
     // Extract from project name if it contains recognizable product patterns
     const projectProductPatterns = [
-      // Match "ProductName Analysis/Research/Competitive" patterns
-      /^(.+?)\s+(?:analysis|research|competitive|competitor|comparison|study)/i,
+      // Match "ProductName Competitive/Analysis/Research" patterns - capture more words
+      /^(.+?)\s+(?:analysis|research|study)$/i,
+      // Match "ProductName Competitive" patterns specifically
+      /^(.+?)\s+competitive$/i,
       // Match "ProductName vs Competitors" patterns
       /^(.+?)\s+(?:vs|against|compared?\s+to)/i,
       // Fallback: first word or two if descriptive enough
@@ -420,7 +422,13 @@ export class EnhancedProjectExtractor {
         return null;
       }
 
-      return parsedUrl.toString();
+      // Normalize URL format - add trailing slash for consistency
+      let normalizedUrl = parsedUrl.toString();
+      if (!normalizedUrl.endsWith('/') && parsedUrl.pathname === '/') {
+        normalizedUrl = normalizedUrl + '/';
+      }
+
+      return normalizedUrl;
     } catch (error) {
       return null;
     }

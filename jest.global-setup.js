@@ -27,12 +27,32 @@ module.exports = async () => {
     console.log('🗄️ Setting up test database...');
     // You can add database setup logic here if needed
   }
-  
-  // Create test reports directory structure
+
+  // Create comprehensive test reports directory structure
   const reportsDir = path.join(process.cwd(), 'test-reports');
+  const reportSubDirs = [
+    'jest-html-reporters-attach/regression-test-report',
+    'coverage',
+    'junit',
+    'html',
+    'screenshots',
+    'artifacts'
+  ];
+  
+  // Create main reports directory
   if (!fs.existsSync(reportsDir)) {
     fs.mkdirSync(reportsDir, { recursive: true });
+    console.log(`📁 Created test reports directory: ${reportsDir}`);
   }
+  
+  // Create all required subdirectories
+  reportSubDirs.forEach(subDir => {
+    const fullPath = path.join(reportsDir, subDir);
+    if (!fs.existsSync(fullPath)) {
+      fs.mkdirSync(fullPath, { recursive: true });
+      console.log(`📁 Created test reports subdirectory: ${subDir}`);
+    }
+  });
   
   // Generate test run timestamp
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-');

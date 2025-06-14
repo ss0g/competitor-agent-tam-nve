@@ -503,3 +503,6 @@ export class SmartSchedulingService {
     logger.info('SmartSchedulingService cleanup completed');
   }
 }
+
+// Add default export for compatibility with import statements
+export default SmartSchedulingService;

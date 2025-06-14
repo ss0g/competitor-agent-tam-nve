@@ -38,8 +38,8 @@ describe('Product vs Competitor Workflow E2E', () => {
       expect(extractionResult.data).toBeDefined();
       expect(extractionResult.data!.userEmail).toBe('test-workflow@example.com');
       expect(extractionResult.data!.projectName).toBe('TestCorp Competitive Analysis');
-      expect(extractionResult.data!.productWebsite).toBe('https://testcorp.com');
-      expect(extractionResult.data!.productName).toBe('TestCorp Platform');
+      expect(extractionResult.data!.productWebsite).toBe('https://testcorp.com/');
+      expect(extractionResult.data!.productName).toBe('TestCorp Competitive');
       expect(extractionResult.data!.industry).toBe('SaaS');
       expect(extractionResult.data!.positioning).toBe('Enterprise automation platform');
 

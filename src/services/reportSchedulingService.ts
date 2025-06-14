@@ -401,6 +401,9 @@ export class ReportSchedulingService {
   }
 }
 
+// Add default export for compatibility with import statements
+export default ReportSchedulingService;
+
 // Export singleton instance
 let reportSchedulingServiceInstance: ReportSchedulingService | null = null;
 

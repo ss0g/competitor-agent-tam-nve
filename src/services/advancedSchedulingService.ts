@@ -11,7 +11,7 @@
  */
 
 import { PrismaClient } from '@prisma/client';
-import { generateCorrelationId } from '../lib/correlation';
+import { generateCorrelationId } from '../lib/logger';
 import SmartSchedulingService from './smartSchedulingService';
 
 const prisma = new PrismaClient();

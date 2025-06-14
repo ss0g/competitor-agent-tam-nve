@@ -1,3 +1,6 @@
+// Unmock the logger for this test file to test the real implementation
+jest.unmock('@/lib/logger');
+
 import { 
   logger, 
   LogLevel, 
