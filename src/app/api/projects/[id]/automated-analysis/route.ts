@@ -10,10 +10,10 @@ import { getAutomatedAnalysisService } from '@/services/automatedAnalysisService
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
-    const projectId = params.id;
+    const projectId = (await context.params).id;
     
     if (!projectId) {
       return NextResponse.json(
@@ -46,10 +46,10 @@ export async function GET(
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
-    const projectId = params.id;
+    const projectId = (await context.params).id;
     
     if (!projectId) {
       return NextResponse.json(

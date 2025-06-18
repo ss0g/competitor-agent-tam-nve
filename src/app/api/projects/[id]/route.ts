@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { z } from 'zod';
 import { 
@@ -22,25 +22,25 @@ const updateProjectSchema = z.object({
 
 // GET /api/projects/[id]
 export async function GET(
-  request: Request,
-  { params }: { params: { id: string } }
+  request: NextRequest,
+  context: { params: Promise<{ id: string }> }
 ) {
   const correlationId = generateCorrelationId();
-  const context = {
-    endpoint: `/api/projects/${params.id}`,
+  const logContext = {
+    endpoint: `/api/projects/${(await context.params).id}`,
     method: 'GET',
     correlationId,
-    projectId: params.id
+    projectId: (await context.params).id
   };
 
   try {
-    trackCorrelation(correlationId, 'project_detail_request_received', context);
-    logger.info('Project detail request received', context);
+    trackCorrelation(correlationId, 'project_detail_request_received', logContext);
+    logger.info('Project detail request received', logContext);
 
     // Validate project ID
-    if (!params.id || params.id.length < 1) {
-      trackCorrelation(correlationId, 'invalid_project_id', context);
-      logger.warn('Invalid project ID provided', context);
+    if (!(await context.params).id || (await context.params).id.length < 1) {
+      trackCorrelation(correlationId, 'invalid_project_id', logContext);
+      logger.warn('Invalid project ID provided', logContext);
       return NextResponse.json({ 
         error: 'Invalid project ID',
         correlationId 
@@ -48,13 +48,13 @@ export async function GET(
     }
 
     trackDatabaseOperation('findUnique', 'project', {
-      ...context,
+      ...logContext,
       query: 'fetch project with relations'
     });
 
     const project = await prisma.project.findUnique({
       where: {
-        id: params.id
+        id: (await context.params).id
       },
       include: {
         competitors: {
@@ -77,30 +77,30 @@ export async function GET(
     });
 
     if (!project) {
-      trackCorrelation(correlationId, 'project_not_found', context);
+      trackCorrelation(correlationId, 'project_not_found', logContext);
       trackDatabaseOperation('findUnique', 'project', {
-        ...context,
+        ...logContext,
         success: true,
         recordData: { found: false }
       });
 
-      logger.warn('Project not found', context);
+      logger.warn('Project not found', logContext);
       return NextResponse.json({ 
         error: 'Project not found',
-        message: `No project found with ID: ${params.id}`,
+        message: `No project found with ID: ${(await context.params).id}`,
         correlationId 
       }, { status: 404 });
     }
 
     trackCorrelation(correlationId, 'project_detail_retrieved', {
-      ...context,
+      ...logContext,
       projectName: project.name,
       competitorsCount: project.competitors.length,
       projectStatus: project.status
     });
 
     trackDatabaseOperation('findUnique', 'project', {
-      ...context,
+      ...logContext,
       success: true,
       recordData: { 
         found: true,
@@ -111,7 +111,7 @@ export async function GET(
     });
 
     logger.info('Project detail retrieved successfully', {
-      ...context,
+      ...logContext,
       projectName: project.name,
       competitorsCount: project.competitors.length,
       projectStatus: project.status
@@ -124,12 +124,12 @@ export async function GET(
 
   } catch (error) {
     trackCorrelation(correlationId, 'project_detail_error', {
-      ...context,
+      ...logContext,
       errorMessage: (error as Error).message
     });
 
-    logger.error('Failed to fetch project details', error as Error, context);
-    trackError(error as Error, 'project_detail', context);
+    logger.error('Failed to fetch project details', error as Error, logContext);
+    trackError(error as Error, 'project_detail', logContext);
 
     return NextResponse.json({ 
       error: 'Internal Server Error',
@@ -141,25 +141,25 @@ export async function GET(
 
 // PUT /api/projects/[id]
 export async function PUT(
-  request: Request,
-  { params }: { params: { id: string } }
+  request: NextRequest,
+  context: { params: Promise<{ id: string }> }
 ) {
   const correlationId = generateCorrelationId();
-  const context = {
-    endpoint: `/api/projects/${params.id}`,
+  const logContext = {
+    endpoint: `/api/projects/${(await context.params).id}`,
     method: 'PUT',
     correlationId,
-    projectId: params.id
+    projectId: (await context.params).id
   };
 
   try {
-    trackCorrelation(correlationId, 'project_update_request_received', context);
-    logger.info('Project update request received', context);
+    trackCorrelation(correlationId, 'project_update_request_received', logContext);
+    logger.info('Project update request received', logContext);
 
     // Validate project ID
-    if (!params.id || params.id.length < 1) {
-      trackCorrelation(correlationId, 'invalid_project_id', context);
-      logger.warn('Invalid project ID provided', context);
+    if (!(await context.params).id || (await context.params).id.length < 1) {
+      trackCorrelation(correlationId, 'invalid_project_id', logContext);
+      logger.warn('Invalid project ID provided', logContext);
       return NextResponse.json({ 
         error: 'Invalid project ID',
         correlationId 
@@ -171,13 +171,13 @@ export async function PUT(
     try {
       json = await request.json();
       trackCorrelation(correlationId, 'request_body_parsed', {
-        ...context,
+        ...logContext,
         hasBody: true,
         updateFields: Object.keys(json)
       });
     } catch (parseError) {
-      trackCorrelation(correlationId, 'request_body_parse_failed', context);
-      logger.warn('Invalid JSON in request body', context);
+      trackCorrelation(correlationId, 'request_body_parse_failed', logContext);
+      logger.warn('Invalid JSON in request body', logContext);
       return NextResponse.json({ 
         error: 'Invalid JSON in request body',
         correlationId 
@@ -189,17 +189,17 @@ export async function PUT(
     try {
       validatedData = updateProjectSchema.parse(json);
       trackCorrelation(correlationId, 'input_validation_passed', {
-        ...context,
+        ...logContext,
         updateFields: Object.keys(validatedData)
       });
     } catch (validationError) {
       trackCorrelation(correlationId, 'input_validation_failed', {
-        ...context,
+        ...logContext,
         validationErrors: validationError instanceof z.ZodError ? validationError.errors : []
       });
       
       logger.warn('Project update validation failed', {
-        ...context,
+        ...logContext,
         validationErrors: validationError instanceof z.ZodError ? validationError.errors : []
       });
 
@@ -219,8 +219,8 @@ export async function PUT(
 
     // Check if update data is empty
     if (Object.keys(validatedData).length === 0) {
-      trackCorrelation(correlationId, 'empty_update_data', context);
-      logger.warn('No valid update fields provided', context);
+      trackCorrelation(correlationId, 'empty_update_data', logContext);
+      logger.warn('No valid update fields provided', logContext);
       return NextResponse.json({ 
         error: 'No valid update data provided',
         message: 'At least one field must be provided for update',
@@ -230,26 +230,26 @@ export async function PUT(
 
     // Check if project exists
     trackDatabaseOperation('findUnique', 'project', {
-      ...context,
+      ...logContext,
       query: 'check project exists before update'
     });
 
     const existingProject = await prisma.project.findUnique({
-      where: { id: params.id }
+      where: { id: (await context.params).id }
     });
 
     if (!existingProject) {
-      trackCorrelation(correlationId, 'project_not_found_for_update', context);
+      trackCorrelation(correlationId, 'project_not_found_for_update', logContext);
       trackDatabaseOperation('findUnique', 'project', {
-        ...context,
+        ...logContext,
         success: true,
         recordData: { found: false }
       });
 
-      logger.warn('Project not found for update', context);
+      logger.warn('Project not found for update', logContext);
       return NextResponse.json({ 
         error: 'Project not found',
-        message: `No project found with ID: ${params.id}`,
+        message: `No project found with ID: ${(await context.params).id}`,
         correlationId 
       }, { status: 404 });
     }
@@ -270,15 +270,15 @@ export async function PUT(
       };
     }
 
-    trackCorrelation(correlationId, 'project_update_started', context);
+    trackCorrelation(correlationId, 'project_update_started', logContext);
     trackDatabaseOperation('update', 'project', {
-      ...context,
+      ...logContext,
       recordData: { ...updateData, competitorIds }
     });
 
     const project = await prisma.project.update({
       where: {
-        id: params.id
+        id: (await context.params).id
       },
       data: updateData,
       include: {
@@ -294,18 +294,18 @@ export async function PUT(
     });
 
     trackCorrelation(correlationId, 'project_update_completed', {
-      ...context,
+      ...logContext,
       projectName: project.name
     });
 
     trackDatabaseOperation('update', 'project', {
-      ...context,
+      ...logContext,
       success: true,
       recordData: { name: project.name }
     });
 
     logger.info('Project updated successfully', {
-      ...context,
+      ...logContext,
       projectName: project.name
     });
 
@@ -316,12 +316,12 @@ export async function PUT(
 
   } catch (error) {
     trackCorrelation(correlationId, 'project_update_error', {
-      ...context,
+      ...logContext,
       errorMessage: (error as Error).message
     });
 
-    logger.error('Failed to update project', error as Error, context);
-    trackError(error as Error, 'project_update', context);
+    logger.error('Failed to update project', error as Error, logContext);
+    trackError(error as Error, 'project_update', logContext);
 
     return NextResponse.json({ 
       error: 'Internal Server Error',
@@ -333,25 +333,25 @@ export async function PUT(
 
 // DELETE /api/projects/[id]
 export async function DELETE(
-  request: Request,
-  { params }: { params: { id: string } }
+  request: NextRequest,
+  context: { params: Promise<{ id: string }> }
 ) {
   const correlationId = generateCorrelationId();
-  const context = {
-    endpoint: `/api/projects/${params.id}`,
+  const logContext = {
+    endpoint: `/api/projects/${(await context.params).id}`,
     method: 'DELETE',
     correlationId,
-    projectId: params.id
+    projectId: (await context.params).id
   };
 
   try {
-    trackCorrelation(correlationId, 'project_delete_request_received', context);
-    logger.info('Project delete request received', context);
+    trackCorrelation(correlationId, 'project_delete_request_received', logContext);
+    logger.info('Project delete request received', logContext);
 
     // Validate project ID
-    if (!params.id || params.id.length < 1) {
-      trackCorrelation(correlationId, 'invalid_project_id', context);
-      logger.warn('Invalid project ID provided', context);
+    if (!(await context.params).id || (await context.params).id.length < 1) {
+      trackCorrelation(correlationId, 'invalid_project_id', logContext);
+      logger.warn('Invalid project ID provided', logContext);
       return NextResponse.json({ 
         error: 'Invalid project ID',
         correlationId 
@@ -360,29 +360,29 @@ export async function DELETE(
 
     // Check if project exists
     trackDatabaseOperation('findUnique', 'project', {
-      ...context,
+      ...logContext,
       query: 'check project exists before delete'
     });
 
     const existingProject = await prisma.project.findUnique({
-      where: { id: params.id },
+      where: { id: (await context.params).id },
       include: {
         competitors: { select: { id: true } }
       }
     });
 
     if (!existingProject) {
-      trackCorrelation(correlationId, 'project_not_found_for_delete', context);
+      trackCorrelation(correlationId, 'project_not_found_for_delete', logContext);
       trackDatabaseOperation('findUnique', 'project', {
-        ...context,
+        ...logContext,
         success: true,
         recordData: { found: false }
       });
 
-      logger.warn('Project not found for deletion', context);
+      logger.warn('Project not found for deletion', logContext);
       return NextResponse.json({ 
         error: 'Project not found',
-        message: `No project found with ID: ${params.id}`,
+        message: `No project found with ID: ${(await context.params).id}`,
         correlationId 
       }, { status: 404 });
     }
@@ -392,13 +392,13 @@ export async function DELETE(
     };
 
     trackCorrelation(correlationId, 'project_delete_started', {
-      ...context,
+      ...logContext,
       projectName: existingProject.name,
       relatedDataCount
     });
 
     trackDatabaseOperation('delete', 'project', {
-      ...context,
+      ...logContext,
       recordData: { 
         name: existingProject.name,
         relatedDataCount
@@ -407,24 +407,24 @@ export async function DELETE(
 
     await prisma.project.delete({
       where: {
-        id: params.id
+        id: (await context.params).id
       }
     });
 
     trackCorrelation(correlationId, 'project_delete_completed', {
-      ...context,
+      ...logContext,
       projectName: existingProject.name,
       relatedDataCount
     });
 
     trackDatabaseOperation('delete', 'project', {
-      ...context,
+      ...logContext,
       success: true,
       recordData: { name: existingProject.name }
     });
 
     logger.info('Project deleted successfully', {
-      ...context,
+      ...logContext,
       projectName: existingProject.name,
       relatedDataCount
     });
@@ -441,12 +441,12 @@ export async function DELETE(
 
   } catch (error) {
     trackCorrelation(correlationId, 'project_delete_error', {
-      ...context,
+      ...logContext,
       errorMessage: (error as Error).message
     });
 
-    logger.error('Failed to delete project', error as Error, context);
-    trackError(error as Error, 'project_delete', context);
+    logger.error('Failed to delete project', error as Error, logContext);
+    trackError(error as Error, 'project_delete', logContext);
 
     return NextResponse.json({ 
       error: 'Internal Server Error',

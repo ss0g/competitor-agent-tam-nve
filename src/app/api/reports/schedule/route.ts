@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { getAutoReportService } from '@/services/autoReportGenerationService';
 import { handleAPIError } from '@/lib/utils/errorHandler';
 import { prisma } from '@/lib/prisma';

@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { WebsiteScraper } from '@/lib/scraper';
 
@@ -22,8 +22,8 @@ async function getOrCreateMockUser() {
 }
 
 export async function POST(
-  request: Request,
-  { params }: { params: { id: string } }
+  request: NextRequest,
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
     // Always use mock user (auth disabled)
@@ -32,7 +32,7 @@ export async function POST(
     // Get the competitor
     const competitor = await prisma.competitor.findFirst({
       where: {
-        id: params.id,
+        id: (await context.params).id,
       },
     });
 

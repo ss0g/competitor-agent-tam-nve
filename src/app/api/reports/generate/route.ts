@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { ReportGenerator } from '@/lib/reports';
 import { handleAPIError } from '@/lib/utils/errorHandler';
 import { 

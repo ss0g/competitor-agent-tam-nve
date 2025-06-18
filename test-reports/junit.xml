@@ -1,63 +1,60 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuites name="jest tests" tests="5" failures="3" errors="0" time="1.103">
-  <testsuite name="Product vs Competitor E2E Workflow" errors="0" failures="3" skipped="0" timestamp="2025-06-14T09:38:34" time="0.379" tests="5">
-    <testcase classname="Product vs Competitor E2E Workflow Complete Workflow: Chat → Project → Analysis → Report should process chat message and generate UX-enhanced comparative report" name="Product vs Competitor E2E Workflow Complete Workflow: Chat → Project → Analysis → Report should process chat message and generate UX-enhanced comparative report" time="0.005">
-      <failure>Error: expect(received).toBe(expected) // Object.is equality
-
-Expected: &quot;https://goodchop.com&quot;
-Received: &quot;https://goodchop.com/&quot;
-    at Object.&lt;anonymous&gt; (/Users/nikita.gorshkov/competitor-research-agent/src/__tests__/e2e/productVsCompetitorE2E.test.ts:179:49)
-    at processTicksAndRejections (node:internal/process/task_queues:105:5)</failure>
+<testsuites name="jest tests" tests="22" failures="0" errors="0" time="0.604">
+  <testsuite name="Data Integrity Regression Tests" errors="0" failures="0" skipped="9" timestamp="2025-06-17T20:26:15" time="0.329" tests="9">
+    <testcase classname="Data Integrity Regression Tests Database Operations should maintain referential integrity between competitors and snapshots" name="Data Integrity Regression Tests Database Operations should maintain referential integrity between competitors and snapshots" time="0">
+      <skipped/>
     </testcase>
-    <testcase classname="Product vs Competitor E2E Workflow Complete Workflow: Chat → Project → Analysis → Report should handle workflow with missing product data gracefully" name="Product vs Competitor E2E Workflow Complete Workflow: Chat → Project → Analysis → Report should handle workflow with missing product data gracefully" time="0.001">
-      <failure>Error: expect(received).toBe(expected) // Object.is equality
-
-Expected: false
-Received: true
-    at Object.&lt;anonymous&gt; (/Users/nikita.gorshkov/competitor-research-agent/src/__tests__/e2e/productVsCompetitorE2E.test.ts:338:46)
-    at Promise.then.completed (/Users/nikita.gorshkov/competitor-research-agent/node_modules/jest-circus/build/utils.js:298:28)
-    at new Promise (&lt;anonymous&gt;)
-    at callAsyncCircusFn (/Users/nikita.gorshkov/competitor-research-agent/node_modules/jest-circus/build/utils.js:231:10)
-    at _callCircusTest (/Users/nikita.gorshkov/competitor-research-agent/node_modules/jest-circus/build/run.js:316:40)
-    at processTicksAndRejections (node:internal/process/task_queues:105:5)
-    at _runTest (/Users/nikita.gorshkov/competitor-research-agent/node_modules/jest-circus/build/run.js:252:3)
-    at _runTestsForDescribeBlock (/Users/nikita.gorshkov/competitor-research-agent/node_modules/jest-circus/build/run.js:126:9)
-    at _runTestsForDescribeBlock (/Users/nikita.gorshkov/competitor-research-agent/node_modules/jest-circus/build/run.js:121:9)
-    at _runTestsForDescribeBlock (/Users/nikita.gorshkov/competitor-research-agent/node_modules/jest-circus/build/run.js:121:9)
-    at run (/Users/nikita.gorshkov/competitor-research-agent/node_modules/jest-circus/build/run.js:71:3)
-    at runAndTransformResultsToJestFormat (/Users/nikita.gorshkov/competitor-research-agent/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapterInit.js:122:21)
-    at jestAdapter (/Users/nikita.gorshkov/competitor-research-agent/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapter.js:79:19)
-    at runTestInternal (/Users/nikita.gorshkov/competitor-research-agent/node_modules/jest-runner/build/runTest.js:367:16)
-    at runTest (/Users/nikita.gorshkov/competitor-research-agent/node_modules/jest-runner/build/runTest.js:444:34)
-    at Object.worker (/Users/nikita.gorshkov/competitor-research-agent/node_modules/jest-runner/build/testWorker.js:106:12)</failure>
+    <testcase classname="Data Integrity Regression Tests Database Operations should handle concurrent database operations without corruption" name="Data Integrity Regression Tests Database Operations should handle concurrent database operations without corruption" time="0">
+      <skipped/>
     </testcase>
-    <testcase classname="Product vs Competitor E2E Workflow Complete Workflow: Chat → Project → Analysis → Report should validate performance requirements" name="Product vs Competitor E2E Workflow Complete Workflow: Chat → Project → Analysis → Report should validate performance requirements" time="0.001">
+    <testcase classname="Data Integrity Regression Tests Database Operations should validate data before storage" name="Data Integrity Regression Tests Database Operations should validate data before storage" time="0">
+      <skipped/>
     </testcase>
-    <testcase classname="Product vs Competitor E2E Workflow Error Handling and Recovery should handle invalid product websites gracefully" name="Product vs Competitor E2E Workflow Error Handling and Recovery should handle invalid product websites gracefully" time="0">
+    <testcase classname="Data Integrity Regression Tests Content Diff Integrity should maintain diff accuracy across multiple comparisons" name="Data Integrity Regression Tests Content Diff Integrity should maintain diff accuracy across multiple comparisons" time="0">
+      <skipped/>
     </testcase>
-    <testcase classname="Product vs Competitor E2E Workflow Error Handling and Recovery should provide helpful error messages for incomplete chat input" name="Product vs Competitor E2E Workflow Error Handling and Recovery should provide helpful error messages for incomplete chat input" time="0.001">
-      <failure>Error: expect(received).toContain(expected) // indexOf
-
-Expected value: StringContaining &quot;Consider including your product website URL for better analysis&quot;
-Received array: [&quot;Please specify the project name (e.g., \&quot;Project: Competitor Analysis\&quot;)&quot;, &quot;Consider including your product website URL for better analysis&quot;, &quot;&quot;, &quot;Example format:&quot;, &quot;user@company.com&quot;, &quot;Weekly&quot;, &quot;Project: Good Chop Analysis&quot;, &quot;https://goodchop.com&quot;, &quot;Product: Good Chop&quot;, &quot;Industry: Food Delivery&quot;]
-
-Looks like you wanted to test for object/array equality with the stricter `toContain` matcher. You probably need to use `toContainEqual` instead.
-    at Object.&lt;anonymous&gt; (/Users/nikita.gorshkov/competitor-research-agent/src/__tests__/e2e/productVsCompetitorE2E.test.ts:498:50)
-    at Promise.then.completed (/Users/nikita.gorshkov/competitor-research-agent/node_modules/jest-circus/build/utils.js:298:28)
-    at new Promise (&lt;anonymous&gt;)
-    at callAsyncCircusFn (/Users/nikita.gorshkov/competitor-research-agent/node_modules/jest-circus/build/utils.js:231:10)
-    at _callCircusTest (/Users/nikita.gorshkov/competitor-research-agent/node_modules/jest-circus/build/run.js:316:40)
-    at processTicksAndRejections (node:internal/process/task_queues:105:5)
-    at _runTest (/Users/nikita.gorshkov/competitor-research-agent/node_modules/jest-circus/build/run.js:252:3)
-    at _runTestsForDescribeBlock (/Users/nikita.gorshkov/competitor-research-agent/node_modules/jest-circus/build/run.js:126:9)
-    at _runTestsForDescribeBlock (/Users/nikita.gorshkov/competitor-research-agent/node_modules/jest-circus/build/run.js:121:9)
-    at _runTestsForDescribeBlock (/Users/nikita.gorshkov/competitor-research-agent/node_modules/jest-circus/build/run.js:121:9)
-    at run (/Users/nikita.gorshkov/competitor-research-agent/node_modules/jest-circus/build/run.js:71:3)
-    at runAndTransformResultsToJestFormat (/Users/nikita.gorshkov/competitor-research-agent/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapterInit.js:122:21)
-    at jestAdapter (/Users/nikita.gorshkov/competitor-research-agent/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapter.js:79:19)
-    at runTestInternal (/Users/nikita.gorshkov/competitor-research-agent/node_modules/jest-runner/build/runTest.js:367:16)
-    at runTest (/Users/nikita.gorshkov/competitor-research-agent/node_modules/jest-runner/build/runTest.js:444:34)
-    at Object.worker (/Users/nikita.gorshkov/competitor-research-agent/node_modules/jest-runner/build/testWorker.js:106:12)</failure>
+    <testcase classname="Data Integrity Regression Tests Content Diff Integrity should detect significant changes correctly" name="Data Integrity Regression Tests Content Diff Integrity should detect significant changes correctly" time="0">
+      <skipped/>
+    </testcase>
+    <testcase classname="Data Integrity Regression Tests Analysis Data Consistency should maintain analysis result consistency" name="Data Integrity Regression Tests Analysis Data Consistency should maintain analysis result consistency" time="0">
+      <skipped/>
+    </testcase>
+    <testcase classname="Data Integrity Regression Tests Analysis Data Consistency should handle analysis data corruption gracefully" name="Data Integrity Regression Tests Analysis Data Consistency should handle analysis data corruption gracefully" time="0">
+      <skipped/>
+    </testcase>
+    <testcase classname="Data Integrity Regression Tests Report Data Integrity should maintain report structure consistency" name="Data Integrity Regression Tests Report Data Integrity should maintain report structure consistency" time="0">
+      <skipped/>
+    </testcase>
+    <testcase classname="Data Integrity Regression Tests Report Data Integrity should handle report versioning correctly" name="Data Integrity Regression Tests Report Data Integrity should handle report versioning correctly" time="0">
+      <skipped/>
+    </testcase>
+  </testsuite>
+  <testsuite name="Critical Paths Regression Tests" errors="0" failures="0" skipped="0" timestamp="2025-06-17T20:26:15" time="0.403" tests="13">
+    <testcase classname="Critical Paths Regression Tests Report Generation - Critical Smoke Tests should generate a report successfully" name="Critical Paths Regression Tests Report Generation - Critical Smoke Tests should generate a report successfully" time="0.031">
+    </testcase>
+    <testcase classname="Critical Paths Regression Tests Report Generation - Critical Smoke Tests should handle competitor not found gracefully" name="Critical Paths Regression Tests Report Generation - Critical Smoke Tests should handle competitor not found gracefully" time="0.003">
+    </testcase>
+    <testcase classname="Critical Paths Regression Tests Report Generation - Critical Smoke Tests should validate input parameters" name="Critical Paths Regression Tests Report Generation - Critical Smoke Tests should validate input parameters" time="0.003">
+    </testcase>
+    <testcase classname="Critical Paths Regression Tests Content Analysis - Critical Smoke Tests should perform content analysis successfully" name="Critical Paths Regression Tests Content Analysis - Critical Smoke Tests should perform content analysis successfully" time="0.003">
+    </testcase>
+    <testcase classname="Critical Paths Regression Tests Content Analysis - Critical Smoke Tests should handle AI service failures gracefully" name="Critical Paths Regression Tests Content Analysis - Critical Smoke Tests should handle AI service failures gracefully" time="0.008">
+    </testcase>
+    <testcase classname="Critical Paths Regression Tests Data Integrity - Critical Checks should maintain data consistency in report storage" name="Critical Paths Regression Tests Data Integrity - Critical Checks should maintain data consistency in report storage" time="0.004">
+    </testcase>
+    <testcase classname="Critical Paths Regression Tests Data Integrity - Critical Checks should handle database transaction failures" name="Critical Paths Regression Tests Data Integrity - Critical Checks should handle database transaction failures" time="0.003">
+    </testcase>
+    <testcase classname="Critical Paths Regression Tests Data Integrity - Critical Checks should handle malformed data gracefully" name="Critical Paths Regression Tests Data Integrity - Critical Checks should handle malformed data gracefully" time="0.002">
+    </testcase>
+    <testcase classname="Critical Paths Regression Tests Performance - Critical Benchmarks should complete report generation within acceptable time limits" name="Critical Paths Regression Tests Performance - Critical Benchmarks should complete report generation within acceptable time limits" time="0.003">
+    </testcase>
+    <testcase classname="Critical Paths Regression Tests Performance - Critical Benchmarks should handle concurrent report generations" name="Critical Paths Regression Tests Performance - Critical Benchmarks should handle concurrent report generations" time="0.005">
+    </testcase>
+    <testcase classname="Critical Paths Regression Tests Error Handling - Critical Recovery should recover from temporary service failures" name="Critical Paths Regression Tests Error Handling - Critical Recovery should recover from temporary service failures" time="0.004">
+    </testcase>
+    <testcase classname="Critical Paths Regression Tests Error Handling - Critical Recovery should handle malformed data gracefully" name="Critical Paths Regression Tests Error Handling - Critical Recovery should handle malformed data gracefully" time="0.002">
+    </testcase>
+    <testcase classname="Critical Paths Regression Tests Integration - Critical Workflows should complete end-to-end report workflow" name="Critical Paths Regression Tests Integration - Critical Workflows should complete end-to-end report workflow" time="0.004">
     </testcase>
   </testsuite>
 </testsuites>

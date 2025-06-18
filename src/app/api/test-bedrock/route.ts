@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { BedrockService } from '@/services/bedrock';
 
 export async function GET() {

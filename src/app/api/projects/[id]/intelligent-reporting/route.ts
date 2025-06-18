@@ -19,9 +19,9 @@ import {
 } from '@/services/intelligentReportingService';
 
 interface RouteParams {
-  params: {
+  params: Promise<{
     id: string; // project ID
-  };
+  }>;
 }
 
 /**
@@ -32,7 +32,7 @@ export async function POST(
   request: NextRequest,
   { params }: RouteParams
 ): Promise<NextResponse> {
-  const projectId = params.id;
+  const projectId = (await params).id;
   const correlationId = generateCorrelationId();
   const context = { projectId, correlationId, operation: 'generateIntelligentReport', endpoint: 'POST' };
 
@@ -119,7 +119,7 @@ export async function PUT(
   request: NextRequest,
   { params }: RouteParams
 ): Promise<NextResponse> {
-  const projectId = params.id;
+  const projectId = (await params).id;
   const correlationId = generateCorrelationId();
   const context = { projectId, correlationId, operation: 'configureSmartReporting', endpoint: 'PUT' };
 
@@ -226,7 +226,7 @@ export async function GET(
   request: NextRequest,
   { params }: RouteParams
 ): Promise<NextResponse> {
-  const projectId = params.id;
+  const projectId = (await params).id;
   const correlationId = generateCorrelationId();
   const context = { projectId, correlationId, operation: 'getIntelligentReportingStatus', endpoint: 'GET' };
 
@@ -341,7 +341,7 @@ export async function DELETE(
   request: NextRequest,
   { params }: RouteParams
 ): Promise<NextResponse> {
-  const projectId = params.id;
+  const projectId = (await params).id;
   const correlationId = generateCorrelationId();
   const context = { projectId, correlationId, operation: 'resetIntelligentReporting', endpoint: 'DELETE' };
 

@@ -1,3 +1,5 @@
+import { createMockAnalysisService, createMockUXAnalyzer, createMockReportService } from "./mocks/serviceIntegrationMocks";
+// import { createMockAnalysisService, createMockUXAnalyzer, createMockReportService } from "./mocks/serviceIntegrationMocks";
 import { ComparativeAnalysisService } from '@/services/analysis/comparativeAnalysisService';
 import { ComparativeReportService } from '@/services/reports/comparativeReportService';
 import { UserExperienceAnalyzer } from '@/services/analysis/userExperienceAnalyzer';

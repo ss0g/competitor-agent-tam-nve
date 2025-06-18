@@ -1,14 +1,14 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { ReportScheduler } from '@/lib/scheduler';
 
 const scheduler = new ReportScheduler();
 
 export async function GET(
-  request: Request,
-  { params }: { params: { id: string } }
+  request: NextRequest,
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
-    const scheduleId = params.id;
+    const scheduleId = (await context.params).id;
     const schedule = await scheduler.getSchedule(scheduleId);
 
     if (!schedule) {
@@ -29,11 +29,11 @@ export async function GET(
 }
 
 export async function PUT(
-  request: Request,
-  { params }: { params: { id: string } }
+  request: NextRequest,
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
-    const scheduleId = params.id;
+    const scheduleId = (await context.params).id;
     const body = await request.json();
     const schedule = await scheduler.updateSchedule(scheduleId, body);
 
@@ -48,11 +48,11 @@ export async function PUT(
 }
 
 export async function DELETE(
-  request: Request,
-  { params }: { params: { id: string } }
+  request: NextRequest,
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
-    const scheduleId = params.id;
+    const scheduleId = (await context.params).id;
     await scheduler.deleteSchedule(scheduleId);
 
     return NextResponse.json({ success: true });
@@ -66,11 +66,11 @@ export async function DELETE(
 }
 
 export async function PATCH(
-  request: Request,
-  { params }: { params: { id: string } }
+  request: NextRequest,
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
-    const scheduleId = params.id;
+    const scheduleId = (await context.params).id;
     const { status } = await request.json();
     const schedule = await scheduler.toggleScheduleStatus(scheduleId, status);
 

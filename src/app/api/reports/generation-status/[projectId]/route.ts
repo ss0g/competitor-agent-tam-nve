@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { getAutoReportService } from '@/services/autoReportGenerationService';
 import { handleAPIError } from '@/lib/utils/errorHandler';
 import { prisma } from '@/lib/prisma';
@@ -21,28 +21,28 @@ interface ComparativeQueueStatus {
 }
 
 export async function GET(
-  request: Request,
-  { params }: { params: { projectId: string } }
+  request: NextRequest,
+  context: { params: Promise<{ projectId: string }> }
 ) {
   const correlationId = generateCorrelationId();
   
-  const context = {
+  const logContext = {
     endpoint: '/api/reports/generation-status/[projectId]',
     method: 'GET',
-    projectId: params.projectId,
+    projectId: (await context.params).projectId,
     correlationId
   };
 
   try {
-    trackCorrelation(correlationId, 'generation_status_request_received', context);
-    logger.info('Generation status request received', context);
+    trackCorrelation(correlationId, 'generation_status_request_received', logContext);
+    logger.info('Generation status request received', logContext);
 
-    const { projectId } = params;
+    const { projectId } = await context.params;
 
     // Input validation
     if (!projectId || projectId.trim() === '') {
-      trackCorrelation(correlationId, 'validation_failed_missing_project_id', context);
-      logger.warn('Missing project ID in generation status request', context);
+      trackCorrelation(correlationId, 'validation_failed_missing_project_id', logContext);
+      logger.warn('Missing project ID in generation status request', logContext);
       return NextResponse.json(
         { 
           error: 'Project ID is required',
@@ -54,7 +54,7 @@ export async function GET(
       );
     }
 
-    trackCorrelation(correlationId, 'input_validation_passed', { ...context, projectId });
+    trackCorrelation(correlationId, 'input_validation_passed', { ...logContext, projectId });
 
     // Verify project exists
     const project = await prisma.project.findUnique({
@@ -67,8 +67,8 @@ export async function GET(
     });
 
     if (!project) {
-      trackCorrelation(correlationId, 'project_not_found', { ...context, projectId });
-      logger.warn('Project not found for generation status request', { ...context, projectId });
+      trackCorrelation(correlationId, 'project_not_found', { ...logContext, projectId });
+      logger.warn('Project not found for generation status request', { ...logContext, projectId });
       return NextResponse.json(
         { 
           error: 'Project not found',
@@ -81,7 +81,7 @@ export async function GET(
     }
 
     logger.info('Retrieving generation status for project', {
-      ...context,
+      ...logContext,
       projectName: project.name
     });
 
@@ -174,7 +174,7 @@ export async function GET(
     };
 
     trackCorrelation(correlationId, 'generation_status_response_sent', {
-      ...context,
+      ...logContext,
       isGenerating: queueStatus.isGenerating,
       queuePosition: queueStatus.queuePosition,
       recentReportsCount,
@@ -183,7 +183,7 @@ export async function GET(
     });
 
     logger.info('Generation status retrieved successfully', {
-      ...context,
+      ...logContext,
       isGenerating: queueStatus.isGenerating,
       queuePosition: queueStatus.queuePosition,
       recentReportsCount,
@@ -194,13 +194,13 @@ export async function GET(
 
   } catch (error) {
     trackCorrelation(correlationId, 'unexpected_error_occurred', {
-      ...context,
+      ...logContext,
       errorMessage: (error as Error).message
     });
 
-    logger.error('Unexpected error in generation status endpoint', error as Error, context);
+    logger.error('Unexpected error in generation status endpoint', error as Error, logContext);
     
-    const errorResponse = handleAPIError(error as Error, 'generation_status', context);
+    const errorResponse = handleAPIError(error as Error, 'generation_status', logContext);
     
     // Add correlation ID to error response
     if (errorResponse instanceof NextResponse) {

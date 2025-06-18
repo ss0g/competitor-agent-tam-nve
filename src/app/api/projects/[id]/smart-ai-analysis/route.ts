@@ -14,14 +14,14 @@ import { smartAIService, SmartAIAnalysisRequest } from '@/services/smartAIServic
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ): Promise<NextResponse> {
   const correlationId = generateCorrelationId();
-  const projectId = params.id;
-  const context = { projectId, correlationId, operation: 'smartAIAnalysis', endpoint: 'POST' };
+  const projectId = (await context.params).id;
+  const logContext = { projectId, correlationId, operation: 'smartAIAnalysis', endpoint: 'POST' };
 
   try {
-    logger.info('Smart AI analysis API called', context);
+    logger.info('Smart AI analysis API called', logContext);
 
     const body = await request.json();
     const {
@@ -54,7 +54,7 @@ export async function POST(
     const result = await smartAIService.analyzeWithSmartScheduling(analysisRequest);
 
     logger.info('Smart AI analysis completed successfully', {
-      ...context,
+      ...logContext,
       analysisType,
       dataFreshGuaranteed: result.analysisMetadata.dataFreshGuaranteed,
       scrapingTriggered: result.analysisMetadata.scrapingTriggered,
@@ -76,13 +76,13 @@ export async function POST(
       'smartAIAnalysis-POST',
       correlationId,
       {
-        ...context,
+        ...logContext,
         service: 'SmartAIAnalysisAPI'
       }
     );
 
     logger.error('Smart AI analysis failed', {
-      ...context,
+      ...logContext,
       error: error instanceof Error ? error.message : 'Unknown error'
     });
 
@@ -96,14 +96,14 @@ export async function POST(
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ): Promise<NextResponse> {
   const correlationId = generateCorrelationId();
-  const projectId = params.id;
-  const context = { projectId, correlationId, operation: 'smartAIStatus', endpoint: 'GET' };
+  const projectId = (await context.params).id;
+  const logContext = { projectId, correlationId, operation: 'smartAIStatus', endpoint: 'GET' };
 
   try {
-    logger.info('Smart AI status check called', context);
+    logger.info('Smart AI status check called', logContext);
 
     // Get project AI configuration and freshness status
     const smartScheduler = smartAIService['smartScheduler'];
@@ -150,7 +150,7 @@ export async function GET(
     };
 
     logger.info('Smart AI status retrieved', {
-      ...context,
+      ...logContext,
       freshnessStatus: freshnessStatus.overallStatus,
       aiEnabled: !!aiConfig
     });
@@ -163,13 +163,13 @@ export async function GET(
       'smartAIStatus-GET',
       correlationId,
       {
-        ...context,
+        ...logContext,
         service: 'SmartAIAnalysisAPI'
       }
     );
 
     logger.error('Smart AI status check failed', {
-      ...context,
+      ...logContext,
       error: error instanceof Error ? error.message : 'Unknown error'
     });
 

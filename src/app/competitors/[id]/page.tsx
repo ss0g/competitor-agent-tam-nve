@@ -9,17 +9,18 @@ import {
 } from '@/lib/logger';
 
 interface CompetitorPageProps {
-  params: {
+  params: Promise<{
     id: string;
-  };
+  }>;
 }
 
 export default async function CompetitorPage({ params }: CompetitorPageProps) {
+  const { id } = await params;
   const correlationId = generateCorrelationId();
   const context = {
-    page: `/competitors/${params.id}`,
+    page: `/competitors/${id}`,
     correlationId,
-    competitorId: params.id
+    competitorId: id
   };
 
   try {
@@ -33,7 +34,7 @@ export default async function CompetitorPage({ params }: CompetitorPageProps) {
 
     const competitor = await prisma.competitor.findUnique({
       where: {
-        id: params.id,
+        id: id,
       },
       include: {
         snapshots: {

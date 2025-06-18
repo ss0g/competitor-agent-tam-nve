@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getAutoReportService } from '@/services/autoReportGenerationService';
 import { logger, trackBusinessEvent, generateCorrelationId } from '@/lib/logger';

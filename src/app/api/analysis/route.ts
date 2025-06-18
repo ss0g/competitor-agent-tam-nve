@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { ContentAnalyzer } from '@/lib/analysis';
 
 export async function POST(request: Request) {

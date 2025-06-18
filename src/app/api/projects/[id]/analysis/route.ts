@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { ComparativeAnalysisService } from '@/services/analysis/comparativeAnalysisService';
 import { 
@@ -11,25 +11,25 @@ import {
 
 // POST /api/projects/[id]/analysis
 export async function POST(
-  request: Request,
-  { params }: { params: { id: string } }
+  request: NextRequest,
+  context: { params: Promise<{ id: string }> }
 ) {
   const correlationId = generateCorrelationId();
-  const context = {
-    endpoint: `/api/projects/${params.id}/analysis`,
+  const logContext = {
+    endpoint: `/api/projects/${(await context.params).id}/analysis`,
     method: 'POST',
     correlationId,
-    projectId: params.id
+    projectId: (await context.params).id
   };
 
   try {
-    trackCorrelation(correlationId, 'project_analysis_request_received', context);
-    logger.info('Project analysis request received', context);
+    trackCorrelation(correlationId, 'project_analysis_request_received', logContext);
+    logger.info('Project analysis request received', logContext);
 
     // Validate project ID
-    if (!params.id || params.id.length < 1) {
-      trackCorrelation(correlationId, 'invalid_project_id', context);
-      logger.warn('Invalid project ID provided', context);
+    if (!(await context.params).id || (await context.params).id.length < 1) {
+      trackCorrelation(correlationId, 'invalid_project_id', logContext);
+      logger.warn('Invalid project ID provided', logContext);
       return NextResponse.json({ 
         error: 'Invalid project ID',
         correlationId 
@@ -38,12 +38,12 @@ export async function POST(
 
     // Get project with competitors and product information
     trackDatabaseOperation('findUnique', 'project', {
-      ...context,
+      ...logContext,
       query: 'fetch project with competitors and product'
     });
 
     const project = await prisma.project.findUnique({
-      where: { id: params.id },
+      where: { id: (await context.params).id },
       include: {
         competitors: {
           include: {
@@ -65,8 +65,8 @@ export async function POST(
     } as any);
 
     if (!project) {
-      trackCorrelation(correlationId, 'project_not_found', context);
-      logger.warn('Project not found', context);
+      trackCorrelation(correlationId, 'project_not_found', logContext);
+      logger.warn('Project not found', logContext);
       return NextResponse.json({ 
         error: 'Project not found',
         correlationId 
@@ -75,8 +75,8 @@ export async function POST(
 
     // Check if we have sufficient data for analysis
     if (!project.products || project.products.length === 0 || !project.products[0].snapshots || project.products[0].snapshots.length === 0) {
-      trackCorrelation(correlationId, 'no_product_snapshots', context);
-      logger.warn('No product snapshots found for analysis', context);
+      trackCorrelation(correlationId, 'no_product_snapshots', logContext);
+      logger.warn('No product snapshots found for analysis', logContext);
       return NextResponse.json({ 
         error: 'No product snapshots available for analysis',
         message: 'Product snapshots are required to generate analysis. Please ensure the project has been scraped.',
@@ -85,8 +85,8 @@ export async function POST(
     }
 
     if (!project.competitors || project.competitors.length === 0) {
-      trackCorrelation(correlationId, 'no_competitors', context);
-      logger.warn('No competitors found for analysis', context);
+      trackCorrelation(correlationId, 'no_competitors', logContext);
+      logger.warn('No competitors found for analysis', logContext);
       return NextResponse.json({ 
         error: 'No competitors found for analysis',
         message: 'At least one competitor is required to generate comparative analysis.',
@@ -100,8 +100,8 @@ export async function POST(
     );
 
     if (competitorsWithSnapshots.length === 0) {
-      trackCorrelation(correlationId, 'no_competitor_snapshots', context);
-      logger.warn('No competitor snapshots found for analysis', context);
+      trackCorrelation(correlationId, 'no_competitor_snapshots', logContext);
+      logger.warn('No competitor snapshots found for analysis', logContext);
       return NextResponse.json({ 
         error: 'No competitor snapshots available for analysis',
         message: 'Competitor snapshots are required to generate analysis. Please ensure competitors have been scraped.',
@@ -110,7 +110,7 @@ export async function POST(
     }
 
     trackCorrelation(correlationId, 'analysis_data_validated', {
-      ...context,
+      ...logContext,
       competitorsCount: competitorsWithSnapshots.length,
       hasProductSnapshot: true
     });
@@ -146,7 +146,7 @@ export async function POST(
     };
 
     trackCorrelation(correlationId, 'analysis_input_prepared', {
-      ...context,
+      ...logContext,
       inputSize: JSON.stringify(analysisInput).length
     });
 
@@ -154,14 +154,14 @@ export async function POST(
     const analysisService = new ComparativeAnalysisService();
     
     logger.info('Starting comparative analysis generation', {
-      ...context,
+      ...logContext,
       competitorsCount: competitorsWithSnapshots.length
     });
 
     const analysis = await analysisService.analyzeProductVsCompetitors(analysisInput);
 
     trackCorrelation(correlationId, 'analysis_generated_successfully', {
-      ...context,
+      ...logContext,
       analysisId: analysis.id,
       processingTime: analysis.metadata.processingTime,
       confidenceScore: analysis.metadata.confidenceScore
@@ -171,13 +171,13 @@ export async function POST(
     const reportContent = await analysisService.generateAnalysisReport(analysis);
 
     trackCorrelation(correlationId, 'analysis_report_generated', {
-      ...context,
+      ...logContext,
       analysisId: analysis.id,
       reportLength: reportContent.length
     });
 
     logger.info('Project analysis completed successfully', {
-      ...context,
+      ...logContext,
       analysisId: analysis.id,
       processingTime: analysis.metadata.processingTime,
       reportLength: reportContent.length
@@ -191,12 +191,12 @@ export async function POST(
 
   } catch (error) {
     trackCorrelation(correlationId, 'analysis_generation_error', {
-      ...context,
+      ...logContext,
       errorMessage: (error as Error).message
     });
 
-    logger.error('Failed to generate project analysis', error as Error, context);
-    trackError(error as Error, 'project_analysis', context);
+    logger.error('Failed to generate project analysis', error as Error, logContext);
+    trackError(error as Error, 'project_analysis', logContext);
 
     return NextResponse.json({ 
       error: 'Failed to generate analysis',
@@ -208,20 +208,20 @@ export async function POST(
 
 // GET /api/projects/[id]/analysis - Get existing analysis for project
 export async function GET(
-  request: Request,
-  { params }: { params: { id: string } }
+  request: NextRequest,
+  context: { params: Promise<{ id: string }> }
 ) {
   const correlationId = generateCorrelationId();
-  const context = {
-    endpoint: `/api/projects/${params.id}/analysis`,
+  const logContext = {
+    endpoint: `/api/projects/${(await context.params).id}/analysis`,
     method: 'GET',
     correlationId,
-    projectId: params.id
+    projectId: (await context.params).id
   };
 
   try {
-    trackCorrelation(correlationId, 'get_analysis_request_received', context);
-    logger.info('Get analysis request received', context);
+    trackCorrelation(correlationId, 'get_analysis_request_received', logContext);
+    logger.info('Get analysis request received', logContext);
 
     // For now, return a placeholder response since we don't have analysis storage yet
     // This would typically query stored analyses from the database
@@ -234,12 +234,12 @@ export async function GET(
 
   } catch (error) {
     trackCorrelation(correlationId, 'get_analysis_error', {
-      ...context,
+      ...logContext,
       errorMessage: (error as Error).message
     });
 
-    logger.error('Failed to retrieve analysis', error as Error, context);
-    trackError(error as Error, 'get_analysis', context);
+    logger.error('Failed to retrieve analysis', error as Error, logContext);
+    trackError(error as Error, 'get_analysis', logContext);
 
     return NextResponse.json({ 
       error: 'Failed to retrieve analysis',

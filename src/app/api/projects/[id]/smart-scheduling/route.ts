@@ -20,14 +20,14 @@ const smartSchedulingService = new SmartSchedulingService();
  */
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   const correlationId = generateCorrelationId();
-  const projectId = params.id;
-  const context = { projectId, correlationId, operation: 'triggerSmartScheduling' };
+  const projectId = (await context.params).id;
+  const logContext = { projectId, correlationId, operation: 'triggerSmartScheduling' };
 
   try {
-    logger.info('Smart scheduling API triggered', context);
+    logger.info('Smart scheduling API triggered', logContext);
 
     if (!projectId) {
       return NextResponse.json(
@@ -40,7 +40,7 @@ export async function POST(
     const result = await smartSchedulingService.checkAndTriggerScraping(projectId);
 
     logger.info('Smart scheduling API completed', {
-      ...context,
+      ...logContext,
       triggered: result.triggered,
       tasksExecuted: result.tasksExecuted,
       successfulTasks: result.results.filter(r => r.success).length
@@ -62,7 +62,7 @@ export async function POST(
       'triggerSmartScheduling',
       correlationId,
       {
-        ...context,
+        ...logContext,
         service: 'SmartSchedulingAPI',
         method: 'POST',
         isRecoverable: false,
@@ -71,7 +71,7 @@ export async function POST(
     );
 
     logger.error('Smart scheduling API failed', {
-      ...context,
+      ...logContext,
       error: (error as Error).message
     });
 
@@ -92,14 +92,14 @@ export async function POST(
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   const correlationId = generateCorrelationId();
-  const projectId = params.id;
-  const context = { projectId, correlationId, operation: 'getFreshnessStatus' };
+  const projectId = (await context.params).id;
+  const logContext = { projectId, correlationId, operation: 'getFreshnessStatus' };
 
   try {
-    logger.info('Freshness status API requested', context);
+    logger.info('Freshness status API requested', logContext);
 
     if (!projectId) {
       return NextResponse.json(
@@ -112,7 +112,7 @@ export async function GET(
     const status = await smartSchedulingService.getFreshnessStatus(projectId);
 
     logger.info('Freshness status API completed', {
-      ...context,
+      ...logContext,
       overallStatus: status.overallStatus,
       productsNeedingScraping: status.products?.filter((p: any) => p.needsScraping).length || 0,
       competitorsNeedingScraping: status.competitors?.filter((c: any) => c.needsScraping).length || 0
@@ -132,7 +132,7 @@ export async function GET(
       'getFreshnessStatus',
       correlationId,
       {
-        ...context,
+        ...logContext,
         service: 'SmartSchedulingAPI',
         method: 'GET',
         isRecoverable: false,
@@ -141,7 +141,7 @@ export async function GET(
     );
 
     logger.error('Freshness status API failed', {
-      ...context,
+      ...logContext,
       error: (error as Error).message
     });
 

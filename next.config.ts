@@ -1,17 +1,27 @@
-import { NextConfig } from 'next';
+import type { NextConfig } from 'next';
 
-const config: NextConfig = {
-  env: {
-    ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY,
+const nextConfig: NextConfig = {
+  // Your existing config...
+  
+  webpack: (config, { isServer }) => {
+    // Fix for Handlebars webpack warning
+    if (!isServer) {
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        fs: false,
+        path: false,
+        os: false,
+      };
+    }
+    
+    // Handle .hbs files
+    config.module.rules.push({
+      test: /\.hbs$/,
+      loader: 'handlebars-loader',
+    });
+
+    return config;
   },
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
-  typescript: {
-    ignoreBuildErrors: true,
-  },
-  // Disable pages directory scanning to avoid conflicts
-  pageExtensions: ['tsx', 'ts'],
 };
 
-export default config;
+export default nextConfig;

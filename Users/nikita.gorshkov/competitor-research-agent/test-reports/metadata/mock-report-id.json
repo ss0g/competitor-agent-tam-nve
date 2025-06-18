@@ -1,0 +1,48 @@
+{
+  "id": "mock-report-id",
+  "title": "Mock Comparative Report",
+  "description": "Mock report description",
+  "sections": [],
+  "metadata": {
+    "generatedAt": "2025-06-13T20:59:45.516Z",
+    "version": "1.0",
+    "template": "COMPREHENSIVE",
+    "productName": "Mock Product",
+    "competitorCount": 2
+  },
+  "executiveSummary": "Mock executive summary",
+  "keyFindings": [
+    "Mock finding 1",
+    "Mock finding 2"
+  ],
+  "keyOpportunities": [
+    "Mock opportunity 1"
+  ],
+  "keyThreats": [
+    "Mock threat 1"
+  ],
+  "strategicRecommendations": {
+    "immediate": [
+      "Immediate action 1"
+    ],
+    "shortTerm": [
+      "Short term action 1"
+    ],
+    "longTerm": [
+      "Long term action 1"
+    ]
+  },
+  "competitiveIntelligence": {
+    "marketPosition": "competitive",
+    "opportunities": [
+      "Market opportunity 1"
+    ],
+    "competitiveAdvantages": [
+      "Advantage 1"
+    ]
+  },
+  "projectId": "mock-project-id",
+  "productId": "mock-product-id",
+  "analysisId": "mock-analysis-id",
+  "status": "completed"
+}

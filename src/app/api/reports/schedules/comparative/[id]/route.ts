@@ -6,10 +6,10 @@ const scheduler = new ComparativeReportSchedulerSimple();
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
-    const scheduleId = params.id;
+    const scheduleId = (await context.params).id;
 
     if (!scheduleId) {
       return NextResponse.json(
@@ -40,10 +40,10 @@ export async function GET(
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
-    const scheduleId = params.id;
+    const scheduleId = (await context.params).id;
     const body = await request.json();
     const { action } = body;
 

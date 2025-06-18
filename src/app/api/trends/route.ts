@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { TrendAnalyzer } from '@/lib/trends';
 
 export async function GET(request: Request) {

@@ -3,9 +3,9 @@ import { prisma } from '@/lib/prisma';
 import { SnapshotComparison } from '@/components/snapshots/SnapshotComparison';
 
 interface SnapshotPageProps {
-  params: {
+  params: Promise<{
     id: string;
-  };
+  }>;
 }
 
 // Default mock user for testing without authentication
@@ -28,12 +28,13 @@ async function getOrCreateMockUser() {
 }
 
 export default async function SnapshotPage({ params }: SnapshotPageProps) {
+  const { id } = await params;
   // Always use mock user (auth disabled)
   const mockUser = await getOrCreateMockUser();
 
   const snapshot = await prisma.snapshot.findFirst({
     where: {
-      id: params.id,
+      id: id,
       competitor: {
         userId: mockUser.id,
       },
@@ -44,7 +45,7 @@ export default async function SnapshotPage({ params }: SnapshotPageProps) {
           snapshots: {
             where: {
               NOT: {
-                id: params.id,
+                id: id,
               },
             },
             orderBy: {

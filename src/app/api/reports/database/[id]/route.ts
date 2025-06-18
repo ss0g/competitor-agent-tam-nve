@@ -3,10 +3,10 @@ import { prisma } from '@/lib/prisma';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
-    const reportId = params.id;
+    const reportId = (await context.params).id;
 
     // Get report with its latest version
     const report = await prisma.report.findUnique({

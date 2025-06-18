@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { z } from 'zod';
 import { 
@@ -23,25 +23,25 @@ const updateCompetitorSchema = z.object({
 
 // GET /api/competitors/[id]
 export async function GET(
-  request: Request,
-  { params }: { params: { id: string } }
+  request: NextRequest,
+  context: { params: Promise<{ id: string }> }
 ) {
   const correlationId = generateCorrelationId();
-  const context = {
-    endpoint: `/api/competitors/${params.id}`,
+  const logContext = {
+    endpoint: `/api/competitors/${(await context.params).id}`,
     method: 'GET',
     correlationId,
-    competitorId: params.id
+    competitorId: (await context.params).id
   };
 
   try {
-    trackCorrelation(correlationId, 'competitor_detail_request_received', context);
-    logger.info('Competitor detail request received', context);
+    trackCorrelation(correlationId, 'competitor_detail_request_received', logContext);
+    logger.info('Competitor detail request received', logContext);
 
     // Validate competitor ID
-    if (!params.id || params.id.length < 1) {
-      trackCorrelation(correlationId, 'invalid_competitor_id', context);
-      logger.warn('Invalid competitor ID provided', context);
+    if (!(await context.params).id || (await context.params).id.length < 1) {
+      trackCorrelation(correlationId, 'invalid_competitor_id', logContext);
+      logger.warn('Invalid competitor ID provided', logContext);
       return NextResponse.json({ 
         error: 'Invalid competitor ID',
         correlationId 
@@ -49,13 +49,13 @@ export async function GET(
     }
 
     trackDatabaseOperation('findUnique', 'competitor', {
-      ...context,
+      ...logContext,
       query: 'fetch competitor with relations'
     });
 
     const competitor = await prisma.competitor.findUnique({
       where: {
-        id: params.id
+        id: (await context.params).id
       },
       include: {
         reports: {
@@ -80,30 +80,30 @@ export async function GET(
     });
 
     if (!competitor) {
-      trackCorrelation(correlationId, 'competitor_not_found', context);
+      trackCorrelation(correlationId, 'competitor_not_found', logContext);
       trackDatabaseOperation('findUnique', 'competitor', {
-        ...context,
+        ...logContext,
         success: true,
         recordData: { found: false }
       });
 
-      logger.warn('Competitor not found', context);
+      logger.warn('Competitor not found', logContext);
       return NextResponse.json({ 
         error: 'Competitor not found',
-        message: `No competitor found with ID: ${params.id}`,
+        message: `No competitor found with ID: ${(await context.params).id}`,
         correlationId 
       }, { status: 404 });
     }
 
     trackCorrelation(correlationId, 'competitor_detail_retrieved', {
-      ...context,
+      ...logContext,
       competitorName: competitor.name,
       reportsCount: competitor.reports.length,
       snapshotsCount: competitor.snapshots.length
     });
 
     trackDatabaseOperation('findUnique', 'competitor', {
-      ...context,
+      ...logContext,
       success: true,
       recordData: { 
         found: true,
@@ -114,7 +114,7 @@ export async function GET(
     });
 
     logger.info('Competitor detail retrieved successfully', {
-      ...context,
+      ...logContext,
       competitorName: competitor.name,
       reportsCount: competitor.reports.length,
       snapshotsCount: competitor.snapshots.length
@@ -127,12 +127,12 @@ export async function GET(
 
   } catch (error) {
     trackCorrelation(correlationId, 'competitor_detail_error', {
-      ...context,
+      ...logContext,
       errorMessage: (error as Error).message
     });
 
-    logger.error('Failed to fetch competitor details', error as Error, context);
-    trackError(error as Error, 'competitor_detail', context);
+    logger.error('Failed to fetch competitor details', error as Error, logContext);
+    trackError(error as Error, 'competitor_detail', logContext);
 
     return NextResponse.json({ 
       error: 'Internal Server Error',
@@ -144,25 +144,25 @@ export async function GET(
 
 // PUT /api/competitors/[id]
 export async function PUT(
-  request: Request,
-  { params }: { params: { id: string } }
+  request: NextRequest,
+  context: { params: Promise<{ id: string }> }
 ) {
   const correlationId = generateCorrelationId();
-  const context = {
-    endpoint: `/api/competitors/${params.id}`,
+  const logContext = {
+    endpoint: `/api/competitors/${(await context.params).id}`,
     method: 'PUT',
     correlationId,
-    competitorId: params.id
+    competitorId: (await context.params).id
   };
 
   try {
-    trackCorrelation(correlationId, 'competitor_update_request_received', context);
-    logger.info('Competitor update request received', context);
+    trackCorrelation(correlationId, 'competitor_update_request_received', logContext);
+    logger.info('Competitor update request received', logContext);
 
     // Validate competitor ID
-    if (!params.id || params.id.length < 1) {
-      trackCorrelation(correlationId, 'invalid_competitor_id', context);
-      logger.warn('Invalid competitor ID provided', context);
+    if (!(await context.params).id || (await context.params).id.length < 1) {
+      trackCorrelation(correlationId, 'invalid_competitor_id', logContext);
+      logger.warn('Invalid competitor ID provided', logContext);
       return NextResponse.json({ 
         error: 'Invalid competitor ID',
         correlationId 
@@ -174,13 +174,13 @@ export async function PUT(
     try {
       json = await request.json();
       trackCorrelation(correlationId, 'request_body_parsed', {
-        ...context,
+        ...logContext,
         hasBody: true,
         updateFields: Object.keys(json)
       });
     } catch (parseError) {
-      trackCorrelation(correlationId, 'request_body_parse_failed', context);
-      logger.warn('Invalid JSON in request body', context);
+      trackCorrelation(correlationId, 'request_body_parse_failed', logContext);
+      logger.warn('Invalid JSON in request body', logContext);
       return NextResponse.json({ 
         error: 'Invalid JSON in request body',
         correlationId 
@@ -192,17 +192,17 @@ export async function PUT(
     try {
       validatedData = updateCompetitorSchema.parse(json);
       trackCorrelation(correlationId, 'input_validation_passed', {
-        ...context,
+        ...logContext,
         updateFields: Object.keys(validatedData)
       });
     } catch (validationError) {
       trackCorrelation(correlationId, 'input_validation_failed', {
-        ...context,
+        ...logContext,
         validationErrors: validationError instanceof z.ZodError ? validationError.errors : []
       });
       
       logger.warn('Competitor update validation failed', {
-        ...context,
+        ...logContext,
         validationErrors: validationError instanceof z.ZodError ? validationError.errors : []
       });
 
@@ -222,8 +222,8 @@ export async function PUT(
 
     // Check if update data is empty
     if (Object.keys(validatedData).length === 0) {
-      trackCorrelation(correlationId, 'empty_update_data', context);
-      logger.warn('No valid update fields provided', context);
+      trackCorrelation(correlationId, 'empty_update_data', logContext);
+      logger.warn('No valid update fields provided', logContext);
       return NextResponse.json({ 
         error: 'No valid update data provided',
         message: 'At least one field must be provided for update',
@@ -233,26 +233,26 @@ export async function PUT(
 
     // Check if competitor exists
     trackDatabaseOperation('findUnique', 'competitor', {
-      ...context,
+      ...logContext,
       query: 'check competitor exists before update'
     });
 
     const existingCompetitor = await prisma.competitor.findUnique({
-      where: { id: params.id }
+      where: { id: (await context.params).id }
     });
 
     if (!existingCompetitor) {
-      trackCorrelation(correlationId, 'competitor_not_found_for_update', context);
+      trackCorrelation(correlationId, 'competitor_not_found_for_update', logContext);
       trackDatabaseOperation('findUnique', 'competitor', {
-        ...context,
+        ...logContext,
         success: true,
         recordData: { found: false }
       });
 
-      logger.warn('Competitor not found for update', context);
+      logger.warn('Competitor not found for update', logContext);
       return NextResponse.json({ 
         error: 'Competitor not found',
-        message: `No competitor found with ID: ${params.id}`,
+        message: `No competitor found with ID: ${(await context.params).id}`,
         correlationId 
       }, { status: 404 });
     }
@@ -269,14 +269,14 @@ export async function PUT(
 
       if (duplicateConditions.length > 0) {
         trackDatabaseOperation('findFirst', 'competitor', {
-          ...context,
+          ...logContext,
           query: 'check for duplicates during update'
         });
 
         const duplicateCompetitor = await prisma.competitor.findFirst({
           where: {
             AND: [
-              { id: { not: params.id } },
+              { id: { not: (await context.params).id } },
               { OR: duplicateConditions }
             ]
           }
@@ -284,12 +284,12 @@ export async function PUT(
 
         if (duplicateCompetitor) {
           trackCorrelation(correlationId, 'duplicate_competitor_found_during_update', {
-            ...context,
+            ...logContext,
             duplicateCompetitorId: duplicateCompetitor.id
           });
 
           logger.warn('Duplicate competitor detected during update', {
-            ...context,
+            ...logContext,
             duplicateCompetitorId: duplicateCompetitor.id
           });
 
@@ -307,15 +307,15 @@ export async function PUT(
       }
     }
 
-    trackCorrelation(correlationId, 'competitor_update_started', context);
+    trackCorrelation(correlationId, 'competitor_update_started', logContext);
     trackDatabaseOperation('update', 'competitor', {
-      ...context,
+      ...logContext,
       recordData: validatedData
     });
 
     const competitor = await prisma.competitor.update({
       where: {
-        id: params.id
+        id: (await context.params).id
       },
       data: validatedData,
       include: {
@@ -331,18 +331,18 @@ export async function PUT(
     });
 
     trackCorrelation(correlationId, 'competitor_update_completed', {
-      ...context,
+      ...logContext,
       competitorName: competitor.name
     });
 
     trackDatabaseOperation('update', 'competitor', {
-      ...context,
+      ...logContext,
       success: true,
       recordData: { name: competitor.name }
     });
 
     logger.info('Competitor updated successfully', {
-      ...context,
+      ...logContext,
       competitorName: competitor.name
     });
 
@@ -353,12 +353,12 @@ export async function PUT(
 
   } catch (error) {
     trackCorrelation(correlationId, 'competitor_update_error', {
-      ...context,
+      ...logContext,
       errorMessage: (error as Error).message
     });
 
-    logger.error('Failed to update competitor', error as Error, context);
-    trackError(error as Error, 'competitor_update', context);
+    logger.error('Failed to update competitor', error as Error, logContext);
+    trackError(error as Error, 'competitor_update', logContext);
 
     // Handle specific database errors
     if (error instanceof Error) {
@@ -381,25 +381,25 @@ export async function PUT(
 
 // DELETE /api/competitors/[id]
 export async function DELETE(
-  request: Request,
-  { params }: { params: { id: string } }
+  request: NextRequest,
+  context: { params: Promise<{ id: string }> }
 ) {
   const correlationId = generateCorrelationId();
-  const context = {
-    endpoint: `/api/competitors/${params.id}`,
+  const logContext = {
+    endpoint: `/api/competitors/${(await context.params).id}`,
     method: 'DELETE',
     correlationId,
-    competitorId: params.id
+    competitorId: (await context.params).id
   };
 
   try {
-    trackCorrelation(correlationId, 'competitor_delete_request_received', context);
-    logger.info('Competitor delete request received', context);
+    trackCorrelation(correlationId, 'competitor_delete_request_received', logContext);
+    logger.info('Competitor delete request received', logContext);
 
     // Validate competitor ID
-    if (!params.id || params.id.length < 1) {
-      trackCorrelation(correlationId, 'invalid_competitor_id', context);
-      logger.warn('Invalid competitor ID provided', context);
+    if (!(await context.params).id || (await context.params).id.length < 1) {
+      trackCorrelation(correlationId, 'invalid_competitor_id', logContext);
+      logger.warn('Invalid competitor ID provided', logContext);
       return NextResponse.json({ 
         error: 'Invalid competitor ID',
         correlationId 
@@ -408,12 +408,12 @@ export async function DELETE(
 
     // Check if competitor exists and get related data count
     trackDatabaseOperation('findUnique', 'competitor', {
-      ...context,
+      ...logContext,
       query: 'check competitor exists before delete with relations count'
     });
 
     const existingCompetitor = await prisma.competitor.findUnique({
-      where: { id: params.id },
+      where: { id: (await context.params).id },
       include: {
         reports: { select: { id: true } },
         snapshots: { select: { id: true } }
@@ -421,17 +421,17 @@ export async function DELETE(
     });
 
     if (!existingCompetitor) {
-      trackCorrelation(correlationId, 'competitor_not_found_for_delete', context);
+      trackCorrelation(correlationId, 'competitor_not_found_for_delete', logContext);
       trackDatabaseOperation('findUnique', 'competitor', {
-        ...context,
+        ...logContext,
         success: true,
         recordData: { found: false }
       });
 
-      logger.warn('Competitor not found for deletion', context);
+      logger.warn('Competitor not found for deletion', logContext);
       return NextResponse.json({ 
         error: 'Competitor not found',
-        message: `No competitor found with ID: ${params.id}`,
+        message: `No competitor found with ID: ${(await context.params).id}`,
         correlationId 
       }, { status: 404 });
     }
@@ -442,13 +442,13 @@ export async function DELETE(
     };
 
     trackCorrelation(correlationId, 'competitor_delete_started', {
-      ...context,
+      ...logContext,
       competitorName: existingCompetitor.name,
       relatedDataCount
     });
 
     trackDatabaseOperation('delete', 'competitor', {
-      ...context,
+      ...logContext,
       recordData: { 
         name: existingCompetitor.name,
         relatedDataCount
@@ -457,24 +457,24 @@ export async function DELETE(
 
     await prisma.competitor.delete({
       where: {
-        id: params.id
+        id: (await context.params).id
       }
     });
 
     trackCorrelation(correlationId, 'competitor_delete_completed', {
-      ...context,
+      ...logContext,
       competitorName: existingCompetitor.name,
       relatedDataCount
     });
 
     trackDatabaseOperation('delete', 'competitor', {
-      ...context,
+      ...logContext,
       success: true,
       recordData: { name: existingCompetitor.name }
     });
 
     logger.info('Competitor deleted successfully', {
-      ...context,
+      ...logContext,
       competitorName: existingCompetitor.name,
       relatedDataCount
     });
@@ -491,12 +491,12 @@ export async function DELETE(
 
   } catch (error) {
     trackCorrelation(correlationId, 'competitor_delete_error', {
-      ...context,
+      ...logContext,
       errorMessage: (error as Error).message
     });
 
-    logger.error('Failed to delete competitor', error as Error, context);
-    trackError(error as Error, 'competitor_delete', context);
+    logger.error('Failed to delete competitor', error as Error, logContext);
+    trackError(error as Error, 'competitor_delete', logContext);
 
     // Handle specific database errors
     if (error instanceof Error) {
