@@ -353,7 +353,36 @@ jest.mock('@/services/reports/comparativeReportService', () => ({
         id: 'mock-report-id',
         title: 'Mock Comparative Report',
         description: 'Mock report description',
-        sections: [],
+        sections: [
+          {
+            id: 'executive-summary',
+            title: 'Executive Summary',
+            content: 'Comprehensive executive summary of competitive analysis',
+            type: 'executive_summary',
+            order: 1
+          },
+          {
+            id: 'feature-comparison',
+            title: 'Feature Analysis',
+            content: 'Detailed feature comparison analysis',
+            type: 'feature_comparison',
+            order: 2
+          },
+          {
+            id: 'positioning-analysis',
+            title: 'Market Positioning',
+            content: 'Market positioning and competitive landscape analysis',
+            type: 'positioning_analysis',
+            order: 3
+          },
+          {
+            id: 'recommendations',
+            title: 'Strategic Recommendations',
+            content: 'Actionable recommendations based on analysis',
+            type: 'recommendations',
+            order: 4
+          }
+        ],
         metadata: {
           generatedAt: new Date().toISOString(),
           version: '1.0',
@@ -391,16 +420,60 @@ jest.mock('@/services/reports/comparativeReportService', () => ({
         id: 'mock-ux-report-id',
         title: 'Mock UX Enhanced Report',
         description: 'Mock UX report description',
-        sections: [],
+        sections: [
+          {
+            id: 'executive-summary',
+            title: 'Executive Summary',
+            content: 'Comprehensive executive summary of competitive analysis',
+            type: 'executive_summary',
+            order: 1
+          },
+          {
+            id: 'feature-comparison',
+            title: 'Feature Analysis',
+            content: 'Detailed feature comparison analysis',
+            type: 'feature_comparison',
+            order: 2
+          },
+          {
+            id: 'ux-analysis',
+            title: 'User Experience Analysis',
+            content: 'In-depth UX comparison and recommendations',
+            type: 'ux_analysis',
+            order: 3
+          },
+          {
+            id: 'positioning-analysis',
+            title: 'Market Positioning',
+            content: 'Market positioning and competitive landscape analysis',
+            type: 'positioning_analysis',
+            order: 4
+          },
+          {
+            id: 'strategic-ux-recommendations',
+            title: 'Strategic UX Recommendations',
+            content: 'Actionable UX recommendations based on competitive analysis',
+            type: 'recommendations',
+            order: 5
+          },
+          {
+            id: 'appendix',
+            title: 'Data Appendix',
+            content: 'Supporting data and methodology',
+            type: 'appendix',
+            order: 6
+          }
+        ],
         metadata: {
           generatedAt: new Date().toISOString(),
           version: '1.0',
           template: 'UX_ENHANCED',
           productName: 'Mock Product',
           competitorCount: 2,
+          uxAnalysisIncluded: true
         },
         executiveSummary: 'Mock UX summary',
-        keyFindings: ['UX finding 1'],
+        keyFindings: ['UX finding 1', 'UX Analysis Confidence: 85%'],
         keyOpportunities: ['UX opportunity 1'],
         keyThreats: ['UX threat 1'],
       },
@@ -453,6 +526,56 @@ jest.mock('@/services/analysis/userExperienceAnalyzer', () => ({
         competitorCount: 2,
         analysisType: 'ux_focused',
       },
+    }),
+    // Add the missing analyzeCompetitiveUX method that E2E tests are calling
+    analyzeCompetitiveUX: jest.fn().mockResolvedValue({
+      id: `ux-analysis-${Date.now()}`,
+      productAnalysis: {
+        overallScore: 78,
+        designQuality: 8,
+        usabilityScore: 7,
+        accessibilityRating: 'good',
+        mobileOptimization: 'needs-improvement',
+        strengths: ['Clean interface', 'Good navigation', 'Fast loading'],
+        weaknesses: ['Mobile responsiveness', 'Accessibility features'],
+        recommendations: ['Improve mobile experience', 'Add accessibility features']
+      },
+      competitorAnalyses: [
+        {
+          competitorName: 'CompetitorA',
+          overallScore: 75,
+          strengths: ['Strong mobile UX', 'Good performance'],
+          weaknesses: ['Complex navigation', 'Poor accessibility'],
+          keyDifferences: ['Different approach to navigation', 'Better mobile support']
+        },
+        {
+          competitorName: 'CompetitorB',
+          overallScore: 73,
+          strengths: ['Modern design', 'Good features'],
+          weaknesses: ['Slow loading', 'Poor UX'],
+          keyDifferences: ['Different design approach', 'More features']
+        }
+      ],
+      comparativeInsights: {
+        marketPosition: 'competitive',
+        usabilityScore: 78,
+        accessibilityRating: 'good',
+        mobileOptimization: 'needs-improvement',
+        competitiveAdvantages: ['Better desktop UX', 'Faster performance'],
+        competitiveDisadvantages: ['Weaker mobile UX', 'Limited features']
+      },
+      strategicRecommendations: {
+        immediate: ['Optimize mobile interface', 'Add touch-friendly elements'],
+        shortTerm: ['Redesign navigation for mobile', 'Improve accessibility'],
+        longTerm: ['Mobile-first redesign', 'Advanced UX features']
+      },
+      metadata: {
+        correlationId: `ux-competitive-${Date.now()}`,
+        analyzedAt: new Date().toISOString(),
+        competitorCount: 2,
+        analysisType: 'competitive_ux',
+        confidenceScore: 85
+      }
     }),
     generateFocusedAnalysis: jest.fn().mockResolvedValue({
       summary: 'Mock focused analysis',

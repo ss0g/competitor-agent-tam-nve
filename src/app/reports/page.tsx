@@ -17,6 +17,10 @@ interface ReportFile {
   source: 'database' | 'file';
   status?: string;
   competitorName?: string;
+  reportType?: 'comparative' | 'individual' | 'unknown';
+  competitorCount?: number;
+  template?: string;
+  focusArea?: string;
 }
 
 function ReportsPageContent() {
@@ -117,6 +121,24 @@ function ReportsPageContent() {
         <p className="mt-2 text-gray-600">
           Download and review your competitor analysis reports
         </p>
+        
+        {/* Report Type Summary */}
+        {reports.length > 0 && (
+          <div className="mt-4 flex flex-wrap gap-4 text-sm">
+            <div className="flex items-center">
+              <div className="w-3 h-3 bg-blue-500 rounded-full mr-2"></div>
+              <span className="text-gray-600">
+                Comparative Reports: {reports.filter(r => r.reportType === 'comparative').length}
+              </span>
+            </div>
+            <div className="flex items-center">
+              <div className="w-3 h-3 bg-gray-400 rounded-full mr-2"></div>
+              <span className="text-gray-600">
+                Individual Reports: {reports.filter(r => r.reportType === 'individual' || !r.reportType).length}
+              </span>
+            </div>
+          </div>
+        )}
       </header>
 
       {error && (
@@ -145,102 +167,66 @@ function ReportsPageContent() {
           </div>
         </div>
       ) : (
-        <div className="bg-white shadow overflow-hidden sm:rounded-md">
-          <ul className="divide-y divide-gray-200">
-            {reports.map((report) => (
-              <li key={report.id || report.filename || `${report.projectId}-${report.source}`}>
-                <div className="px-4 py-4 flex items-center justify-between">
-                  <div className="flex items-center">
-                    <div className="flex-shrink-0">
-                      <DocumentTextIcon className="h-8 w-8 text-gray-400" />
+        <div className="space-y-8">
+          {/* Comparative Reports Section */}
+          {(() => {
+            const comparativeReports = reports.filter(r => r.reportType === 'comparative');
+            const individualReports = reports.filter(r => r.reportType !== 'comparative');
+            
+            return (
+              <>
+                {comparativeReports.length > 0 && (
+                  <div>
+                    <div className="flex items-center mb-4">
+                      <div className="w-4 h-4 bg-blue-500 rounded-full mr-3"></div>
+                      <h2 className="text-xl font-semibold text-gray-900">
+                        Consolidated Comparative Reports
+                      </h2>
+                      <span className="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                        Recommended
+                      </span>
                     </div>
-                    <div className="ml-4">
-                      <div className="flex items-center">
-                        <p className="text-sm font-medium text-gray-900 truncate">
-                          {report.title || `Project: ${report.projectName || report.projectId}`}
-                        </p>
-                        <span className={`ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                          report.source === 'database' 
-                            ? 'bg-blue-100 text-blue-800' 
-                            : 'bg-green-100 text-green-800'
-                        }`}>
-                          {report.source === 'database' ? 'Database' : 'File'}
+                    <p className="text-sm text-gray-600 mb-4">
+                      These reports analyze your product against ALL competitors in a single comprehensive document.
+                    </p>
+                    <div className="bg-white shadow overflow-hidden sm:rounded-md">
+                      <ul className="divide-y divide-gray-200">
+                        {comparativeReports.map((report) => (
+                          <ComparativeReportItem key={report.id || report.filename || `${report.projectId}-${report.source}`} report={report} formatDate={formatDate} formatFileSize={formatFileSize} observability={observability} />
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+                )}
+
+                {individualReports.length > 0 && (
+                  <div>
+                    <div className="flex items-center mb-4">
+                      <div className="w-4 h-4 bg-gray-400 rounded-full mr-3"></div>
+                      <h2 className="text-xl font-semibold text-gray-900">
+                        Individual Competitor Reports
+                      </h2>
+                      {comparativeReports.length > 0 && (
+                        <span className="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                          Legacy Format
                         </span>
-                        {report.status && (
-                          <span className={`ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                            report.status === 'COMPLETED' 
-                              ? 'bg-green-100 text-green-800' 
-                              : 'bg-yellow-100 text-yellow-800'
-                          }`}>
-                            {report.status}
-                          </span>
-                        )}
-                      </div>
-                      <div className="flex items-center mt-1">
-                        <ClockIcon className="flex-shrink-0 mr-1.5 h-4 w-4 text-gray-400" />
-                        <p className="text-sm text-gray-500">
-                          Generated: {formatDate(report.generatedAt)}
-                        </p>
-                        {report.competitorName && (
-                          <>
-                            <span className="mx-2 text-gray-300">•</span>
-                            <p className="text-sm text-gray-500">
-                              Competitor: {report.competitorName}
-                            </p>
-                          </>
-                        )}
-                        {report.size && (
-                          <>
-                            <span className="mx-2 text-gray-300">•</span>
-                            <p className="text-sm text-gray-500">
-                              Size: {formatFileSize(report.size)}
-                            </p>
-                          </>
-                        )}
-                      </div>
+                      )}
+                    </div>
+                    <p className="text-sm text-gray-600 mb-4">
+                      These reports analyze individual competitors separately. Consider using comparative reports for better insights.
+                    </p>
+                    <div className="bg-white shadow overflow-hidden sm:rounded-md">
+                      <ul className="divide-y divide-gray-200">
+                        {individualReports.map((report) => (
+                          <IndividualReportItem key={report.id || report.filename || `${report.projectId}-${report.source}`} report={report} formatDate={formatDate} formatFileSize={formatFileSize} observability={observability} />
+                        ))}
+                      </ul>
                     </div>
                   </div>
-                  <div className="flex items-center space-x-2">
-                    <a
-                      href={`/reports/${report.id || report.filename}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center px-3 py-2 border border-blue-300 shadow-sm text-sm leading-4 font-medium rounded-md text-blue-700 bg-blue-50 hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                      onClick={() => {
-                        observability.trackInteraction('click', 'read_report_button', {
-                          reportId: report.id || report.filename,
-                          reportSource: report.source,
-                          projectId: report.projectId,
-                          competitorName: report.competitorName,
-                        });
-                        observability.trackNavigation('/reports', `/reports/${report.id || report.filename}`, 'click');
-                      }}
-                    >
-                      <EyeIcon className="-ml-0.5 mr-2 h-4 w-4" />
-                      Read Report
-                    </a>
-                    <a
-                      href={report.downloadUrl}
-                      className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                      download
-                      onClick={() => {
-                        observability.trackInteraction('click', 'download_report_button', {
-                          reportId: report.id || report.filename,
-                          reportSource: report.source,
-                          projectId: report.projectId,
-                          competitorName: report.competitorName,
-                          downloadUrl: report.downloadUrl,
-                        });
-                      }}
-                    >
-                      <ArrowDownTrayIcon className="-ml-0.5 mr-2 h-4 w-4" />
-                      Download
-                    </a>
-                  </div>
-                </div>
-              </li>
-            ))}
-          </ul>
+                )}
+              </>
+            );
+          })()}
         </div>
       )}
 
@@ -258,6 +244,221 @@ function ReportsPageContent() {
         </button>
       </div>
     </div>
+  );
+}
+
+// Specialized component for comparative reports
+function ComparativeReportItem({ report, formatDate, formatFileSize, observability }: {
+  report: ReportFile;
+  formatDate: (date: string) => string;
+  formatFileSize: (bytes?: number) => string;
+  observability: any;
+}) {
+  return (
+    <li>
+      <div className="px-4 py-4 flex items-center justify-between border-l-4 border-blue-500">
+        <div className="flex items-center">
+          <div className="flex-shrink-0">
+            <div className="h-8 w-8 bg-blue-100 rounded-lg flex items-center justify-center">
+              <DocumentTextIcon className="h-5 w-5 text-blue-600" />
+            </div>
+          </div>
+          <div className="ml-4">
+            <div className="flex items-center">
+              <p className="text-sm font-medium text-gray-900 truncate">
+                {report.title || `Comparative Analysis: ${report.projectName || report.projectId}`}
+              </p>
+              <span className="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                Comparative
+              </span>
+              {report.status && (
+                <span className={`ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                  report.status === 'COMPLETED' 
+                    ? 'bg-green-100 text-green-800' 
+                    : 'bg-yellow-100 text-yellow-800'
+                }`}>
+                  {report.status}
+                </span>
+              )}
+            </div>
+            <div className="flex items-center mt-1">
+              <ClockIcon className="flex-shrink-0 mr-1.5 h-4 w-4 text-gray-400" />
+              <p className="text-sm text-gray-500">
+                Generated: {formatDate(report.generatedAt)}
+              </p>
+              {report.competitorCount && (
+                <>
+                  <span className="mx-2 text-gray-300">•</span>
+                  <p className="text-sm text-gray-500">
+                    {report.competitorCount} Competitors Analyzed
+                  </p>
+                </>
+              )}
+              {report.template && (
+                <>
+                  <span className="mx-2 text-gray-300">•</span>
+                  <p className="text-sm text-gray-500">
+                    Template: {report.template}
+                  </p>
+                </>
+              )}
+              {report.size && (
+                <>
+                  <span className="mx-2 text-gray-300">•</span>
+                  <p className="text-sm text-gray-500">
+                    Size: {formatFileSize(report.size)}
+                  </p>
+                </>
+              )}
+            </div>
+            {report.focusArea && (
+              <div className="mt-1">
+                <p className="text-xs text-blue-600">
+                  Focus: {report.focusArea}
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+        <div className="flex items-center space-x-2">
+          <a
+            href={`/reports/${report.id || report.filename}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center px-3 py-2 border border-blue-300 shadow-sm text-sm leading-4 font-medium rounded-md text-blue-700 bg-blue-50 hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            onClick={() => {
+              observability.trackInteraction('click', 'read_comparative_report_button', {
+                reportId: report.id || report.filename,
+                reportType: 'comparative',
+                projectId: report.projectId,
+                competitorCount: report.competitorCount,
+              });
+              observability.trackNavigation('/reports', `/reports/${report.id || report.filename}`, 'click');
+            }}
+          >
+            <EyeIcon className="-ml-0.5 mr-2 h-4 w-4" />
+            View Analysis
+          </a>
+          <a
+            href={report.downloadUrl}
+            className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            download
+            onClick={() => {
+              observability.trackInteraction('click', 'download_comparative_report_button', {
+                reportId: report.id || report.filename,
+                reportType: 'comparative',
+                projectId: report.projectId,
+                downloadUrl: report.downloadUrl,
+              });
+            }}
+          >
+            <ArrowDownTrayIcon className="-ml-0.5 mr-2 h-4 w-4" />
+            Download
+          </a>
+        </div>
+      </div>
+    </li>
+  );
+}
+
+// Specialized component for individual reports
+function IndividualReportItem({ report, formatDate, formatFileSize, observability }: {
+  report: ReportFile;
+  formatDate: (date: string) => string;
+  formatFileSize: (bytes?: number) => string;
+  observability: any;
+}) {
+  return (
+    <li>
+      <div className="px-4 py-4 flex items-center justify-between">
+        <div className="flex items-center">
+          <div className="flex-shrink-0">
+            <DocumentTextIcon className="h-8 w-8 text-gray-400" />
+          </div>
+          <div className="ml-4">
+            <div className="flex items-center">
+              <p className="text-sm font-medium text-gray-900 truncate">
+                {report.title || `Project: ${report.projectName || report.projectId}`}
+              </p>
+              <span className={`ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                report.source === 'database' 
+                  ? 'bg-blue-100 text-blue-800' 
+                  : 'bg-green-100 text-green-800'
+              }`}>
+                {report.source === 'database' ? 'Database' : 'File'}
+              </span>
+              {report.status && (
+                <span className={`ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                  report.status === 'COMPLETED' 
+                    ? 'bg-green-100 text-green-800' 
+                    : 'bg-yellow-100 text-yellow-800'
+                }`}>
+                  {report.status}
+                </span>
+              )}
+            </div>
+            <div className="flex items-center mt-1">
+              <ClockIcon className="flex-shrink-0 mr-1.5 h-4 w-4 text-gray-400" />
+              <p className="text-sm text-gray-500">
+                Generated: {formatDate(report.generatedAt)}
+              </p>
+              {report.competitorName && (
+                <>
+                  <span className="mx-2 text-gray-300">•</span>
+                  <p className="text-sm text-gray-500">
+                    Competitor: {report.competitorName}
+                  </p>
+                </>
+              )}
+              {report.size && (
+                <>
+                  <span className="mx-2 text-gray-300">•</span>
+                  <p className="text-sm text-gray-500">
+                    Size: {formatFileSize(report.size)}
+                  </p>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+        <div className="flex items-center space-x-2">
+          <a
+            href={`/reports/${report.id || report.filename}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center px-3 py-2 border border-blue-300 shadow-sm text-sm leading-4 font-medium rounded-md text-blue-700 bg-blue-50 hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            onClick={() => {
+              observability.trackInteraction('click', 'read_individual_report_button', {
+                reportId: report.id || report.filename,
+                reportType: 'individual',
+                projectId: report.projectId,
+                competitorName: report.competitorName,
+              });
+              observability.trackNavigation('/reports', `/reports/${report.id || report.filename}`, 'click');
+            }}
+          >
+            <EyeIcon className="-ml-0.5 mr-2 h-4 w-4" />
+            Read Report
+          </a>
+          <a
+            href={report.downloadUrl}
+            className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            download
+            onClick={() => {
+              observability.trackInteraction('click', 'download_individual_report_button', {
+                reportId: report.id || report.filename,
+                reportType: 'individual',
+                projectId: report.projectId,
+                downloadUrl: report.downloadUrl,
+              });
+            }}
+          >
+            <ArrowDownTrayIcon className="-ml-0.5 mr-2 h-4 w-4" />
+            Download
+          </a>
+        </div>
+      </div>
+    </li>
   );
 }
 

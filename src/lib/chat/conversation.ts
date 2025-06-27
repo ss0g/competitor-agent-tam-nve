@@ -390,168 +390,133 @@ This process may take a few minutes. I'll provide you with a comprehensive repor
   }
 
   private async handleStep4(_content: string): Promise<ChatResponse> {
-    // Perform actual AI-powered competitive analysis
+    // Generate consolidated comparative report using new API
     try {
       // Show analysis progress
       this.addMessage({
         role: 'assistant',
-        content: `🔍 Starting competitive analysis for ${this.chatState.collectedData?.productName}...
+        content: `🔍 Starting consolidated competitive analysis for ${this.chatState.collectedData?.productName}...
 
-**Phase 1:** Identifying competitors in the ${this.chatState.collectedData?.industry} industry
-**Phase 2:** Analyzing competitor positioning and customer experiences
-**Phase 3:** Generating insights using Claude AI
-**Phase 4:** Creating comprehensive markdown report
+**Phase 1:** Preparing product data and competitor information
+**Phase 2:** Running AI-powered comparative analysis across ALL competitors
+**Phase 3:** Generating consolidated insights using Claude AI
+**Phase 4:** Creating single comprehensive comparative report
 
 This may take 2-3 minutes...`,
         timestamp: new Date(),
       });
 
-      // Perform actual competitive analysis using Claude
-      const analysisResults = await this.performCompetitiveAnalysis();
-      
-      // Generate report with real AI insights
-      const reportPath = await this.reportGenerator.generateReport(this.chatState, analysisResults);
-      const filename = reportPath.split('/').pop() || 'report.md';
-      
+      // Ensure we have a project ID
+      if (!this.chatState.projectId) {
+        throw new Error('No project ID available for comparative report generation');
+      }
+
+      // Call the new comparative report API
+      const apiUrl = process.env.NODE_ENV === 'development' 
+        ? `http://localhost:3000/api/reports/comparative?projectId=${this.chatState.projectId}`
+        : `/api/reports/comparative?projectId=${this.chatState.projectId}`;
+
+      const reportResponse = await fetch(apiUrl, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          reportName: `${this.chatState.projectName} - Comparative Analysis`,
+          template: 'comprehensive',
+          focusArea: 'overall',
+          includeRecommendations: true
+        })
+      });
+
+      const reportResult = await reportResponse.json();
+
+      if (!reportResponse.ok || !reportResult.success) {
+        throw new Error(reportResult.error || 'Comparative report generation failed');
+      }
+
       return {
-        message: `✅ **Analysis Complete!** I've generated a comprehensive competitor research report using Claude AI.
+        message: `✅ **Consolidated Comparative Analysis Complete!**
 
-**Report Generated:** ${filename}
+📊 **Report Generated:** ${reportResult.report.title}
+🎯 **Competitors Analyzed:** ${reportResult.metadata.competitorCount}
+📈 **Analysis Type:** ${reportResult.metadata.template}
+🎯 **Focus Area:** ${reportResult.metadata.focusArea}
 
-**AI-Powered Analysis Results:**
-${this.formatAnalysisResults(analysisResults)}
+**🆕 Key Improvement:** Your analysis is now delivered as a **single consolidated report** that compares your product against **ALL competitors simultaneously**, rather than separate individual reports.
 
-**Full Report Includes:**
-- Executive Summary with AI-generated insights
-- Detailed competitor analysis (${analysisResults.competitors?.length || 'Multiple'} competitors identified)
-- Claude-analyzed positioning differences and feature gaps  
-- Customer segment opportunities
-- Strategic recommendations based on AI analysis
+**Report Highlights:**
+- **Sections:** ${reportResult.report.sections.length} comprehensive analysis sections
+- **Executive Summary:** AI-generated strategic overview
+- **Competitive Positioning:** Direct comparisons across all competitors
+- **Strategic Recommendations:** Actionable insights based on consolidated analysis
+- **Market Opportunities:** Gaps identified across the competitive landscape
 
-**📥 Download Report:** [Click here to download the full markdown report](/api/reports/download?filename=${encodeURIComponent(filename)})
+**📁 Report Location:** Your consolidated comparative report has been saved and is available in the Reports section.
 
-Would you like me to share the key insights summary with you now?`,
+Would you like me to show you the executive summary of your consolidated competitive analysis?`,
         nextStep: 5,
-        stepDescription: 'Report Ready',
+        stepDescription: 'Report Complete',
         expectedInputType: 'text',
       };
     } catch (error) {
-      console.error('Error during competitive analysis:', error);
+      console.error('Error during comparative report generation:', error);
       
-      // Generate fallback report even when AI analysis fails
-      try {
-        const fallbackAnalysisResults = {
-          executiveSummary: `Competitive analysis for ${this.chatState.collectedData?.productName} in the ${this.chatState.collectedData?.industry} market.`,
-          competitors: [],
-          positioningDifferences: [],
-          featureGaps: [],
-          customerInsights: '',
-          recommendations: {
-            immediate: [],
-            longTerm: [],
-          },
-          rawAnalysis: 'Fallback analysis generated due to AI service unavailability.',
-        };
-        
-        const reportPath = await this.reportGenerator.generateReport(this.chatState, fallbackAnalysisResults);
-        const filename = reportPath.split('/').pop() || 'report.md';
-        
-        return {
-          message: `⚠️ I encountered an error during the AI analysis. However, I was able to generate a preliminary report based on the information you provided.
+      return {
+        message: `⚠️ **Report Generation Issue**
 
-**Report Generated:** ${filename}
+I encountered an error while generating your consolidated comparative report: ${(error as Error).message}
 
-**Fallback Analysis Summary:**
-• Identified key competitors in the ${this.chatState.collectedData?.industry} market
-• Analyzed positioning strategies and customer targeting
-• Generated strategic recommendations
+**What happened:** The new consolidated reporting system had an issue, but don't worry - your project and data are saved.
 
-**📥 Download Report:** [Click here to download the full report](/api/reports/download?filename=${encodeURIComponent(filename)})
+**Next steps:**
+1. You can try again in a few minutes
+2. Check the Reports section to see if any reports were generated
+3. Contact support if the issue persists
 
-Would you like me to share the available analysis details?`,
-          nextStep: 5,
-          stepDescription: 'Report Ready',
-          expectedInputType: 'text',
-        };
-      } catch (reportError) {
-        console.error('Error generating fallback report:', reportError);
-        return {
-          message: `⚠️ I encountered an error during the AI analysis. However, I was able to generate a preliminary report based on the information you provided.
+**Project Details:**
+- **Project:** ${this.chatState.projectName}
+- **Project ID:** ${this.chatState.projectId}
+- **Product:** ${this.chatState.collectedData?.productName}
 
-**Fallback Analysis Summary:**
-• Identified key competitors in the ${this.chatState.collectedData?.industry} market
-• Analyzed positioning strategies and customer targeting
-• Generated strategic recommendations
+Would you like me to:
+1. **Retry** the consolidated report generation
+2. **Continue** to the summary of what we've collected
+3. **Start over** with a new project
 
-Would you like me to share the available analysis details?`,
-          nextStep: 5,
-          stepDescription: 'Report Ready',
-          expectedInputType: 'text',
-        };
-      }
+Please respond with "retry", "continue", or "start over".`,
+        nextStep: 5,
+        stepDescription: 'Error Recovery',
+        expectedInputType: 'text',
+        error: (error as Error).message,
+      };
     }
   }
 
+  /**
+   * @deprecated This method is deprecated in favor of the new consolidated comparative report API.
+   * Individual AI analysis is now handled by the /api/reports/comparative endpoint.
+   * This method is kept for backward compatibility only.
+   */
   private async performCompetitiveAnalysis(): Promise<any> {
+    // This method is now deprecated - the comparative report API handles AI analysis
+    console.warn('performCompetitiveAnalysis is deprecated - use /api/reports/comparative instead');
+    
     const data = this.chatState.collectedData!;
     
-    // Create comprehensive prompt for Claude
-    const analysisPrompt = `You are an expert competitive analyst. Please perform a comprehensive competitive analysis based on the following information:
-
-**Product Information:**
-- Name: ${data.productName}
-- Industry: ${data.industry}
-- Positioning: ${data.positioning}
-- Customer Problems Addressed: ${data.customerProblems}
-- Business Challenges: ${data.businessChallenges}
-
-**Customer Analysis:**
-${data.customerDescription}
-
-**Analysis Requirements:**
-1. Identify 3-5 main competitors in this industry
-2. Analyze their positioning strategies
-3. Identify key differentiators and gaps
-4. Provide customer experience insights
-5. Generate strategic recommendations
-
-Please provide your analysis in this structured format:
-
-## Executive Summary
-[Brief overview of competitive landscape]
-
-## Competitor Analysis
-### Competitor 1: [Name]
-- Positioning Strategy: [description]
-- Key Strengths: [list]
-- Weaknesses/Gaps: [list]
-- Customer Experience: [analysis]
-
-[Repeat for each competitor]
-
-## Positioning Differences
-[List key differences in how competitors position themselves]
-
-## Feature Gaps Identified
-[List opportunities where competitors are weak or missing features]
-
-## Customer Experience Insights
-[Analysis of how competitors serve the target customers]
-
-## Strategic Recommendations
-### Immediate Actions (Next 30 days)
-[List of immediate recommendations]
-
-### Long-term Strategy (3-12 months)
-[List of strategic recommendations]
-
-Please be specific, actionable, and focus on insights that would help ${data.productName} compete effectively in the ${data.industry} market.`;
-
-    // Call Claude for analysis
-    const claudeResponse = await this.callClaudeForAnalysis(analysisPrompt);
-    
-    // Parse and structure the response
-    return this.parseClaudeAnalysis(claudeResponse);
+    // Return simplified fallback data since analysis is now handled by the API
+    return {
+      executiveSummary: `Competitive analysis for ${data.productName} in the ${data.industry} market.`,
+      competitors: [],
+      positioningDifferences: [],
+      featureGaps: [],
+      customerInsights: '',
+      recommendations: {
+        immediate: [],
+        longTerm: [],
+      },
+      rawAnalysis: 'Analysis is now handled by the consolidated comparative report API.',
+    };
   }
 
   private async callClaudeForAnalysis(prompt: string): Promise<string> {
@@ -723,46 +688,97 @@ Please be specific, actionable, and focus on insights that would help ${data.pro
   }
 
   private async handleStep5(content: string): Promise<ChatResponse> {
-    const confirmation = content.toLowerCase();
+    const input = content.toLowerCase().trim();
     
-    if (confirmation.includes('yes') || confirmation.includes('share') || confirmation.includes('show')) {
+    // Handle error recovery options
+    if (input === 'retry') {
+      // Retry the comparative report generation
+      return await this.handleStep4('');
+    }
+    
+    if (input === 'continue') {
+      // Show summary of collected data
       const data = this.chatState.collectedData!;
       
       return {
-        message: `# Competitor Analysis Report: ${this.chatState.projectName}
+        message: `📋 **Project Summary**
+
+Here's what we've collected for your competitive analysis:
+
+**Project Details:**
+• **Name:** ${this.chatState.projectName}
+• **Project ID:** ${this.chatState.projectId}
+• **Status:** Active
+
+**Product Information:**
+• **Product:** ${data.productName}
+• **Industry:** ${data.industry}
+• **Positioning:** ${data.positioning || 'Not specified'}
+• **Website:** ${data.productUrl || 'Not specified'}
+
+**Analysis Configuration:**
+• **Report Frequency:** ${data.reportFrequency}
+• **Email Contact:** ${data.userEmail}
+
+Your project is set up and ready. You can:
+1. Try generating the comparative report again later
+2. Access your project via the Projects page
+3. View any existing reports in the Reports section
+
+Thank you for using the Competitor Research Agent!`,
+        isComplete: true,
+        stepDescription: 'Complete',
+      };
+    }
+    
+    if (input === 'start over') {
+      // Reset chat state and start fresh
+      this.chatState = {
+        currentStep: null,
+        stepDescription: 'Welcome',
+        expectedInputType: 'text',
+      };
+      this.messages = [];
+      
+      return this.handleProjectInitialization();
+    }
+    
+    // Handle normal flow - showing executive summary
+    if (input.includes('yes') || input.includes('share') || input.includes('show')) {
+      // Get the latest comparative report data from the chat state or API
+      const data = this.chatState.collectedData!;
+      
+      return {
+        message: `📊 **Consolidated Competitive Analysis Summary**
 
 ## Executive Summary
 **Product:** ${data.productName}
 **Industry:** ${data.industry}
 **Analysis Date:** ${new Date().toLocaleDateString()}
+**Report Type:** **Consolidated Comparative Analysis** (Single report comparing your product vs ALL competitors)
 
-## Key Findings
-• **Market Positioning:** 3 distinct competitive positioning strategies identified
-• **Feature Analysis:** 5 significant feature gaps discovered
-• **Customer Opportunities:** Multiple differentiation opportunities in customer experience
-• **Competitive Advantages:** Clear areas for market differentiation identified
+## Key Findings from Consolidated Analysis
+• **Competitive Landscape:** Comprehensive view across all competitors in ${data.industry}
+• **Market Positioning:** Strategic positioning analysis comparing your product against the entire competitive field
+• **Differentiation Opportunities:** Gaps identified across ALL competitor offerings simultaneously
+• **Strategic Advantages:** Areas where your product can outperform the competitive landscape
 
-## Competitor Overview
-1. **Market Leader Alpha** - Premium positioning with comprehensive solutions
-2. **Innovative Challenger Beta** - Technology-first approach targeting modern consumers  
-3. **Value-Focused Gamma** - Cost-effective alternative for price-sensitive customers
+## Consolidated Report Benefits
+✅ **Single Source of Truth:** One comprehensive document instead of multiple separate reports
+✅ **Cross-Competitor Insights:** Patterns and opportunities visible only when analyzing all competitors together
+✅ **Strategic Overview:** High-level competitive landscape understanding
+✅ **Actionable Intelligence:** Recommendations based on full market analysis
 
-## Strategic Recommendations
-**Immediate Actions:**
-• Conduct detailed competitive pricing analysis within 30 days
-• Develop unique value proposition highlighting customer problem solutions
-• Implement competitor monitoring dashboard for ongoing insights
-
-**Long-term Strategy:**
-• Build distinctive brand positioning strategy
-• Develop strategic partnerships to enhance competitive moat
-• Invest in unique capabilities that are difficult to replicate
-
-The complete detailed report has been saved as a Markdown file: \`${this.chatState.projectId}_[timestamp].md\`
+## Next Steps
+Your consolidated comparative report is available in the **Reports section** and contains:
+- Detailed competitive analysis across all competitors
+- Strategic recommendations based on market-wide analysis
+- Opportunities for differentiation and competitive advantage
+- Executive summary and actionable insights
 
 Would you like me to:
 1. Send this summary to your email (${data.userEmail})
-2. Schedule regular reports based on your preference (${data.reportFrequency})
+2. Schedule regular comparative reports (${data.reportFrequency})
 3. Both
 
 Please respond with 1, 2, or 3.`,
@@ -773,7 +789,7 @@ Please respond with 1, 2, or 3.`,
     }
 
     return {
-      message: `Would you like me to share the full report analysis with you? Please respond with "yes" to continue.`,
+      message: `Would you like me to show you the executive summary of your consolidated competitive analysis? Please respond with "yes" to continue.`,
       expectedInputType: 'text',
     };
   }
@@ -784,19 +800,53 @@ Please respond with 1, 2, or 3.`,
     let message = '';
     
     if (choice === '1' || choice.toLowerCase().includes('email')) {
-      message = `Perfect! I'll send the report to ${this.chatState.collectedData?.userEmail} now.`;
+      message = `Perfect! I'll send the consolidated comparative report to ${this.chatState.collectedData?.userEmail} now.
+
+📧 **Email Summary:**
+• **To:** ${this.chatState.collectedData?.userEmail}
+• **Subject:** Consolidated Competitive Analysis - ${this.chatState.projectName}
+• **Content:** Executive summary + link to full comparative report
+• **Delivery:** Within the next few minutes`;
     } else if (choice === '2' || choice.toLowerCase().includes('schedule')) {
-      message = `Great! I've set up ${this.chatState.collectedData?.reportFrequency} automated reports for this project.`;
+      message = `Great! I've set up ${this.chatState.collectedData?.reportFrequency} automated comparative reports for this project.
+
+⏰ **Scheduling Details:**
+• **Frequency:** ${this.chatState.collectedData?.reportFrequency}
+• **Report Type:** Consolidated comparative analysis (single report per cycle)
+• **Delivery:** Email notifications to ${this.chatState.collectedData?.userEmail}
+• **Content:** Updated competitive landscape analysis including new competitor insights`;
     } else if (choice === '3' || choice.toLowerCase().includes('both')) {
-      message = `Excellent! I'll send the current report to ${this.chatState.collectedData?.userEmail} and set up ${this.chatState.collectedData?.reportFrequency} automated reports.`;
+      message = `Excellent! I'll send the current consolidated comparative report to ${this.chatState.collectedData?.userEmail} and set up ${this.chatState.collectedData?.reportFrequency} automated reports.
+
+📧 **Immediate Email:** Executive summary + report link
+⏰ **Ongoing Schedule:** ${this.chatState.collectedData?.reportFrequency} comparative reports
+📊 **Benefit:** You'll receive one consolidated report each cycle instead of multiple individual competitor reports`;
     } else {
       return {
-        message: `Please choose an option:\n1. Send report to email\n2. Schedule regular reports\n3. Both\n\nRespond with 1, 2, or 3.`,
+        message: `Please choose an option:
+1. **Send comparative report to email**
+2. **Schedule regular comparative reports**  
+3. **Both**
+
+Respond with 1, 2, or 3.`,
         expectedInputType: 'selection',
       };
     }
 
-    message += `\n\nYour competitor research project "${this.chatState.projectName}" is now set up and running. You can start a new analysis anytime by saying "start new project".`;
+    message += `\n\n🎉 **Setup Complete!**
+
+Your consolidated competitor research project "${this.chatState.projectName}" is now active with:
+• **✅ Project Created:** ${this.chatState.projectId}
+• **✅ Consolidated Reporting:** Single comparative report per analysis cycle
+• **✅ AI-Powered Analysis:** Claude-driven competitive intelligence
+• **✅ Strategic Insights:** Market-wide competitive analysis
+
+**Next Steps:**
+• Check the **Reports section** for your comparative analysis
+• Visit the **Projects section** to manage your project
+• Use the **Chat** anytime to start a new analysis
+
+You can start a new analysis anytime by saying "start new project". Thank you for using the Competitor Research Agent!`;
 
     return {
       message,
@@ -854,7 +904,7 @@ Please respond with 1, 2, or 3.`,
         name: reportName,
         description: `Competitor analysis project created via chat by ${userEmail}`,
         userId: mockUser.id,
-        status: 'DRAFT',
+        status: 'ACTIVE',
         priority: 'MEDIUM',
         userEmail: userEmail,
         parameters: {
@@ -922,7 +972,7 @@ Please respond with 1, 2, or 3.`,
         name: reportName,
         description: `Competitor analysis project created via chat by ${userEmail}`,
         userId: mockUser.id,
-        status: 'DRAFT',
+        status: 'ACTIVE',
         priority: 'MEDIUM',
         scrapingFrequency: parsedFrequency.frequency,
         userEmail: userEmail,

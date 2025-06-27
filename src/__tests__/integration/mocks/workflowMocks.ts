@@ -364,7 +364,7 @@ export class WorkflowMocks {
       scrapeProduct: jest.fn().mockImplementation(async (url: any, options: any) => {
         // Validate scraping input
         if (!url || !url.startsWith('http')) {
-          throw new Error('Invalid URL format for scraping workflow');
+          throw new Error('Invalid URL for scraping workflow');
         }
 
         // Check for specific error test URLs

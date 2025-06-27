@@ -24,6 +24,10 @@ interface ReportFile {
   source: 'database' | 'file';
   status?: string;
   competitorName?: string;
+  reportType?: 'comparative' | 'individual' | 'unknown';
+  competitorCount?: number;
+  template?: string;
+  focusArea?: string;
 }
 
 export async function GET(request: NextRequest) {
@@ -55,6 +59,13 @@ export async function GET(request: NextRequest) {
       });
 
       const dbReports = await prisma.report.findMany({
+        include: {
+          project: {
+            include: {
+              competitors: true
+            }
+          }
+        },
         orderBy: {
           createdAt: 'desc',
         },
@@ -66,16 +77,38 @@ export async function GET(request: NextRequest) {
       });
 
       for (const report of dbReports) {
+        // Determine report type based on title and metadata
+        let reportType: 'comparative' | 'individual' | 'unknown' = 'unknown';
+        let competitorCount = 0;
+        let template = 'standard';
+        let focusArea = 'general';
+        
+        // Check if this is a comparative report
+        if (report.name?.toLowerCase().includes('comparative') || 
+            report.name?.toLowerCase().includes('consolidated')) {
+          reportType = 'comparative';
+          competitorCount = report.project?.competitors?.length || 0;
+          template = 'comprehensive';
+          focusArea = 'overall';
+        } else {
+          reportType = 'individual';
+          competitorCount = 1;
+        }
+
         reports.push({
           id: report.id,
-          projectId: report.competitorId || 'unknown',
-          projectName: 'Unknown Project',
+          projectId: report.projectId || report.competitorId || 'unknown',
+          projectName: report.project?.name || 'Unknown Project',
           title: report.name,
           generatedAt: report.createdAt,
           downloadUrl: `/api/reports/database/${report.id}`,
           source: 'database',
           status: 'COMPLETED',
-          competitorName: 'Unknown Competitor',
+          competitorName: reportType === 'individual' ? 'Unknown Competitor' : undefined,
+          reportType,
+          competitorCount,
+          template,
+          focusArea,
         });
       }
 
@@ -126,14 +159,29 @@ export async function GET(request: NextRequest) {
           // Extract project ID from filename (format: projectId_timestamp.md)
           const projectId = filename.split('_')[0];
           
+          // Determine report type from filename or content
+          let reportType: 'comparative' | 'individual' | 'unknown' = 'unknown';
+          if (filename.toLowerCase().includes('comparative') || 
+              filename.toLowerCase().includes('consolidated')) {
+            reportType = 'comparative';
+          } else {
+            reportType = 'individual';
+          }
+          
           reports.push({
             filename,
             projectId,
-            title: `Report for ${projectId}`,
+            title: reportType === 'comparative' 
+              ? `Comparative Analysis: ${projectId}` 
+              : `Report for ${projectId}`,
             generatedAt: stats.birthtime,
             size: stats.size,
             downloadUrl: `/api/reports/download?filename=${encodeURIComponent(filename)}`,
             source: 'file',
+            reportType,
+            competitorCount: reportType === 'comparative' ? 0 : 1,
+            template: reportType === 'comparative' ? 'comprehensive' : 'standard',
+            focusArea: reportType === 'comparative' ? 'overall' : 'individual',
           });
           
           processedFiles++;

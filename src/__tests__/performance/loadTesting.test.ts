@@ -3,6 +3,11 @@ import { logger } from '@/lib/logger';
 // Performance-optimized mock services
 const mockAnalysisService = {
   analyzeProductVsCompetitors: jest.fn().mockImplementation(async (input: any) => {
+    // Validate input to prevent undefined return
+    if (!input || !input.product || !input.competitors) {
+      throw new Error('Invalid analysis input: missing required product or competitors data');
+    }
+
     // Simulate realistic processing time with controlled performance
     const processingTime = Math.min(30000, Math.max(5000, input.competitors.length * 2000)); // 5s to 30s based on complexity
     await new Promise(resolve => setTimeout(resolve, processingTime));

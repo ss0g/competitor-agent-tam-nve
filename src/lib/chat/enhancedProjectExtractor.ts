@@ -337,13 +337,24 @@ export class EnhancedProjectExtractor {
   }
 
   private extractIndustry(lines: string[]): string | null {
-    // Try unstructured text first (natural language patterns)
+    // Look for explicit industry declarations first (line-based, more precise)
+    for (const line of lines) {
+      const industryMatch = line.match(/^(?:industry)\s*:?\s*([^\n,]+)/i);
+      if (industryMatch) {
+        const extracted = industryMatch[1].trim().replace(/['"]/g, '');
+        // Avoid extracting other text as industry
+        if (!extracted.includes('@') && !extracted.startsWith('http') && extracted.length > 1) {
+          return extracted;
+        }
+      }
+    }
+    
+    // Try unstructured text as fallback (natural language patterns)
     const fullText = lines.join(' ');
     
     // Pattern for "in the X industry" or "X industry"
     const industryPatterns = [
       /\b(?:in\s+the\s+)?([a-z]+tech|fintech|healthcare|education|retail|finance|automotive|aerospace|gaming|entertainment|media|consulting|manufacturing|energy|telecommunications?|biotech|agtech|proptech|edtech|regtech|insurtech|legaltech|martech|adtech|foodtech|cleantech)\s+(?:industry|sector|space|market)?/i,
-      /\b(?:industry|market|sector)\s*:?\s*([^\n,]+)/i,
       /\b(?:we're|work\s+in|operate\s+in|focus\s+on)\s+(?:the\s+)?([a-z]+)\s+(?:industry|sector|space|market)/i
     ];
     

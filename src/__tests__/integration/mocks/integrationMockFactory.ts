@@ -262,6 +262,96 @@ export class IntegrationMockFactory {
             type: 'competitor'
           }
         };
+      }),
+
+      scrapeProductById: jest.fn().mockImplementation(async (productId: string) => {
+        if (!productId) {
+          throw new Error('Invalid product ID for scraping workflow');
+        }
+
+        // Simulate product lookup and scraping
+        await new Promise(resolve => setTimeout(resolve, 150));
+
+        return {
+          id: `snapshot-${Date.now()}`,
+          productId: productId,
+          content: {
+            html: '<html><body>Mock scraped content</body></html>',
+            text: 'Mock scraped content text',
+            title: 'Mock Scraped Product',
+            description: 'Product content scraped by ID',
+            url: 'https://example.com',
+            timestamp: new Date()
+          },
+          metadata: {
+            scrapedAt: new Date().toISOString(),
+            correlationId: `scrape-correlation-${Date.now()}`,
+            contentLength: 200,
+            scrapingDuration: 150,
+            scrapingMethod: 'byId',
+            statusCode: 200,
+            inputProductId: productId
+          },
+          createdAt: new Date(),
+          updatedAt: new Date()
+        };
+      }),
+
+      triggerManualProductScraping: jest.fn().mockImplementation(async (projectId: string) => {
+        if (!projectId) {
+          throw new Error('Invalid project ID for scraping workflow');
+        }
+
+        // Simulate fetching products for project and scraping them
+        await new Promise(resolve => setTimeout(resolve, 300));
+
+        // Mock multiple product scraping results
+        const results = [
+          {
+            id: `snapshot-${Date.now()}-1`,
+            productId: 'product-1',
+            content: {
+              html: '<html><body>Product 1 content</body></html>',
+              text: 'Product 1 scraped content',
+              title: 'Product 1',
+              description: 'First product in batch scraping',
+              url: 'https://example.com/product/1',
+              timestamp: new Date()
+            },
+            metadata: {
+              scrapedAt: new Date().toISOString(),
+              batchId: `batch-${Date.now()}`,
+              batchSize: 2,
+              correlationId: `batch-correlation-${Date.now()}`,
+              projectId: projectId
+            },
+            createdAt: new Date(),
+            updatedAt: new Date()
+          },
+          {
+            id: `snapshot-${Date.now()}-2`,
+            productId: 'product-2',
+            content: {
+              html: '<html><body>Product 2 content</body></html>',
+              text: 'Product 2 scraped content',
+              title: 'Product 2',
+              description: 'Second product in batch scraping',
+              url: 'https://example.com/product/2',
+              timestamp: new Date()
+            },
+            metadata: {
+              scrapedAt: new Date().toISOString(),
+              batchId: `batch-${Date.now()}`,
+              batchSize: 2,
+              correlationId: `batch-correlation-${Date.now()}`,
+              projectId: projectId
+            },
+            createdAt: new Date(),
+            updatedAt: new Date()
+          }
+        ];
+
+        return results;
       })
     };
     
