@@ -126,12 +126,64 @@ export class ComprehensiveRequirementsCollector {
       includeContextualHelp = true
     } = options;
 
-    const greeting = this.getGreeting(tone, emphasizeSpeed);
-    const sections = this.buildPromptSections(industry, includeExamples, showOptionalFields);
-    const instructions = this.getInputInstructions(tone, includeContextualHelp);
-    const footer = this.getPromptFooter(tone);
+    return `🚀 **Welcome to the Competitor Research Agent!**
 
-    return `${greeting}\n\n${sections}\n\n${instructions}\n\n${footer}`;
+To create your comprehensive competitive analysis, I need all the following information at once. This replaces our multi-step process and gets you started faster!
+
+**📧 CONTACT & SCHEDULING (Required):**
+1. **Email address** - Where should I send reports?
+2. **Report frequency** - Weekly, Monthly, or Quarterly?
+3. **Project name** - What should we call this analysis?
+
+**🎯 PRODUCT INFORMATION (Required):**
+4. **Product name** - What's your product called?
+5. **Product website URL** - Full URL for analysis (https://...)
+6. **Industry/Market** - What sector are you in?
+
+**📊 BUSINESS CONTEXT (Required):**
+7. **Product positioning** - Value props, target market, competitive advantage
+8. **Customer data** - Demographics, segments, size, characteristics  
+9. **User problems** - Core problems your product solves
+
+**📝 HOW TO RESPOND:**
+
+**✅ SIMPLE NUMBERED LIST (Recommended)**
+\`\`\`
+1. john.doe@company.com
+2. Weekly  
+3. Good Chop Analysis
+4. Good Chop
+5. https://goodchop.com
+6. Food delivery
+7. Premium meat delivery for health-conscious consumers
+8. 10,000+ urban customers aged 25-40
+9. Finding high-quality, ethically sourced meat locally
+\`\`\`
+
+**✅ NUMBERED LIST WITH LABELS (Also Works)**
+\`\`\`
+1. Email: john.doe@company.com
+2. Frequency: Weekly
+3. Project: Good Chop Analysis
+4. Product: Good Chop
+5. Website: https://goodchop.com
+6. Industry: Food delivery
+7. Positioning: Premium meat delivery for health-conscious consumers
+8. Customers: 10,000+ urban customers aged 25-40
+9. Problem: Finding high-quality, ethically sourced meat locally
+\`\`\`
+
+**✅ NATURAL LANGUAGE (Works Too)**
+"My email is john.doe@company.com and I want weekly reports for my Good Chop Analysis project. We're analyzing Good Chop at https://goodchop.com in the food delivery industry..."
+
+**💡 IMPORTANT TIPS:**
+• **Both formats work perfectly** - Use whichever feels more natural to you
+• **Be specific but concise** - "Finding good meat locally" is perfect
+• **URLs must start with https://** - This helps me validate and scrape correctly
+• **Don't worry about perfect formatting** - I'll understand most reasonable formats
+• **All 9 fields are required** - But you can provide them in any order
+
+Ready to start? Just provide your information in any format above! 🎯`;
   }
 
   /**
@@ -268,19 +320,51 @@ Please provide the missing information in any format you prefer. I'll combine it
   private getInputInstructions(tone: string, includeContextualHelp: boolean): string {
     const baseInstructions = `**📝 HOW TO RESPOND:**
 You can provide information in any format that works for you:
-- **Numbered list** (1. email@company.com, 2. Weekly, 3. Project Name...)
-- **Natural language** (My email is..., I want weekly reports for...)
-- **Mixed format** (Email: john@company.com, I need monthly reports...)`;
+
+**Option 1: Simple Numbered List** (Recommended)
+\`\`\`
+1. john.doe@company.com
+2. Weekly  
+3. Good Chop Analysis
+4. Good Chop
+5. https://goodchop.com
+6. Food delivery
+7. Premium meat delivery for health-conscious consumers
+8. 10,000+ urban customers aged 25-40
+9. Finding high-quality, ethically sourced meat locally
+\`\`\`
+
+**Option 2: Numbered List with Labels**
+\`\`\`
+1. Email: john.doe@company.com
+2. Frequency: Weekly
+3. Project: Good Chop Analysis
+4. Product: Good Chop
+5. Website: https://goodchop.com
+6. Industry: Food delivery
+7. Positioning: Premium meat delivery for health-conscious consumers
+8. Customers: 10,000+ urban customers aged 25-40
+9. Problem: Finding high-quality, ethically sourced meat locally
+\`\`\`
+
+**Option 3: Natural Language**
+"My email is john.doe@company.com and I want weekly reports for my Good Chop Analysis project. We're analyzing Good Chop at https://goodchop.com in the food delivery industry..."
+
+**Option 4: Mixed Format**
+"Email: john.doe@company.com, I need weekly reports, project name is Good Chop Analysis..."`;
 
     if (!includeContextualHelp) {
       return baseInstructions;
     }
 
-    const contextualHelp = tone === 'concise' ? 
-      '\n\nProvide all required information above.' :
-      '\n\nI\'ll intelligently parse your response and ask for any missing required information.';
+    return `${baseInstructions}
 
-    return baseInstructions + contextualHelp;
+**💡 TIPS:**
+• **Numbered lists work best** - They're easiest for me to parse accurately
+• **You can use labels or not** - Both "1. john@company.com" and "1. Email: john@company.com" work
+• **Don't worry about perfect formatting** - I'll understand most reasonable formats
+• **Be concise but specific** - "Finding good meat locally" is better than just "meat problems"
+• **URLs must start with https://** - This helps me validate and scrape correctly`;
   }
 
   private getPromptFooter(tone: string): string {
@@ -328,8 +412,11 @@ You can provide information in any format that works for you:
    * Features: Advanced NLP, multi-format support, contextual intelligence
    */
   public parseComprehensiveInput(message: string): RequirementsValidationResult {
+    console.log('[DEBUG] Parsing comprehensive input:', message.substring(0, 200) + '...');
+    
     // Phase 2.2 Enhancement: Preprocessing for better parsing
     const preprocessedMessage = this.preprocessInput(message);
+    console.log('[DEBUG] Preprocessed message:', preprocessedMessage.substring(0, 200) + '...');
     
     const extractedData: Partial<ComprehensiveProjectRequirements> = {};
     const confidence: { [key: string]: number } = {};
@@ -338,6 +425,7 @@ You can provide information in any format that works for you:
 
     // Phase 2.2: Advanced parsing strategy selection
     const parsingStrategy = this.determineParsingStrategy(preprocessedMessage);
+    console.log('[DEBUG] Parsing strategy:', parsingStrategy);
     
     // Apply the optimal parsing strategy
     switch (parsingStrategy) {
@@ -355,6 +443,9 @@ You can provide information in any format that works for you:
         this.parseMixedFormat(preprocessedMessage, extractedData, confidence);
         break;
     }
+
+    console.log('[DEBUG] Extracted data after parsing:', extractedData);
+    console.log('[DEBUG] Confidence scores:', confidence);
 
     // Phase 2.2: Enhanced field validation with context awareness
     this.validateExtractedFields(extractedData, invalidFields, preprocessedMessage);
@@ -404,24 +495,19 @@ You can provide information in any format that works for you:
       }
     }
 
-    // Phase 2.2: Contextual field extraction with industry intelligence
-    this.extractFieldsWithContext(preprocessedMessage, extractedData, confidence);
-
-    // Phase 2.2: Smart completeness calculation with partial credit
+    // Calculate completeness and determine validation status
     const completeness = this.calculateSmartCompleteness(extractedData, confidence);
+    const missingRequiredFields = this.requiredFields.filter(field => !extractedData[field as keyof ComprehensiveProjectRequirements]);
+    
+    console.log('[DEBUG] Missing required fields:', missingRequiredFields);
+    console.log('[DEBUG] Completeness percentage:', completeness);
+    console.log('[DEBUG] Invalid fields:', invalidFields);
 
-    // Identify missing required fields
-    const missingRequiredFields = this.requiredFields.filter(
-      field => !extractedData[field as keyof ComprehensiveProjectRequirements]
-    );
-
-    // Phase 2.2: Intelligent suggestion generation
+    // Generate intelligent suggestions
     this.generateIntelligentSuggestions(extractedData, missingRequiredFields, suggestions, parsingStrategy);
 
-    const isValid = missingRequiredFields.length === 0 && invalidFields.length === 0;
-
-    return {
-      isValid,
+    const result: RequirementsValidationResult = {
+      isValid: missingRequiredFields.length === 0 && invalidFields.length === 0,
       completeness,
       missingRequiredFields,
       invalidFields,
@@ -429,6 +515,9 @@ You can provide information in any format that works for you:
       confidence,
       suggestions
     };
+
+    console.log('[DEBUG] Final validation result:', result);
+    return result;
   }
 
   /**
@@ -809,8 +898,6 @@ You can provide information in any format that works for you:
     return null;
   }
 
-
-
   /**
    * Creates a user-friendly prompt for missing or invalid fields
    */
@@ -858,6 +945,10 @@ You can provide information in any format that works for you:
     newData: Partial<ComprehensiveProjectRequirements>,
     existingState: ChatState
   ): Partial<ComprehensiveProjectRequirements> {
+    console.log('[DEBUG] Merging with existing data...');
+    console.log('[DEBUG] New data:', newData);
+    console.log('[DEBUG] Existing state collectedData:', existingState.collectedData);
+    
     const merged: Partial<ComprehensiveProjectRequirements> = {};
     const existing = existingState.collectedData || {};
 
@@ -872,9 +963,17 @@ You can provide information in any format that works for you:
     if (existing.customerData) merged.customerData = existing.customerData;
     if (existing.userProblem) merged.userProblem = existing.userProblem;
 
-    // Override with new data
-    Object.assign(merged, newData);
+    console.log('[DEBUG] Merged from existing:', merged);
 
+    // Override with new data (but only if new data has values)
+    Object.keys(newData).forEach(key => {
+      const value = newData[key as keyof ComprehensiveProjectRequirements];
+      if (value !== undefined && value !== null && value !== '') {
+        (merged as any)[key] = value;
+      }
+    });
+
+    console.log('[DEBUG] Final merged data:', merged);
     return merged;
   }
 
@@ -882,7 +981,9 @@ You can provide information in any format that works for you:
    * Converts comprehensive requirements to chat state format
    */
   public toChatState(requirements: ComprehensiveProjectRequirements): Partial<ChatState> {
-    return {
+    console.log('[DEBUG] Converting to chat state:', requirements);
+    
+    const chatState = {
       collectedData: {
         userEmail: requirements.userEmail,
         reportFrequency: requirements.reportFrequency,
@@ -897,6 +998,9 @@ You can provide information in any format that works for you:
         competitors: requirements.competitorHints
       }
     };
+    
+    console.log('[DEBUG] Converted chat state:', chatState);
+    return chatState;
   }
 
   /**
@@ -922,8 +1026,13 @@ You can provide information in any format that works for you:
       if (match) {
         const itemNumber = parseInt(match[1]);
         let content = match[2].trim();
+        
+        // Clean up common label patterns - remove labels like "Email:", "Project:", etc.
+        content = content.replace(/^(?:Email|E-mail|Frequency|Report\s+Frequency|Project|Product|Website|URL|Industry|Positioning|Customer[s]?|User[s]?\s+Problem[s]?|Problem[s]?):\s*/i, '');
+        
         // Remove surrounding quotes if present
         content = content.replace(/^["'](.*)["']$/, '$1');
+        
         if (itemNumber >= 1 && itemNumber <= 9 && content.length > 0) {
           numberedItems[itemNumber] = content;
         }
@@ -931,7 +1040,6 @@ You can provide information in any format that works for you:
     }
 
     // Map numbered items to fields based on our expected order
-    // Fix: Add mapping for items 1 and 2 which were missing
     if (numberedItems[1] && !extractedData.userEmail) {
       // Validate email format
       if (this.fieldExtractionConfigs.userEmail.validator?.(numberedItems[1])) {
@@ -964,17 +1072,26 @@ You can provide information in any format that works for you:
       extractedData.industry = numberedItems[6];
       confidence.industry = 90;
     }
-    if (numberedItems[7] && !extractedData.positioning && numberedItems[7].length >= 10) {
-      extractedData.positioning = numberedItems[7];
-      confidence.positioning = 90;
+    if (numberedItems[7] && !extractedData.positioning) {
+      // Reduce minimum length requirement for positioning to make it more flexible
+      if (numberedItems[7].length >= 5) {
+        extractedData.positioning = numberedItems[7];
+        confidence.positioning = 90;
+      }
     }
-    if (numberedItems[8] && !extractedData.customerData && numberedItems[8].length >= 10) {
-      extractedData.customerData = numberedItems[8];
-      confidence.customerData = 90;
+    if (numberedItems[8] && !extractedData.customerData) {
+      // Reduce minimum length requirement for customer data
+      if (numberedItems[8].length >= 5) {
+        extractedData.customerData = numberedItems[8];
+        confidence.customerData = 90;
+      }
     }
-    if (numberedItems[9] && !extractedData.userProblem && numberedItems[9].length >= 10) {
-      extractedData.userProblem = numberedItems[9];
-      confidence.userProblem = 90;
+    if (numberedItems[9] && !extractedData.userProblem) {
+      // Reduce minimum length requirement for user problem - many valid problems are short
+      if (numberedItems[9].length >= 3) {
+        extractedData.userProblem = numberedItems[9];
+        confidence.userProblem = 90;
+      }
     }
   }
 
@@ -1152,17 +1269,30 @@ You can provide information in any format that works for you:
     const patterns = [
       // Numbered list pattern (9th item)
       /(?:^|\n)\s*9\.?\s*([^\n]+?)(?:\n|$)/gm,
-      // Named patterns
-      /(?:problem|challenge|issue|pain\s+point)\s*:?\s*["']?([^"'\n]{10,200})["']?/gi,
-      /(?:solves?|solving|addresses?)\s+["']?([^"'\n]{10,200})["']?/gi,
-      /(?:users?\s+struggle|customers?\s+struggle)\s+(?:with\s+)?["']?([^"'\n]{10,200})["']?/gi
+      // Named patterns with more flexible matching
+      /(?:problem|challenge|issue|pain\s+point)\s*:?\s*["']?([^"'\n]{3,200})["']?/gi,
+      /(?:solves?|solving|addresses?)\s+["']?([^"'\n]{3,200})["']?/gi,
+      /(?:users?\s+struggle|customers?\s+struggle)\s*(?:with\s+)?["']?([^"'\n]{3,200})["']?/gi,
+      // More flexible patterns for finding problems
+      /(?:difficulty|trouble|hard\s+to|can't\s+find|cannot\s+find)\s+([^"'\n]{5,200})/gi,
+      /(?:finding|getting|accessing)\s+([^"'\n]{5,200})\s+(?:is\s+(?:a\s+)?(?:problem|difficult|hard|challenging))/gi,
+      // Pattern to catch "Finding a good butcher" type inputs
+      /(?:^|\n)\s*(?:\d+\.?\s*)?(?:problem|issue|challenge)?\s*:?\s*([Ff]inding\s+[^.\n]{3,100})/gm,
+      // Pattern to catch "Difficulty" type inputs  
+      /(?:^|\n)\s*(?:\d+\.?\s*)?(?:problem|issue|challenge)?\s*:?\s*([Dd]ifficulty\s+[^.\n]{3,100})/gm
     ];
 
     for (const pattern of patterns) {
       const match = message.match(pattern);
       if (match && match[1]) {
-        const userProblem = match[1].trim().replace(/['"]/g, '');
-        if (userProblem.length >= 10) {
+        let userProblem = match[1].trim();
+        
+        // Clean up common prefixes that might get included
+        userProblem = userProblem.replace(/^(?:is\s+|that\s+|with\s+|the\s+)*/i, '');
+        userProblem = userProblem.replace(/['"]/g, '');
+        
+        // Accept shorter problems - many valid user problems are concise
+        if (userProblem.length >= 3) {
           extractedData.userProblem = userProblem;
           confidence.userProblem = 70;
           break;

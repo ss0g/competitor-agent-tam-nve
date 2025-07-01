@@ -7,6 +7,8 @@ import { productChatProcessor } from './productChatProcessor';
 import { productService } from '@/services/productService';
 import { enhancedProjectExtractor, EnhancedChatProjectData } from './enhancedProjectExtractor';
 import { ComprehensiveRequirementsCollector, ComprehensiveProjectRequirements } from './comprehensiveRequirementsCollector';
+import { logger, generateCorrelationId, trackBusinessEvent } from '@/lib/logger';
+import { productRepository } from '@/lib/repositories';
 
 export class ConversationManager {
   private chatState: ChatState;
@@ -136,6 +138,9 @@ export class ConversationManager {
 
   private handleProjectInitialization(): ChatResponse {
     this.chatState.currentStep = 0;
+    
+    // Add debugging to understand initial state
+    console.log('[DEBUG] Initializing new project, current chat state:', this.chatState);
     
     // Phase 5.2: Direct migration - always use comprehensive flow for new sessions
     // Only fall back to legacy for existing legacy sessions (handled by isLegacySession)
@@ -1117,6 +1122,9 @@ Now, what is the name of the product that you want to perform competitive analys
     requirements: ComprehensiveProjectRequirements,
     validation?: { warnings: ValidationWarning[]; suggestions: string[] }
   ): ChatResponse {
+    // *** FIX: Store the requirements in chat state BEFORE showing confirmation ***
+    this.chatState.collectedData = this.comprehensiveCollector.toChatState(requirements).collectedData;
+    
     let message = `🎯 **Ready to Create Your Competitive Analysis Project!**\n\n`;
     
     message += `Please review all the information below and confirm to proceed:\n\n`;
@@ -2202,27 +2210,112 @@ What would you like to do?`,
    */
   private handleLegacyMigrationPrompt(): ChatResponse {
     return {
-      message: `🔄 **Session State Recovery**
+      message: `🚀 **Ready to upgrade your experience?**
 
-I notice we might have lost track of where we are in your session. This sometimes happens with the step-by-step flow.
+I can help you get started with our new comprehensive form that's much faster and easier!
 
-**🚀 Great News!** We have a new comprehensive form that prevents these issues and is much faster!
+**Here's what you can do:**
 
-**Your Options:**
-1. **"migrate"** - Switch to our enhanced single-form flow (recommended)
-2. **"restart legacy"** - Start over with the step-by-step process
-3. **"recover"** - Try to recover your current session
+📝 **Switch to comprehensive form** - Type "upgrade" and I'll show you how to provide all your project information at once
 
-**Why Migrate?**
-• ⚡ 50% faster completion
-• 🛡️ No session state issues
-• 🎯 Clear overview of all requirements
-• ✨ Same excellent competitive analysis results
+🔄 **Continue with current flow** - Type "continue" to keep using the step-by-step process
 
-What would you like to do?`,
-      nextStep: 0,
-      stepDescription: 'Session Recovery',
+⭐ **Start fresh** - Type "restart" to begin a new project
+
+What would you prefer?`,
+      nextStep: null,
+      stepDescription: 'Choose Experience',
       expectedInputType: 'text',
     };
+  }
+
+  /**
+   * Create project with all competitors auto-assigned and product creation
+   * Based on the project creation logic from the API routes
+   */
+  private async createProjectWithAllCompetitors(projectName: string, userEmail: string): Promise<any> {
+    const correlationId = generateCorrelationId();
+    const context = { operation: 'createProjectWithAllCompetitors', correlationId };
+    
+    try {
+      // Get or create mock user (auth disabled)
+      const DEFAULT_USER_EMAIL = 'mock@example.com';
+      let mockUser = await prisma.user.findFirst({
+        where: { email: DEFAULT_USER_EMAIL }
+      });
+      
+      if (!mockUser) {
+        mockUser = await prisma.user.create({
+          data: {
+            email: DEFAULT_USER_EMAIL,
+            name: 'Mock User'
+          }
+        });
+      }
+
+      // Auto-assign all competitors
+      const allCompetitors = await prisma.competitor.findMany({
+        select: { id: true, name: true }
+      });
+      const competitorIds = allCompetitors.map(c => c.id);
+      
+      logger.info(`Auto-assigning ${allCompetitors.length} competitors to project`, {
+        ...context,
+        projectName,
+        competitorNames: allCompetitors.map(c => c.name)
+      });
+
+      // Create project with competitors in transaction
+      const result = await prisma.$transaction(async (tx) => {
+        const project = await tx.project.create({
+          data: {
+            name: projectName,
+            description: `Competitive analysis project created via chat interface`,
+            status: 'ACTIVE',
+            userId: mockUser!.id,
+            userEmail: userEmail,
+            parameters: {
+              autoAssignedCompetitors: true,
+              assignedCompetitorCount: competitorIds.length,
+              createdViaChat: true,
+              chatSessionId: context.correlationId
+            },
+            competitors: {
+              connect: competitorIds.map((id: string) => ({ id }))
+            }
+          },
+          include: {
+            competitors: true
+          }
+        });
+
+        return { project };
+      });
+
+      trackBusinessEvent('project_created_via_chat', {
+        ...context,
+        projectId: result.project.id,
+        projectName: result.project.name,
+        competitorCount: result.project.competitors.length,
+        userEmail
+      });
+
+      logger.info('Project created successfully via chat', {
+        ...context,
+        projectId: result.project.id,
+        projectName: result.project.name,
+        competitorCount: result.project.competitors.length
+      });
+
+      return result.project;
+    } catch (error) {
+      logger.error('Failed to create project via chat', {
+        ...context,
+        projectName,
+        userEmail,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+      throw error;
+    }
   }
 } 
