@@ -9,6 +9,7 @@ import { enhancedProjectExtractor, EnhancedChatProjectData } from './enhancedPro
 import { ComprehensiveRequirementsCollector, ComprehensiveProjectRequirements } from './comprehensiveRequirementsCollector';
 import { logger, generateCorrelationId, trackBusinessEvent } from '@/lib/logger';
 import { productRepository } from '@/lib/repositories';
+import { getAutoReportService } from '@/services/autoReportGenerationService';
 
 export class ConversationManager {
   private chatState: ChatState;
@@ -2292,22 +2293,123 @@ What would you prefer?`,
         return { project };
       });
 
+      // *** NEW: Add automatic report generation like the API route ***
+      const autoReportService = getAutoReportService();
+      let reportGenerationInfo: any = null;
+
+      // Generate initial report automatically
+      if (competitorIds.length > 0) {
+        try {
+          logger.info('Generating initial report for chat-created project', {
+            ...context,
+            projectId: result.project.id
+          });
+
+          const reportTask = await autoReportService.generateInitialReport(result.project.id, {
+            reportTemplate: 'comprehensive',
+            reportName: `Initial Report - ${projectName}`,
+            priority: 'high'
+          });
+
+          reportGenerationInfo = {
+            initialReportQueued: true,
+            taskId: reportTask.taskId,
+            queuePosition: reportTask.queuePosition || 0,
+            estimatedCompletion: new Date(Date.now() + ((reportTask.queuePosition || 0) * 120000))
+          };
+
+          trackBusinessEvent('initial_report_generation_queued_via_chat', {
+            ...context,
+            projectId: result.project.id,
+            taskId: reportTask.taskId,
+            queuePosition: reportTask.queuePosition || 0
+          });
+
+          logger.info('Initial report generation queued for chat project', {
+            ...context,
+            projectId: result.project.id,
+            taskId: reportTask.taskId
+          });
+        } catch (reportError) {
+          logger.error('Failed to queue initial report generation for chat project', reportError as Error, {
+            ...context,
+            projectId: result.project.id
+          });
+          reportGenerationInfo = {
+            initialReportQueued: false,
+            error: 'Failed to queue initial report generation'
+          };
+        }
+      }
+
+      // Set up periodic reports based on frequency from chat data
+      const frequency = this.chatState.collectedData?.reportFrequency;
+      if (frequency && ['weekly', 'monthly', 'daily', 'biweekly'].includes(frequency.toLowerCase())) {
+        try {
+          logger.info('Setting up periodic reports for chat project', {
+            ...context,
+            projectId: result.project.id,
+            frequency: frequency.toLowerCase()
+          });
+
+          const schedule = await autoReportService.schedulePeriodicReports(
+            result.project.id,
+            frequency.toLowerCase() as 'daily' | 'weekly' | 'biweekly' | 'monthly',
+            {
+              reportTemplate: 'comprehensive'
+            }
+          );
+
+          reportGenerationInfo = {
+            ...reportGenerationInfo,
+            periodicReportsScheduled: true,
+            frequency: frequency.toLowerCase(),
+            nextScheduledReport: schedule.nextRunTime
+          };
+
+          trackBusinessEvent('periodic_reports_scheduled_via_chat', {
+            ...context,
+            projectId: result.project.id,
+            frequency: frequency.toLowerCase(),
+            nextScheduledReport: schedule.nextRunTime.toISOString()
+          });
+
+          logger.info('Periodic reports scheduled for chat project', {
+            ...context,
+            projectId: result.project.id,
+            frequency: frequency.toLowerCase(),
+            nextScheduledReport: schedule.nextRunTime.toISOString()
+          });
+        } catch (scheduleError) {
+          logger.error('Failed to schedule periodic reports for chat project', scheduleError as Error, {
+            ...context,
+            projectId: result.project.id
+          });
+        }
+      }
+
       trackBusinessEvent('project_created_via_chat', {
         ...context,
         projectId: result.project.id,
         projectName: result.project.name,
         competitorCount: result.project.competitors.length,
-        userEmail
+        userEmail,
+        reportGenerationTriggered: !!reportGenerationInfo?.initialReportQueued
       });
 
-      logger.info('Project created successfully via chat', {
+      logger.info('Project created successfully via chat with report generation', {
         ...context,
         projectId: result.project.id,
         projectName: result.project.name,
-        competitorCount: result.project.competitors.length
+        competitorCount: result.project.competitors.length,
+        reportGenerationInfo
       });
 
-      return result.project;
+      // Add report generation info to the returned project
+      return {
+        ...result.project,
+        reportGeneration: reportGenerationInfo
+      };
     } catch (error) {
       logger.error('Failed to create project via chat', {
         ...context,
