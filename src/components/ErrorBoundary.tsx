@@ -1,7 +1,7 @@
 'use client';
 
 import React, { Component, ErrorInfo, ReactNode } from 'react';
-import { ExclamationTriangleIcon, ArrowPathIcon, ArrowLeftIcon } from '@heroicons/react/24/outline';
+import { ExclamationTriangleIcon } from '@heroicons/react/24/outline';
 import { trackError, generateCorrelationId, LogContext } from '@/lib/logger';
 
 interface Props {
@@ -148,7 +148,7 @@ const DefaultErrorFallback: React.FC<DefaultErrorFallbackProps> = ({
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
+    <div className="min-h-screen flex flex-col justify-center py-12 sm:px-6 lg:px-8" style={{ backgroundColor: '#EFE9DE' }}>
       <div className="max-w-md mx-auto">
         <div className="bg-white shadow-lg rounded-lg p-6">
           {/* Error Icon */}
@@ -164,6 +164,11 @@ const DefaultErrorFallback: React.FC<DefaultErrorFallbackProps> = ({
             <p className="mt-2 text-sm text-gray-500">
               We encountered an unexpected error while loading the {feature || 'page'}.
             </p>
+            {/* Phase 5.2: Graceful degradation message */}
+            <p className="mt-3 text-sm p-2 rounded-md" style={{ color: '#067A46', backgroundColor: '#B5E7BA' }}>
+              <strong>Good news:</strong> Your data is safe and this is likely a temporary issue. 
+              Most features should still work normally.
+            </p>
           </div>
 
           {/* Error Details (Development Only) */}
@@ -175,50 +180,42 @@ const DefaultErrorFallback: React.FC<DefaultErrorFallbackProps> = ({
             </div>
           )}
 
-          {/* Correlation ID */}
-          <div className="mt-4 p-2 bg-blue-50 rounded-md">
-            <p className="text-xs text-blue-700">
-              Error ID: <span className="font-mono">{correlationId}</span>
+          {/* Correlation ID for Support */}
+          <div className="mt-4 p-2 rounded-md" style={{ backgroundColor: '#B5E7BA' }}>
+            <p className="text-xs" style={{ color: '#067A46' }}>
+              <strong>Error ID:</strong> {correlationId}
             </p>
-            <p className="text-xs text-blue-600 mt-1">
-              Please provide this ID when contacting support.
+            <p className="text-xs mt-1" style={{ color: '#067A46' }}>
+              Include this ID when contacting support for faster assistance.
             </p>
           </div>
 
           {/* Action Buttons */}
-          <div className="mt-6 flex flex-col space-y-3 sm:flex-row sm:space-y-0 sm:space-x-3">
+          <div className="mt-6 flex space-x-3">
             <button
               onClick={handleRetry}
-              className="flex-1 flex items-center justify-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              className="flex-1 flex items-center justify-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-black hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-500"
             >
-              <ArrowPathIcon className="w-4 h-4 mr-2" />
               Try Again
             </button>
             <button
               onClick={handleGoBack}
-              className="flex-1 flex items-center justify-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              className="flex-1 flex items-center justify-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500"
             >
-              <ArrowLeftIcon className="w-4 h-4 mr-2" />
               Go Back
             </button>
           </div>
 
-          {/* Additional Help */}
+          {/* Support Contact */}
           <div className="mt-4 text-center">
             <p className="text-xs text-gray-500">
-              If this problem persists, please{' '}
-              <a 
-                href="/support" 
-                className="text-blue-600 hover:text-blue-500"
-                onClick={() => {
-                  trackError(
-                    new Error('User clicked support link from error page'),
-                    'error_page_support_link',
-                    { correlationId, feature, action: 'support_link' }
-                  );
-                }}
+              Need help? Contact{' '}
+              <a
+                href="mailto:support@example.com"
+                className="hover:underline"
+                style={{ color: '#067A46' }}
               >
-                contact support
+                support@example.com
               </a>
             </p>
           </div>

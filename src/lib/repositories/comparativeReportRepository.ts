@@ -491,14 +491,15 @@ ${sections}
   <title>${report.title}</title>
   <meta charset="utf-8">
   <meta name="description" content="${report.description}">
+  <link href="https://fonts.googleapis.com/css2?family=Source+Sans+Pro:ital,wght@0,200;0,300;0,400;0,600;0,700;0,900;1,200;1,300;1,400;1,600;1,700;1,900&display=swap" rel="stylesheet">
   <style>
-    body { font-family: Arial, sans-serif; max-width: 1200px; margin: 0 auto; padding: 20px; }
-    .report-header { border-bottom: 2px solid #333; margin-bottom: 30px; }
+    body { font-family: 'Source Sans Pro', sans-serif; max-width: 1200px; margin: 0 auto; padding: 20px; background-color: #EFE9DE; }
+    .report-header { border-bottom: 2px solid #067A46; margin-bottom: 30px; }
     .report-section { margin-bottom: 40px; }
     .section-content { margin-top: 20px; }
-    .metadata { background: #f5f5f5; padding: 20px; border-radius: 5px; margin-top: 40px; }
+    .metadata { background: #ffffff; padding: 20px; border-radius: 5px; margin-top: 40px; border: 1px solid #B5E7BA; }
     h1, h2, h3 { color: #333; }
-    .confidence-score { font-size: 24px; font-weight: bold; color: #2d5aa0; }
+    .confidence-score { font-size: 24px; font-weight: bold; color: #067A46; }
   </style>
 </head>
 <body>

@@ -5,6 +5,27 @@ export enum LogLevel {
   ERROR = 3,
 }
 
+// Type-safe metadata for different contexts
+export interface DatabaseContext {
+  recordId?: string;
+  recordData?: Record<string, unknown>;
+  query?: string;
+  duration?: number;
+}
+
+export interface FileSystemContext {
+  fileSize?: number;
+  success?: boolean;
+  error?: string;
+}
+
+export interface ReportFlowContext {
+  reportName?: string;
+  competitorName?: string;
+  stepStatus?: 'started' | 'completed' | 'failed';
+  stepData?: Record<string, unknown>;
+}
+
 export interface LogContext {
   requestId?: string;
   userId?: string;
@@ -15,7 +36,8 @@ export interface LogContext {
   projectName?: string;
   operationStep?: string;
   correlationId?: string;
-  [key: string]: any;
+  // Allow for various data types including nested objects and arrays
+  [key: string]: unknown;
 }
 
 export interface LogEntry {
@@ -37,7 +59,7 @@ export interface LogEntry {
 export interface EventData {
   eventType: string;
   category: 'user_action' | 'system_event' | 'error' | 'performance' | 'business';
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 class Logger {
@@ -104,7 +126,7 @@ class Logger {
   // New method for database operation logging
   database(operation: string, table: string, context?: LogContext & { 
     recordId?: string; 
-    recordData?: any; 
+    recordData?: Record<string, unknown>; 
     query?: string;
     duration?: number;
   }): void {
@@ -133,7 +155,7 @@ class Logger {
     reportName?: string;
     competitorName?: string;
     stepStatus?: 'started' | 'completed' | 'failed';
-    stepData?: any;
+    stepData?: Record<string, unknown>;
   }): void {
     this.log(LogLevel.INFO, `ReportFlow: ${step}`, {
       ...context,
@@ -164,11 +186,15 @@ class Logger {
     };
 
     // Extract error and performance data to top level
-    if (context?.error) {
-      logEntry.error = context.error;
+    if (context && 'error' in context && context.error && 
+        typeof context.error === 'object' && 
+        'name' in context.error && 'message' in context.error) {
+      logEntry.error = context.error as { name: string; message: string; stack?: string };
     }
-    if (context?.performance) {
-      logEntry.performance = context.performance;
+    if (context && 'performance' in context && context.performance && 
+        typeof context.performance === 'object' && 
+        'duration' in context.performance && 'operation' in context.performance) {
+      logEntry.performance = context.performance as { duration: number; operation: string };
     }
 
     const formattedMessage = this.formatLog(logEntry);
@@ -310,7 +336,7 @@ export const trackUserAction = (action: string, context?: LogContext) => {
   }, context);
 };
 
-export const trackBusinessEvent = (event: string, metadata?: Record<string, any>, context?: LogContext) => {
+export const trackBusinessEvent = (event: string, metadata?: Record<string, unknown>, context?: LogContext) => {
   trackEvent({
     eventType: event,
     category: 'business',

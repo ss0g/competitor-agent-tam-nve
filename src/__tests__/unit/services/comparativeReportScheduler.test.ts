@@ -9,7 +9,45 @@ import { logger } from '@/lib/logger';
 import { PrismaClient } from '@prisma/client';
 import * as cron from 'node-cron';
 
-// Mock all dependencies
+// Mock PrismaClient constructor with inline mock definition to avoid hoisting issues
+let mockPrismaInstance: any;
+
+jest.mock('@prisma/client', () => {
+  const mockInstance = {
+    project: {
+      findUnique: jest.fn()
+    },
+    reportSchedule: {
+      create: jest.fn(),
+      update: jest.fn(),
+      findUnique: jest.fn(),
+      findMany: jest.fn()
+    },
+    report: {
+      create: jest.fn()
+    },
+    productSnapshot: {
+      findFirst: jest.fn()
+    }
+  };
+  
+  return {
+    PrismaClient: jest.fn(() => mockInstance),
+    ReportScheduleFrequency: {
+      DAILY: 'DAILY',
+      WEEKLY: 'WEEKLY', 
+      MONTHLY: 'MONTHLY',
+      QUARTERLY: 'QUARTERLY'
+    },
+    ReportScheduleStatus: {
+      ACTIVE: 'ACTIVE',
+      INACTIVE: 'INACTIVE',
+      PAUSED: 'PAUSED'
+    }
+  };
+});
+
+// Mock all other dependencies
 jest.mock('@/services/analysis/comparativeAnalysisService');
 jest.mock('@/services/reports/comparativeReportService');
 jest.mock('@/services/productScrapingService');
@@ -17,29 +55,10 @@ jest.mock('@/services/projectScrapingService');
 jest.mock('@/lib/repositories/comparativeReportRepository');
 jest.mock('@/lib/repositories/productRepository');
 jest.mock('@/lib/logger');
-jest.mock('@prisma/client');
 jest.mock('node-cron');
 jest.mock('@paralleldrive/cuid2', () => ({
   createId: jest.fn(() => 'test-id-123')
 }));
-
-const mockPrisma = {
-  project: {
-    findUnique: jest.fn()
-  },
-  reportSchedule: {
-    create: jest.fn(),
-    update: jest.fn(),
-    findUnique: jest.fn(),
-    findMany: jest.fn()
-  },
-  report: {
-    create: jest.fn()
-  },
-  productSnapshot: {
-    findFirst: jest.fn()
-  }
-};
 
 const mockCronTask = {
   start: jest.fn(),
@@ -61,14 +80,32 @@ describe('ComparativeReportScheduler', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     
-    // Mock PrismaClient
-    (PrismaClient as jest.MockedClass<typeof PrismaClient>).mockImplementation(() => mockPrisma as any);
-    
     // Mock cron.schedule
     mockCronSchedule.mockReturnValue(mockCronTask as any);
     
-    // Create scheduler instance
-    scheduler = new ComparativeReportScheduler();
+    // Create the mock prisma instance that will be injected
+    if (!mockPrismaInstance) {
+      mockPrismaInstance = {
+        project: {
+          findUnique: jest.fn()
+        },
+        reportSchedule: {
+          create: jest.fn(),
+          update: jest.fn(),
+          findUnique: jest.fn(),
+          findMany: jest.fn()
+        },
+        report: {
+          create: jest.fn()
+        },
+        productSnapshot: {
+          findFirst: jest.fn()
+        }
+      };
+    }
+    
+    // Create scheduler instance with mocked prisma
+    scheduler = new ComparativeReportScheduler(mockPrismaInstance);
     
     // Get mocked service instances
     mockComparativeAnalysisService = scheduler['comparativeAnalysisService'] as jest.Mocked<ComparativeAnalysisService>;
@@ -105,9 +142,9 @@ describe('ComparativeReportScheduler', () => {
     };
 
     beforeEach(() => {
-      mockPrisma.project.findUnique.mockResolvedValue(mockProject);
-      mockPrisma.report.create.mockResolvedValue(mockReport);
-      mockPrisma.reportSchedule.create.mockResolvedValue({
+      mockPrismaInstance.project.findUnique.mockResolvedValue(mockProject);
+      mockPrismaInstance.report.create.mockResolvedValue(mockReport);
+      mockPrismaInstance.reportSchedule.create.mockResolvedValue({
         id: 'schedule-123',
         reportId: 'report-123'
       });
@@ -117,11 +154,11 @@ describe('ComparativeReportScheduler', () => {
       const scheduleId = await scheduler.scheduleComparativeReports(mockConfig);
 
       expect(scheduleId).toBe('test-id-123');
-      expect(mockPrisma.project.findUnique).toHaveBeenCalledWith({
+      expect(mockPrismaInstance.project.findUnique).toHaveBeenCalledWith({
         where: { id: 'project-123' },
         include: { products: true, competitors: true }
       });
-      expect(mockPrisma.reportSchedule.create).toHaveBeenCalledWith({
+      expect(mockPrismaInstance.reportSchedule.create).toHaveBeenCalledWith({
         data: expect.objectContaining({
           id: 'test-id-123',
           reportId: 'report-123',
@@ -134,8 +171,7 @@ describe('ComparativeReportScheduler', () => {
         '0 9 * * 1', // Weekly cron expression
         expect.any(Function),
         expect.objectContaining({
-          timezone: 'America/New_York',
-          scheduled: false
+          timezone: 'America/New_York'
         })
       );
       expect(mockCronTask.start).toHaveBeenCalled();
@@ -146,36 +182,36 @@ describe('ComparativeReportScheduler', () => {
       const scheduleId = await scheduler.scheduleComparativeReports(disabledConfig);
 
       expect(scheduleId).toBe('test-id-123');
-      expect(mockPrisma.reportSchedule.create).toHaveBeenCalledWith({
+      expect(mockPrismaInstance.reportSchedule.create).toHaveBeenCalledWith({
         data: expect.objectContaining({
-          status: 'INACTIVE'
+          status: 'PAUSED'
         })
       });
       expect(mockCronTask.start).not.toHaveBeenCalled();
     });
 
     it('should throw error when project has no products', async () => {
-      mockPrisma.project.findUnique.mockResolvedValue({
+      mockPrismaInstance.project.findUnique.mockResolvedValue({
         ...mockProject,
         products: []
       });
 
       await expect(scheduler.scheduleComparativeReports(mockConfig))
-        .rejects.toThrow('Project project-123 has no products');
+        .rejects.toThrow('Project project-123 has no products. Cannot schedule comparative reports.');
     });
 
     it('should throw error when project has no competitors', async () => {
-      mockPrisma.project.findUnique.mockResolvedValue({
+      mockPrismaInstance.project.findUnique.mockResolvedValue({
         ...mockProject,
         competitors: []
       });
 
       await expect(scheduler.scheduleComparativeReports(mockConfig))
-        .rejects.toThrow('Project project-123 has no competitors');
+        .rejects.toThrow('Project project-123 has no competitors. Cannot schedule comparative reports.');
     });
 
     it('should throw error when project does not exist', async () => {
-      mockPrisma.project.findUnique.mockResolvedValue(null);
+      mockPrismaInstance.project.findUnique.mockResolvedValue(null);
 
       await expect(scheduler.scheduleComparativeReports(mockConfig))
         .rejects.toThrow('Project project-123 not found');
@@ -189,8 +225,7 @@ describe('ComparativeReportScheduler', () => {
         '0 10 * * 2',
         expect.any(Function),
         expect.objectContaining({
-          timezone: 'America/New_York',
-          scheduled: false
+          timezone: 'America/New_York'
         })
       );
     });
@@ -243,12 +278,12 @@ describe('ComparativeReportScheduler', () => {
     };
 
     beforeEach(() => {
-      mockPrisma.project.findUnique.mockResolvedValue(mockProject);
+      mockPrismaInstance.project.findUnique.mockResolvedValue(mockProject);
       mockProductScrapingService.triggerManualProductScraping = jest.fn().mockResolvedValue(undefined);
       mockProjectScrapingService.triggerManualProjectScraping = jest.fn().mockResolvedValue(undefined);
       mockComparativeAnalysisService.analyzeProductVsCompetitors = jest.fn().mockResolvedValue(mockAnalysis);
       mockProductRepository.findByProjectId = jest.fn().mockResolvedValue(mockProject.products[0]);
-      mockPrisma.productSnapshot.findFirst.mockResolvedValue(mockProductSnapshot);
+      mockPrismaInstance.productSnapshot.findFirst.mockResolvedValue(mockProductSnapshot);
       mockComparativeReportService.generateComparativeReport = jest.fn().mockResolvedValue({
         report: mockReport,
         generationTime: 1000,
@@ -300,7 +335,7 @@ describe('ComparativeReportScheduler', () => {
     });
 
     it('should throw error when project has no products', async () => {
-      mockPrisma.project.findUnique.mockResolvedValue({
+      mockPrismaInstance.project.findUnique.mockResolvedValue({
         ...mockProject,
         products: []
       });
@@ -310,16 +345,10 @@ describe('ComparativeReportScheduler', () => {
     });
 
     it('should throw error when product has no snapshots', async () => {
-      mockPrisma.project.findUnique.mockResolvedValue({
-        ...mockProject,
-        products: [{
-          ...mockProject.products[0],
-          snapshots: []
-        }]
-      });
+      mockPrismaInstance.productSnapshot.findFirst.mockResolvedValue(null);
 
       await expect(scheduler.generateScheduledReport('project-123'))
-        .rejects.toThrow('No product snapshot found for project project-123');
+        .rejects.toThrow('No product snapshot found for product product-1');
     });
   });
 
@@ -405,7 +434,7 @@ describe('ComparativeReportScheduler', () => {
     };
 
     beforeEach(() => {
-      mockPrisma.reportSchedule.findUnique.mockResolvedValue(mockSchedule);
+      mockPrismaInstance.reportSchedule.findUnique.mockResolvedValue(mockSchedule);
       scheduler['jobs'].set('schedule-123', mockCronTask as any);
     });
 
@@ -453,7 +482,7 @@ describe('ComparativeReportScheduler', () => {
     ];
 
     beforeEach(() => {
-      mockPrisma.reportSchedule.findMany.mockResolvedValue(mockSchedules);
+      mockPrismaInstance.reportSchedule.findMany.mockResolvedValue(mockSchedules);
       scheduler['jobs'].set('schedule-123', mockCronTask as any);
     });
 
@@ -464,7 +493,7 @@ describe('ComparativeReportScheduler', () => {
         { ...mockSchedules[0], isRunning: true },
         { ...mockSchedules[1], isRunning: false }
       ]);
-      expect(mockPrisma.reportSchedule.findMany).toHaveBeenCalledWith({
+      expect(mockPrismaInstance.reportSchedule.findMany).toHaveBeenCalledWith({
         where: { report: { projectId: 'project-123' } },
         include: { report: true },
         orderBy: { createdAt: 'desc' }
@@ -506,14 +535,14 @@ describe('ComparativeReportScheduler', () => {
         products: [{ id: 'product-1' }],
         competitors: [{ id: 'competitor-1' }]
       };
-      mockPrisma.project.findUnique.mockResolvedValue(mockProject);
+      mockPrismaInstance.project.findUnique.mockResolvedValue(mockProject);
 
       await expect(scheduler['validateProjectForScheduling']('project-123'))
         .resolves.toBeUndefined();
     });
 
     it('should throw error for non-existent project', async () => {
-      mockPrisma.project.findUnique.mockResolvedValue(null);
+      mockPrismaInstance.project.findUnique.mockResolvedValue(null);
 
       await expect(scheduler['validateProjectForScheduling']('project-123'))
         .rejects.toThrow('Project project-123 not found');

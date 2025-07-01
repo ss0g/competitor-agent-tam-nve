@@ -8,7 +8,7 @@ export default function ChatPage() {
   const { messages, chatState, isLoading, error, sendMessage, clearError } = useChat();
 
   return (
-    <div className="h-screen flex flex-col">
+    <div className="h-[calc(100vh-4rem)] flex flex-col">
       {error && (
         <div className="bg-red-50 border border-red-200 rounded-md p-4 mx-6 mt-4">
           <div className="flex">
@@ -33,7 +33,7 @@ export default function ChatPage() {
         </div>
       )}
       
-      <div className="flex-1">
+      <div className="flex-1 min-h-0">
         <ChatInterface
           onSendMessage={sendMessage}
           messages={messages}

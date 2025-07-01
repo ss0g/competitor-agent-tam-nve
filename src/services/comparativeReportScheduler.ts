@@ -1,5 +1,5 @@
 import * as cron from 'node-cron';
-import { PrismaClient, ReportScheduleFrequency, ReportScheduleStatus } from '@prisma/client';
+import { PrismaClient, ReportScheduleFrequency } from '@prisma/client';
 import { createId } from '@paralleldrive/cuid2';
 import { logger } from '@/lib/logger';
 import { ComparativeAnalysisService } from './analysis/comparativeAnalysisService';
@@ -11,7 +11,8 @@ import { productRepository } from '@/lib/repositories/productRepository';
 import { ComparativeAnalysisInput } from '@/types/analysis';
 import { ComparativeReport, ReportGenerationOptions } from '@/types/comparativeReport';
 
-const prisma = new PrismaClient();
+// Default prisma instance for backward compatibility
+const defaultPrisma = new PrismaClient();
 
 export interface ComparativeReportSchedulerConfig {
   enabled: boolean;
@@ -46,6 +47,7 @@ export class ComparativeReportScheduler {
   private jobs: Map<string, cron.ScheduledTask> = new Map();
   private activeExecutions: Map<string, ScheduledReportExecution> = new Map();
   private isRunning: boolean = false;
+  private prisma: PrismaClient;
   
   private comparativeAnalysisService: ComparativeAnalysisService;
   private comparativeReportService: ComparativeReportService;
@@ -68,7 +70,8 @@ export class ComparativeReportScheduler {
     }
   };
 
-  constructor() {
+  constructor(prismaInstance?: PrismaClient) {
+    this.prisma = prismaInstance || defaultPrisma;
     this.comparativeAnalysisService = new ComparativeAnalysisService();
     this.comparativeReportService = new ComparativeReportService();
     this.productScrapingService = new ProductScrapingService();
@@ -102,7 +105,7 @@ export class ComparativeReportScheduler {
       // Create schedule record in database
       const report = await this.createReportRecord(config.projectId, scheduleId);
       
-      await prisma.reportSchedule.create({
+      await this.prisma.reportSchedule.create({
         data: {
           id: scheduleId,
           reportId: report.id,
@@ -230,7 +233,7 @@ export class ComparativeReportScheduler {
       const report = await this.generateScheduledReport(config.projectId);
 
       // Update schedule record
-      await prisma.reportSchedule.update({
+      await this.prisma.reportSchedule.update({
         where: { id: scheduleId },
         data: {
           lastRun: new Date(),
@@ -276,7 +279,7 @@ export class ComparativeReportScheduler {
     logger.info('Performing comparative analysis', { projectId });
 
     // Get project with products and competitors
-    const project = await prisma.project.findUnique({
+    const project = await this.prisma.project.findUnique({
       where: { id: projectId },
       include: {
         products: {
@@ -355,7 +358,7 @@ export class ComparativeReportScheduler {
       throw new Error(`Product not found for project ${projectId}`);
     }
 
-    const latestSnapshot = await prisma.productSnapshot.findFirst({
+    const latestSnapshot = await this.prisma.productSnapshot.findFirst({
       where: { productId: product.id },
       orderBy: { createdAt: 'desc' }
     });
@@ -402,7 +405,7 @@ export class ComparativeReportScheduler {
    * Validate project has required data for scheduling
    */
   private async validateProjectForScheduling(projectId: string): Promise<void> {
-    const project = await prisma.project.findUnique({
+    const project = await this.prisma.project.findUnique({
       where: { id: projectId },
       include: {
         products: true,
@@ -434,7 +437,7 @@ export class ComparativeReportScheduler {
    */
   private async createReportRecord(projectId: string, scheduleId: string): Promise<any> {
     // Get first competitor for the report (legacy requirement)
-    const project = await prisma.project.findUnique({
+    const project = await this.prisma.project.findUnique({
       where: { id: projectId },
       include: { competitors: true }
     });
@@ -443,7 +446,7 @@ export class ComparativeReportScheduler {
       throw new Error(`Project ${projectId} has no competitors`);
     }
 
-    return await prisma.report.create({
+    return await this.prisma.report.create({
       data: {
         name: `Scheduled Comparative Report - ${scheduleId}`,
         description: 'Automated comparative analysis report',
@@ -466,7 +469,7 @@ export class ComparativeReportScheduler {
       case 'MONTHLY':
         return '0 9 1 * *'; // 9 AM on the 1st of every month
       case 'QUARTERLY' as any:
-        return '0 9 1 */3 *'; // 9 AM on the 1st of every 3rd month
+        return '0 0 1 */3 *'; // 12 AM on the 1st of every 3rd month
       default:
         return '0 9 * * 1'; // Default to weekly
     }
@@ -555,7 +558,7 @@ Time: ${new Date().toISOString()}
    * Get schedule status
    */
   async getScheduleStatus(scheduleId: string): Promise<any> {
-    const schedule = await prisma.reportSchedule.findUnique({
+    const schedule = await this.prisma.reportSchedule.findUnique({
       where: { id: scheduleId },
       include: { report: true }
     });
@@ -572,7 +575,7 @@ Time: ${new Date().toISOString()}
    * List all schedules for a project
    */
   async listProjectSchedules(projectId: string): Promise<any[]> {
-    const schedules = await prisma.reportSchedule.findMany({
+    const schedules = await this.prisma.reportSchedule.findMany({
       where: {
         report: {
           projectId

@@ -1,16 +1,26 @@
 import { ChatState } from '@/types/chat';
+import { ComprehensiveProjectRequirements, RequirementsValidationResult, ComprehensiveRequirementsCollector } from './comprehensiveRequirementsCollector';
 
 export interface EnhancedChatProjectData {
+  // Core Project Info (Required)
   userEmail: string;
-  frequency: string;
+  reportFrequency: string; // Updated from 'frequency' to match comprehensive requirements
   projectName: string;
-  // Enhanced: Product information
-  productName?: string | null;
-  productWebsite?: string | null;
-  industry?: string | null;
-  positioning?: string | null;
-  customerData?: string | null;
-  userProblem?: string | null;
+  
+  // Product Info (Optional for extraction, Required for validation)
+  productName?: string;
+  productUrl?: string; // Updated from 'productWebsite' to match comprehensive requirements
+  
+  // Business Context (Optional for extraction, Required for validation)
+  industry?: string;
+  positioning?: string;
+  customerData?: string;
+  userProblem?: string;
+  
+  // Optional Enhancement Fields
+  competitorHints?: string[];
+  focusAreas?: string[];
+  reportTemplate?: string;
 }
 
 export interface ExtractionResult {
@@ -18,17 +28,33 @@ export interface ExtractionResult {
   data?: EnhancedChatProjectData;
   errors: string[];
   suggestions: string[];
+  completeness: number; // Percentage 0-100
+  confidence: { [key: string]: number }; // Field-level confidence scores
 }
 
 export class EnhancedProjectExtractor {
+  private comprehensiveCollector: ComprehensiveRequirementsCollector;
+
+  constructor() {
+    this.comprehensiveCollector = new ComprehensiveRequirementsCollector();
+  }
+
   /**
    * Enhanced project data extraction with intelligent parsing
-   * Supports both structured (line-by-line) and unstructured input
+   * Now integrates with comprehensive requirements collection
    */
   extractProjectData(message: string): ExtractionResult {
-    const lines = message.trim().split('\n').filter(line => line.trim());
-    
     try {
+      // First try comprehensive parsing for better accuracy
+      const comprehensiveResult = this.comprehensiveCollector.parseComprehensiveInput(message);
+      
+      if (comprehensiveResult.completeness >= 50) {
+        return this.convertFromComprehensiveResult(comprehensiveResult);
+      }
+      
+      // Fall back to legacy extraction for backward compatibility
+      const lines = message.trim().split('\n').filter(line => line.trim());
+      
       // Try structured extraction first (backward compatible)
       const structuredResult = this.tryStructuredExtraction(lines);
       if (structuredResult.success) {
@@ -51,9 +77,40 @@ export class EnhancedProjectExtractor {
           '4. Product website URL',
           '5. Product name (optional)',
           '6. Industry (optional)'
-        ]
+        ],
+        completeness: 0,
+        confidence: {}
       };
     }
+  }
+
+  /**
+   * Convert comprehensive requirements result to enhanced extraction result
+   */
+  private convertFromComprehensiveResult(comprehensiveResult: RequirementsValidationResult): ExtractionResult {
+    const data = comprehensiveResult.extractedData;
+    
+    return {
+      success: comprehensiveResult.completeness >= 33, // At least 3 of 9 required fields
+      data: {
+        userEmail: data.userEmail || '',
+        reportFrequency: data.reportFrequency || '',
+        projectName: data.projectName || '',
+        productName: data.productName,
+        productUrl: data.productUrl,
+        industry: data.industry,
+        positioning: data.positioning,
+        customerData: data.customerData,
+        userProblem: data.userProblem,
+        competitorHints: data.competitorHints,
+        focusAreas: data.focusAreas,
+        reportTemplate: data.reportTemplate
+      },
+      errors: comprehensiveResult.invalidFields.map(f => f.reason),
+      suggestions: comprehensiveResult.suggestions,
+      completeness: comprehensiveResult.completeness,
+      confidence: comprehensiveResult.confidence
+    };
   }
 
   /**
@@ -73,7 +130,9 @@ export class EnhancedProjectExtractor {
           '• Report frequency (Weekly/Monthly)',
           '• Project name',
           '• Product website URL (highly recommended)'
-        ]
+        ],
+        completeness: 10,
+        confidence: {}
       };
     }
 
@@ -85,7 +144,7 @@ export class EnhancedProjectExtractor {
       firstThreeLines[2].trim().length > 0;
 
     if (!looksStructured) {
-      return { success: false, errors: [], suggestions: [] };
+      return { success: false, errors: [], suggestions: [], completeness: 0, confidence: {} };
     }
 
     // Extract core required fields
@@ -127,9 +186,9 @@ export class EnhancedProjectExtractor {
         success: true,
         data: {
           userEmail,
-          frequency,
+          reportFrequency: frequency,
           projectName,
-          productWebsite: productWebsite || undefined,
+          productUrl: productWebsite || undefined,
           productName: productName || undefined,
           industry: industry || undefined,
           positioning: positioning || undefined,
@@ -137,14 +196,35 @@ export class EnhancedProjectExtractor {
           userProblem: userProblem || undefined
         },
         errors,
-        suggestions
+        suggestions,
+        completeness: this.calculateCompleteness({
+          userEmail,
+          reportFrequency: frequency,
+          projectName,
+          productUrl: productWebsite,
+          productName,
+          industry,
+          positioning,
+          customerData,
+          userProblem
+        }),
+        confidence: {
+          userEmail: userEmail ? 95 : 0,
+          reportFrequency: frequency ? 90 : 0,
+          projectName: projectName ? 85 : 0,
+          productUrl: productWebsite ? 80 : 0,
+          productName: productName ? 75 : 0,
+          industry: industry ? 70 : 0
+        }
       };
     }
 
     return {
       success: false,
       errors,
-      suggestions
+      suggestions,
+      completeness: 0,
+      confidence: {}
     };
   }
 
@@ -443,6 +523,24 @@ export class EnhancedProjectExtractor {
     } catch (error) {
       return null;
     }
+  }
+
+  /**
+   * Calculate completeness percentage based on available fields
+   */
+  private calculateCompleteness(data: Partial<EnhancedChatProjectData>): number {
+    const requiredFields = [
+      'userEmail', 'reportFrequency', 'projectName', 
+      'productName', 'productUrl', 'industry', 
+      'positioning', 'customerData', 'userProblem'
+    ];
+    
+    const presentFields = requiredFields.filter(field => {
+      const value = (data as any)[field];
+      return value && value.trim && value.trim().length > 0;
+    });
+    
+    return Math.round((presentFields.length / requiredFields.length) * 100);
   }
 
   /**

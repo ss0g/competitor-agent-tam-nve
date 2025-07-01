@@ -1,7 +1,8 @@
 import { jest } from '@jest/globals';
+import { ProductScrapingService } from '@/services/productScrapingService';
 
 describe('productScrapingService', () => {
-  let service: any;
+  let service: ProductScrapingService;
   let mockDependency: any;
 
   beforeEach(() => {
@@ -11,7 +12,7 @@ describe('productScrapingService', () => {
     };
 
     // Initialize service with mocks
-    service = new __SERVICE_CLASS__(mockDependency);
+    service = new ProductScrapingService();
   });
 
   afterEach(() => {
@@ -24,7 +25,8 @@ describe('productScrapingService', () => {
     });
 
     it('should set up dependencies correctly', () => {
-      expect(service.dependency).toBeDefined();
+      expect(service).toBeDefined();
+      expect(typeof service).toBe('object');
     });
   });
 

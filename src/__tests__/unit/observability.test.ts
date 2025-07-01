@@ -25,8 +25,12 @@ describe('ObservabilityCollector', () => {
   const mockTrackUserAction = logger.trackUserAction as jest.MockedFunction<typeof logger.trackUserAction>;
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    jest.useFakeTimers();
     collector = new ObservabilityCollector('test_feature', 'test_session');
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
   });
 
   describe('constructor', () => {

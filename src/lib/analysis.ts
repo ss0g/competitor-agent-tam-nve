@@ -1,6 +1,6 @@
 import { BedrockRuntimeClient, InvokeModelCommand } from '@aws-sdk/client-bedrock-runtime';
 import { ContentDiff } from './diff';
-import { logger, trackError, trackPerformance, trackBusinessEvent } from './logger';
+import { logger, trackError, trackBusinessEvent } from './logger';
 
 export interface AnalysisInsight {
   summary: string;
@@ -368,7 +368,7 @@ export class ContentAnalyzer {
     newContent: string,
     diff: ContentDiff,
     competitorName: string,
-    context: any
+    context: Record<string, unknown>
   ): Promise<ContentAnalysis> {
     logger.info('Using fallback content analysis', context);
 
@@ -578,7 +578,7 @@ export class ContentAnalyzer {
 
     Metadata Changes:
     ${Object.entries(diff.metadata)
-      .filter(([_, changed]) => changed)
+      .filter(([, changed]) => changed)
       .map(([field]) => `- ${field} changed`)
       .join('\n')}
 

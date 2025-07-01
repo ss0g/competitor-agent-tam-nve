@@ -11,11 +11,10 @@ interface ContentAnalysisProps {
 
 interface AnalysisTabProps {
   analysis: AnalysisInsight;
-  label: string;
   isActive: boolean;
 }
 
-function AnalysisTab({ analysis, label, isActive }: AnalysisTabProps) {
+function AnalysisTab({ analysis, isActive }: AnalysisTabProps) {
   const [activeTab, setActiveTab] = useState<keyof AnalysisInsight>('summary');
 
   const tabs: Array<{ key: keyof AnalysisInsight; label: string }> = [
@@ -129,12 +128,10 @@ export function ContentAnalysisView({ analysis, isLoading = false }: ContentAnal
       <div className="bg-white rounded-lg shadow">
         <AnalysisTab
           analysis={analysis.primary}
-          label="Claude Analysis"
           isActive={activeAnalysis === 'primary'}
         />
         <AnalysisTab
           analysis={analysis.secondary}
-          label="Mistral Analysis"
           isActive={activeAnalysis === 'secondary'}
         />
       </div>

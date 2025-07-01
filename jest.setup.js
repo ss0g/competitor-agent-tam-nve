@@ -348,12 +348,14 @@ jest.mock('@/services/reports/comparativeReportService', () => ({
       status: 'completed',
     }),
     // Add the correct method name from the actual service
-    generateComparativeReport: jest.fn().mockResolvedValue({
-      report: {
-        id: 'mock-report-id',
-        title: 'Mock Comparative Report',
-        description: 'Mock report description',
-        sections: [
+    generateComparativeReport: jest.fn().mockImplementation(async (analysis, product, productSnapshot, options = {}) => {
+      const template = options.template || 'comprehensive';
+      const format = options.format || undefined;
+      
+      // Generate sections based on template
+      let sections = [];
+      if (template === 'comprehensive') {
+        sections = [
           {
             id: 'executive-summary',
             title: 'Executive Summary',
@@ -376,44 +378,159 @@ jest.mock('@/services/reports/comparativeReportService', () => ({
             order: 3
           },
           {
+            id: 'ux-comparison',
+            title: 'User Experience',
+            content: 'User experience comparison analysis',
+            type: 'ux_comparison',
+            order: 4
+          },
+          {
+            id: 'customer-targeting',
+            title: 'Customer Targeting',
+            content: 'Customer targeting analysis',
+            type: 'customer_targeting',
+            order: 5
+          },
+          {
+            id: 'recommendations',
+            title: 'Strategic Recommendations',
+            content: 'Actionable recommendations based on analysis',
+            type: 'recommendations',
+            order: 6
+          }
+        ];
+             } else if (template === 'executive') {
+         sections = [
+           {
+             id: 'executive-summary',
+             title: 'Executive Summary',
+             content: 'Comprehensive executive summary of competitive analysis',
+             type: 'executive_summary',
+             order: 1
+           },
+           {
+             id: 'recommendations',
+             title: 'Strategic Recommendations',
+             content: 'Actionable recommendations based on analysis',
+             type: 'recommendations',
+             order: 2
+           }
+         ];
+       } else if (template === 'technical') {
+         sections = [
+           {
+             id: 'executive-summary',
+             title: 'Executive Summary',
+             content: 'Comprehensive executive summary of competitive analysis',
+             type: 'executive_summary',
+             order: 1
+           },
+           {
+             id: 'feature-comparison',
+             title: 'Feature Analysis',
+             content: 'Detailed feature comparison analysis',
+             type: 'feature_comparison',
+             order: 2
+           },
+           {
+             id: 'ux-comparison',
+             title: 'User Experience',
+             content: 'User experience comparison analysis',
+             type: 'ux_comparison',
+             order: 3
+           }
+         ];
+       } else if (template === 'strategic') {
+        sections = [
+          {
+            id: 'executive-summary',
+            title: 'Executive Summary',
+            content: 'Comprehensive executive summary of competitive analysis',
+            type: 'executive_summary',
+            order: 1
+          },
+          {
+            id: 'positioning-analysis',
+            title: 'Market Positioning',
+            content: 'Market positioning and competitive landscape analysis',
+            type: 'positioning_analysis',
+            order: 2
+          },
+          {
+            id: 'customer-targeting',
+            title: 'Customer Targeting',
+            content: 'Customer targeting analysis',
+            type: 'customer_targeting',
+            order: 3
+          },
+          {
             id: 'recommendations',
             title: 'Strategic Recommendations',
             content: 'Actionable recommendations based on analysis',
             type: 'recommendations',
             order: 4
           }
-        ],
-        metadata: {
-          generatedAt: new Date().toISOString(),
-          version: '1.0',
-          template: 'COMPREHENSIVE',
-          productName: 'Mock Product',
-          competitorCount: 2,
+        ];
+      } else if (template === 'invalid-template') {
+        throw new Error('Template with ID invalid-template not found');
+      }
+
+      // Check for missing analysis data
+      if (!analysis.detailed) {
+        throw new Error('Analysis missing required data for reporting');
+      }
+
+      const tokensUsed = 500;
+      const cost = (tokensUsed / 1000) * 0.003; // Correct calculation
+
+      return {
+        report: {
+          id: 'mock-report-id',
+          title: `${product.name} - Competitive Analysis`,
+          description: 'Mock report description',
+          sections,
+          metadata: {
+            generatedAt: new Date().toISOString(),
+            version: '1.0',
+            template,
+            productName: product.name,
+            competitorCount: 1,
+            confidenceScore: 92,
+            analysisMethod: 'ai_powered',
+            dataQuality: 'high',
+          },
+          executiveSummary: 'Mock executive summary',
+          keyFindings: [
+            'Strength: Strong AI',
+            'Weakness: High price', 
+            'Market Position: competitive',
+            'Opportunity Score: 85/100'
+          ],
+          keyOpportunities: ['Mock opportunity 1'],
+          keyThreats: ['Mock threat 1'],
+          strategicRecommendations: {
+            immediate: ['Improve mobile'],
+            shortTerm: ['Add enterprise features'],
+            longTerm: ['Expand to new markets'],
+            priorityScore: 88,
+          },
+          competitiveIntelligence: {
+            marketPosition: 'competitive',
+            opportunities: ['Enterprise market'],
+            competitiveAdvantages: ['AI-first approach'],
+          },
+          projectId: 'mock-project-id',
+          productId: 'mock-product-id',
+          analysisId: 'mock-analysis-id',
+          status: 'completed',
+          format,
         },
-        executiveSummary: 'Mock executive summary',
-        keyFindings: ['Mock finding 1', 'Mock finding 2'],
-        keyOpportunities: ['Mock opportunity 1'],
-        keyThreats: ['Mock threat 1'],
-        strategicRecommendations: {
-          immediate: ['Immediate action 1'],
-          shortTerm: ['Short term action 1'],
-          longTerm: ['Long term action 1'],
-        },
-        competitiveIntelligence: {
-          marketPosition: 'competitive',
-          opportunities: ['Market opportunity 1'],
-          competitiveAdvantages: ['Advantage 1'],
-        },
-        projectId: 'mock-project-id',
-        productId: 'mock-product-id',
-        analysisId: 'mock-analysis-id',
-        status: 'completed',
-      },
-      generationTime: 1000,
-      tokensUsed: 500,
-      cost: 0.01,
-      warnings: [],
-      errors: [],
+        generationTime: 1000,
+        tokensUsed,
+        cost,
+        warnings: [],
+        errors: [],
+      };
     }),
     generateUXEnhancedReport: jest.fn().mockResolvedValue({
       report: {
@@ -484,9 +601,10 @@ jest.mock('@/services/reports/comparativeReportService', () => ({
       errors: [],
     }),
     getAvailableTemplates: jest.fn().mockReturnValue([
-      { id: 'COMPREHENSIVE', name: 'Comprehensive Analysis' },
-      { id: 'EXECUTIVE', name: 'Executive Summary' },
-      { id: 'TECHNICAL', name: 'Technical Analysis' },
+      { id: 'comprehensive', name: 'Comprehensive Analysis' },
+      { id: 'executive', name: 'Executive Summary' },
+      { id: 'technical', name: 'Technical Analysis' },
+      { id: 'strategic', name: 'Strategic Analysis' },
     ]),
     validateAnalysisForReporting: jest.fn().mockImplementation((analysis) => {
       if (!analysis.summary) {

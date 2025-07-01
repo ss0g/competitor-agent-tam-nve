@@ -2,49 +2,53 @@
 
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
-import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
+import { z } from 'zod'
 
 const competitorSchema = z.object({
   name: z.string().min(1, 'Name is required'),
   website: z.string().url('Please enter a valid URL'),
-  description: z.string().optional(),
+  description: z.string().min(10, 'Description must be at least 10 characters'),
 })
 
 type CompetitorFormData = z.infer<typeof competitorSchema>
 
 interface CompetitorFormProps {
-  initialData?: CompetitorFormData
   onSubmit: (data: CompetitorFormData) => Promise<void>
-  isLoading?: boolean
 }
 
-export function CompetitorForm({ initialData, onSubmit, isLoading }: CompetitorFormProps) {
-  const [error, setError] = useState<string | null>(null)
-  
+export function CompetitorForm({ onSubmit }: CompetitorFormProps) {
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [submitError, setSubmitError] = useState<string | null>(null)
+
   const {
     register,
     handleSubmit,
     formState: { errors },
+    reset,
   } = useForm<CompetitorFormData>({
     resolver: zodResolver(competitorSchema),
-    defaultValues: initialData,
   })
 
-  const onSubmitHandler = async (data: CompetitorFormData) => {
+  const handleFormSubmit = async (data: CompetitorFormData) => {
+    setIsSubmitting(true)
+    setSubmitError(null)
+
     try {
-      setError(null)
       await onSubmit(data)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred')
+      reset()
+    } catch (error) {
+      setSubmitError(error instanceof Error ? error.message : 'An error occurred')
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmitHandler)} className="space-y-6">
-      {error && (
+    <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-6">
+      {submitError && (
         <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-md">
-          {error}
+          {submitError}
         </div>
       )}
 
@@ -53,11 +57,11 @@ export function CompetitorForm({ initialData, onSubmit, isLoading }: CompetitorF
           Company Name
         </label>
         <input
-          type="text"
-          id="name"
           {...register('name')}
-          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-          placeholder="e.g., Competitor Inc."
+          type="text"
+          className={`mt-1 block w-full rounded-md shadow-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 sm:text-sm ${
+            errors.name ? 'border-red-300' : 'border-gray-300'
+          }`}
         />
         {errors.name && (
           <p className="mt-1 text-sm text-red-600">{errors.name.message}</p>
@@ -69,11 +73,11 @@ export function CompetitorForm({ initialData, onSubmit, isLoading }: CompetitorF
           Website URL
         </label>
         <input
-          type="url"
-          id="website"
           {...register('website')}
-          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-          placeholder="https://www.example.com"
+          type="url"
+          className={`mt-1 block w-full rounded-md shadow-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 sm:text-sm ${
+            errors.website ? 'border-red-300' : 'border-gray-300'
+          }`}
         />
         {errors.website && (
           <p className="mt-1 text-sm text-red-600">{errors.website.message}</p>
@@ -85,11 +89,11 @@ export function CompetitorForm({ initialData, onSubmit, isLoading }: CompetitorF
           Description
         </label>
         <textarea
-          id="description"
           {...register('description')}
-          rows={4}
-          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-          placeholder="Add notes about this competitor..."
+          rows={3}
+          className={`mt-1 block w-full rounded-md shadow-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 sm:text-sm ${
+            errors.description ? 'border-red-300' : 'border-gray-300'
+          }`}
         />
         {errors.description && (
           <p className="mt-1 text-sm text-red-600">{errors.description.message}</p>
@@ -99,10 +103,10 @@ export function CompetitorForm({ initialData, onSubmit, isLoading }: CompetitorF
       <div className="flex justify-end">
         <button
           type="submit"
-          disabled={isLoading}
-          className="inline-flex justify-center rounded-md border border-transparent bg-blue-600 py-2 px-4 text-sm font-medium text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+          disabled={isSubmitting}
+          className="inline-flex justify-center rounded-md border border-transparent bg-black py-2 px-4 text-sm font-medium text-white shadow-sm hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-500 disabled:opacity-50"
         >
-          {isLoading ? 'Saving...' : 'Save Competitor'}
+          {isSubmitting ? 'Adding...' : 'Add Competitor'}
         </button>
       </div>
     </form>

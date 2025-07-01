@@ -235,7 +235,7 @@ export class IntegrationMockFactory {
         const scrapingId = `scrape-${Date.now()}`;
         
         if (!url || !url.startsWith('http')) {
-          throw new Error('Invalid URL for scraping');
+          throw new Error('Invalid URL format for scraping workflow');
         }
         
         // Simulate network delay

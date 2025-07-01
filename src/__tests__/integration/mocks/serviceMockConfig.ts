@@ -161,20 +161,20 @@ export const IntegrationServiceMocks = {
   reportResponse: {
     report: {
       id: 'mock-report-id',
-      title: 'Competitive Analysis Report',
-      description: 'Comprehensive competitive analysis for product positioning',
+      title: 'Mock Comparative Report',
+      description: 'Mock report description',
       projectId: 'mock-project-id',
       productId: 'mock-product-id',
       analysisId: 'mock-analysis-id',
       metadata: {
-        productName: 'AI Research Platform',
+        productName: 'Mock Product',
         productUrl: 'https://ai-research-platform.com',
-        competitorCount: 2,
+        competitorCount: 1,
         analysisDate: new Date(),
         reportGeneratedAt: new Date(),
         analysisId: 'mock-analysis-id',
         analysisMethod: 'ai_powered' as const,
-        confidenceScore: 87,
+        confidenceScore: 92,
         dataQuality: 'high' as const,
         reportVersion: '1.0.0',
         focusAreas: ['features', 'positioning', 'user_experience'],
@@ -184,58 +184,57 @@ export const IntegrationServiceMocks = {
         {
           id: 'executive-summary',
           title: 'Executive Summary',
-          content: 'Mock executive summary content with key findings...',
+          content: 'Comprehensive executive summary of competitive analysis',
           type: 'executive_summary' as const,
           order: 1
         },
         {
-          id: 'competitive-landscape',
-          title: 'Competitive Landscape',
-          content: 'Mock competitive landscape analysis...',
+          id: 'feature-comparison',
+          title: 'Feature Analysis',
+          content: 'Detailed feature comparison analysis',
           type: 'feature_comparison' as const,
           order: 2
         },
         {
           id: 'positioning-analysis',
           title: 'Market Positioning',
-          content: 'Mock positioning analysis and recommendations...',
+          content: 'Market positioning and competitive landscape analysis',
           type: 'positioning_analysis' as const,
           order: 3
         },
         {
           id: 'recommendations',
           title: 'Strategic Recommendations',
-          content: 'Mock strategic recommendations with priorities...',
+          content: 'Actionable recommendations based on analysis',
           type: 'recommendations' as const,
           order: 4
         }
       ],
-      executiveSummary: 'Product demonstrates strong competitive position with AI-powered capabilities...',
+      executiveSummary: 'Mock executive summary',
       keyFindings: [
-        'Strong differentiation through AI-powered analysis',
-        'Competitive advantage in real-time monitoring',
-        'Opportunity gaps in mobile and API integration'
+        'Mock finding 1',
+        'Mock finding 2'
       ],
       strategicRecommendations: {
-        immediate: ['Enhance AI capabilities', 'Improve mobile interface'],
-        shortTerm: ['Develop API integrations', 'Expand market coverage'],
-        longTerm: ['AI-powered predictive analytics', 'Enterprise platform'],
-        priorityScore: 85
+        immediate: ['Immediate action 1'],
+        shortTerm: ['Short term action 1'],
+        longTerm: ['Long term action 1'],
+        priorityScore: 88
       },
       competitiveIntelligence: {
-        marketPosition: 'Strong competitor with AI-first approach',
-        keyThreats: ['Established enterprise competitors', 'Traditional market leaders'],
-        opportunities: ['SMB market expansion', 'AI automation trend'],
-        competitiveAdvantages: ['AI-powered analysis', 'Real-time insights', 'Modern UX']
+        marketPosition: 'competitive',
+        keyThreats: ['Mock threat 1'],
+        opportunities: ['Market opportunity 1'],
+        competitiveAdvantages: ['Advantage 1']
       },
       createdAt: new Date(),
       updatedAt: new Date(),
       status: 'completed' as const,
       format: 'markdown' as const
     },
-    generationTime: 1800,
-    tokensUsed: 3000,
-    cost: 0.035,
+    generationTime: 1000,
+    tokensUsed: 500,
+    cost: 0.01,
     warnings: [],
     errors: []
   },
@@ -354,7 +353,7 @@ export const IntegrationServiceMocks = {
   // Template response
   templateResponse: [
     {
-      id: 'comprehensive',
+      id: 'COMPREHENSIVE',
       name: 'Comprehensive Analysis',
       description: 'Full competitive analysis with all sections',
       sectionTemplates: [],
@@ -363,13 +362,31 @@ export const IntegrationServiceMocks = {
       analysisDepth: 'comprehensive' as const
     },
     {
-      id: 'executive',
+      id: 'EXECUTIVE',
       name: 'Executive Summary',
       description: 'High-level competitive analysis for executives',
       sectionTemplates: [],
       defaultFormat: 'markdown' as const,
       focusAreas: ['positioning', 'customer_targeting'],
       analysisDepth: 'basic' as const
+    },
+    {
+      id: 'TECHNICAL',
+      name: 'Technical Analysis',
+      description: 'Technical competitive analysis',
+      sectionTemplates: [],
+      defaultFormat: 'markdown' as const,
+      focusAreas: ['features', 'technology'],
+      analysisDepth: 'detailed' as const
+    },
+    {
+      id: 'STRATEGIC',
+      name: 'Strategic Analysis',
+      description: 'Strategic competitive analysis',
+      sectionTemplates: [],
+      defaultFormat: 'markdown' as const,
+      focusAreas: ['positioning', 'strategy'],
+      analysisDepth: 'strategic' as const
     }
   ],
 

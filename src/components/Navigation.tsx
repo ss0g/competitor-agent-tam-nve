@@ -1,14 +1,13 @@
 'use client'
 
 import Link from 'next/link'
-import { HomeIcon, ChartBarIcon, DocumentTextIcon, UserGroupIcon, ChatBubbleLeftRightIcon } from '@heroicons/react/24/outline'
+import { HomeIcon, DocumentTextIcon, UserGroupIcon, ChatBubbleLeftRightIcon } from '@heroicons/react/24/outline'
 
 const navigation = [
   { name: 'Dashboard', href: '/', icon: HomeIcon },
   { name: 'Chat Agent', href: '/chat', icon: ChatBubbleLeftRightIcon },
   { name: 'Competitors', href: '/competitors', icon: UserGroupIcon },
   { name: 'Reports', href: '/reports', icon: DocumentTextIcon },
-  { name: 'Analytics', href: '/analytics', icon: ChartBarIcon },
 ]
 
 export function Navigation() {
@@ -18,7 +17,7 @@ export function Navigation() {
         <div className="flex h-16 justify-between">
           <div className="flex">
             <div className="flex flex-shrink-0 items-center">
-              <Link href="/" className="text-xl font-bold text-blue-600">
+              <Link href="/" className="text-xl font-bold" style={{ color: '#067A46' }}>
                 CompAI
               </Link>
             </div>
@@ -27,7 +26,7 @@ export function Navigation() {
                 <Link
                   key={item.name}
                   href={item.href}
-                  className="inline-flex items-center px-1 pt-1 text-sm font-medium text-gray-900 hover:text-blue-600"
+                  className="inline-flex items-center px-1 pt-1 text-sm font-medium text-gray-900 hover:text-green-600"
                 >
                   <item.icon className="mr-2 h-5 w-5" />
                   {item.name}

@@ -126,48 +126,12 @@ describe('Comparative Report Integration - Fix 7.1c Applied', () => {
     // Initialize realistic data flow patterns with workflow mocks
     mockWorkflow = WorkflowMocks.createAnalysisToReportWorkflow();
     
-    // Enhanced mock repository with comprehensive operations
-    mockRepository = {
-      create: jest.fn().mockImplementation(async (reportData: any) => {
-        return {
-          id: reportData.id,
-          title: reportData.title || 'Mock Generated Report',
-          sections: reportData.sections || [],
-          status: 'completed' as const,
-          createdAt: new Date(),
-          updatedAt: new Date()
-        };
-      }),
-      
-      findById: jest.fn().mockImplementation(async (id: string) => {
-        return {
-          id: id,
-          title: 'Mock Stored Report',
-          sections: [
-            { id: 'exec-summary', title: 'Executive Summary', content: 'Mock executive summary', type: 'executive_summary', order: 1 },
-            { id: 'feature-comp', title: 'Feature Comparison', content: 'Mock feature comparison', type: 'feature_comparison', order: 2 },
-            { id: 'positioning', title: 'Positioning Analysis', content: 'Mock positioning', type: 'positioning_analysis', order: 3 },
-            { id: 'ux-comp', title: 'UX Comparison', content: 'Mock UX comparison', type: 'ux_comparison', order: 4 },
-            { id: 'targeting', title: 'Customer Targeting', content: 'Mock targeting', type: 'customer_targeting', order: 5 },
-            { id: 'recommendations', title: 'Recommendations', content: 'Mock recommendations', type: 'recommendations', order: 6 }
-          ],
-          metadata: {
-            productName: 'AI Research Platform',
-            competitorCount: 2
-          },
-          strategicRecommendations: {
-            immediate: ['Mock immediate action']
-          },
-          competitiveIntelligence: {
-            marketPosition: 'Strong competitive position'
-          },
-          status: 'completed' as const,
-          createdAt: new Date(),
-          updatedAt: new Date()
-        };
-      }),
-      
-      getReportFile: jest.fn().mockImplementation(async (id: string) => {
+    // Use the workflow's repository instance instead of creating a separate one
+    mockRepository = mockWorkflow.repository;
+    
+    // Ensure all repository methods are properly mocked
+    if (!mockRepository.getReportFile) {
+      mockRepository.getReportFile = jest.fn().mockImplementation(async (id: string) => {
         return `# AI Research Platform - Competitive Analysis Report
 
 ## Executive Summary
@@ -181,27 +145,35 @@ Mock competitor analysis for CompIntel Pro
 
 Report generated for report ID: ${id}
 Total characters: 500+`;
-      }),
-      
-      findByProjectId: jest.fn().mockImplementation(async (projectId: string) => {
+      });
+    }
+    
+    if (!mockRepository.findByProjectId) {
+      mockRepository.findByProjectId = jest.fn().mockImplementation(async (projectId: string) => {
         return [
           { id: 'report-1', title: 'Report 1', projectId },
           { id: 'report-2', title: 'Report 2', projectId }
         ];
-      }),
-      
-      findByProductId: jest.fn().mockImplementation(async (productId: string) => {
+      });
+    }
+    
+    if (!mockRepository.findByProductId) {
+      mockRepository.findByProductId = jest.fn().mockImplementation(async (productId: string) => {
         return [
           { id: 'report-1', title: 'Report 1', productId },
           { id: 'report-2', title: 'Report 2', productId }
         ];
-      }),
-      
-      findByAnalysisId: jest.fn().mockImplementation(async (analysisId: string) => {
+      });
+    }
+    
+    if (!mockRepository.findByAnalysisId) {
+      mockRepository.findByAnalysisId = jest.fn().mockImplementation(async (analysisId: string) => {
         return { id: 'report-for-analysis', analysisId, title: 'Analysis Report' };
-      }),
-      
-      list: jest.fn().mockImplementation(async (filters: any) => {
+      });
+    }
+    
+    if (!mockRepository.list) {
+      mockRepository.list = jest.fn().mockImplementation(async (filters: any) => {
         const mockReports = [
           { id: 'report-1', status: 'completed', format: 'markdown' },
           { id: 'report-2', status: 'completed', format: 'html' }
@@ -214,20 +186,20 @@ Total characters: 500+`;
           return mockReports.filter((r: any) => r.format === filters.format);
         }
         return mockReports;
-      }),
-      
-      update: jest.fn().mockImplementation(async (id: string, updateData: any) => {
-        return {
-          id: id,
-          ...updateData,
-          updatedAt: new Date()
-        };
-      }),
-      
-      delete: jest.fn().mockImplementation(async (id: string) => {
-        return { success: true, deletedId: id };
-      })
-    };
+      });
+    }
+    
+    if (!mockRepository.update) {
+      mockRepository.update = jest.fn().mockImplementation(async (id: string, updateData: any) => {
+        return { id, ...updateData, updatedAt: new Date() };
+      });
+    }
+    
+    if (!mockRepository.delete) {
+      mockRepository.delete = jest.fn().mockImplementation(async (id: string) => {
+        return { deleted: true, id };
+      });
+    }
   });
 
   afterEach(async () => {

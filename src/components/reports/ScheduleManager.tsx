@@ -1,57 +1,63 @@
+'use client'
+
 import { useState, useEffect } from 'react';
-import { ScheduleOptions } from '@/lib/scheduler';
+import { TrashIcon } from '@heroicons/react/24/outline';
 
-interface ScheduleManagerProps {
-  reportId: string;
-}
-
-interface Schedule extends ScheduleOptions {
+interface Schedule {
   id: string;
-  status: 'ACTIVE' | 'PAUSED' | 'DISABLED';
-  lastRun?: Date;
-  nextRun: Date;
+  name: string;
+  cronExpression: string;
+  nextRun: string;
+  isActive: boolean;
+  projectId: string;
+  analysisTimeframe: number;
+  recipients: string[];
+  notifyOnChanges: boolean;
 }
 
-interface CronPreset {
-  label: string;
-  value: string;
-  description: string;
+interface ScheduleForm {
+  name: string;
+  scheduleType: 'custom' | 'preset';
+  cronExpression: string;
+  analysisTimeframe: number;
+  recipients: string;
+  notifyOnChanges: boolean;
 }
 
-const cronPresets: CronPreset[] = [
-  { label: 'Every hour', value: '0 * * * *', description: 'Runs at the start of every hour' },
-  { label: 'Every day at midnight', value: '0 0 * * *', description: 'Runs daily at 12:00 AM' },
-  { label: 'Every day at 6 AM', value: '0 6 * * *', description: 'Runs daily at 6:00 AM' },
-  { label: 'Every Monday at 9 AM', value: '0 9 * * 1', description: 'Runs weekly on Monday at 9:00 AM' },
-  { label: 'First of every month', value: '0 0 1 * *', description: 'Runs on the first day of every month at 12:00 AM' },
+const PRESET_SCHEDULES = [
+  { label: 'Daily at 9 AM', value: '0 9 * * *', description: 'Every day at 9:00 AM' },
+  { label: 'Weekly on Monday', value: '0 9 * * 1', description: 'Every Monday at 9:00 AM' },
+  { label: 'Monthly on 1st', value: '0 9 1 * *', description: '1st of every month at 9:00 AM' },
+  { label: 'Bi-weekly', value: '0 9 * * 1/2', description: 'Every other Monday at 9:00 AM' },
 ];
 
-export function ScheduleManager({ reportId }: ScheduleManagerProps) {
+export function ScheduleManager() {
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [isCreating, setIsCreating] = useState(false);
-  const [showCronHelper, setShowCronHelper] = useState(false);
-  const [newSchedule, setNewSchedule] = useState<Partial<ScheduleOptions>>({
-    frequency: 'CUSTOM',
-    timeframe: 30,
-    notifyOnChanges: false,
-    recipients: [],
-    customCron: '0 0 * * *', // Daily at midnight by default
+  const [showForm, setShowForm] = useState(false);
+  const [formData, setFormData] = useState<ScheduleForm>({
+    name: '',
+    scheduleType: 'preset',
+    cronExpression: '0 9 * * 1',
+    analysisTimeframe: 7,
+    recipients: '',
+    notifyOnChanges: true,
   });
 
   useEffect(() => {
-    loadSchedules();
-  }, [reportId]);
+    fetchSchedules();
+  }, []);
 
-  const loadSchedules = async () => {
+  const fetchSchedules = async () => {
     try {
-      const response = await fetch(`/api/reports/schedules?reportId=${reportId}`);
+      setIsLoading(true);
+      const response = await fetch('/api/reports/schedules');
       if (!response.ok) {
-        throw new Error('Failed to load schedules');
+        throw new Error('Failed to fetch schedules');
       }
       const data = await response.json();
-      setSchedules(data);
+      setSchedules(data.schedules || []);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load schedules');
     } finally {
@@ -59,61 +65,40 @@ export function ScheduleManager({ reportId }: ScheduleManagerProps) {
     }
   };
 
-  const createSchedule = async () => {
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
     try {
-      const response = await fetch(`/api/reports/schedules?reportId=${reportId}`, {
+      const response = await fetch('/api/reports/schedule', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(newSchedule),
+        body: JSON.stringify({
+          ...formData,
+          recipients: formData.recipients.split(',').map(email => email.trim()),
+        }),
       });
 
       if (!response.ok) {
         throw new Error('Failed to create schedule');
       }
 
-      const schedule = await response.json();
-      setSchedules([schedule, ...schedules]);
-      setIsCreating(false);
-      setNewSchedule({
-        frequency: 'CUSTOM',
-        timeframe: 30,
-        notifyOnChanges: false,
-        recipients: [],
-        customCron: '0 0 * * *',
+      await fetchSchedules();
+      setShowForm(false);
+      setFormData({
+        name: '',
+        scheduleType: 'preset',
+        cronExpression: '0 9 * * 1',
+        analysisTimeframe: 7,
+        recipients: '',
+        notifyOnChanges: true,
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create schedule');
     }
   };
 
-  const updateScheduleStatus = async (scheduleId: string, status: Schedule['status']) => {
-    try {
-      const response = await fetch(`/api/reports/schedules/${scheduleId}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ status }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to update schedule status');
-      }
-
-      const updatedSchedule = await response.json();
-      setSchedules(schedules.map(s => (s.id === scheduleId ? updatedSchedule : s)));
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to update schedule status');
-    }
-  };
-
-  const deleteSchedule = async (scheduleId: string) => {
-    if (!confirm('Are you sure you want to delete this schedule?')) {
-      return;
-    }
-
+  const handleDelete = async (scheduleId: string) => {
     try {
       const response = await fetch(`/api/reports/schedules/${scheduleId}`, {
         method: 'DELETE',
@@ -123,18 +108,10 @@ export function ScheduleManager({ reportId }: ScheduleManagerProps) {
         throw new Error('Failed to delete schedule');
       }
 
-      setSchedules(schedules.filter(s => s.id !== scheduleId));
+      await fetchSchedules();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to delete schedule');
     }
-  };
-
-  const handleCronPresetSelect = (preset: CronPreset) => {
-    setNewSchedule({
-      ...newSchedule,
-      customCron: preset.value,
-    });
-    setShowCronHelper(false);
   };
 
   if (isLoading) {
@@ -146,10 +123,10 @@ export function ScheduleManager({ reportId }: ScheduleManagerProps) {
       <div className="flex justify-between items-center">
         <h2 className="text-lg font-semibold">Report Schedules</h2>
         <button
-          onClick={() => setIsCreating(true)}
-          className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+          onClick={() => setShowForm(!showForm)}
+          className="px-4 py-2 bg-black text-white rounded-md hover:bg-gray-800"
         >
-          Create Schedule
+          {showForm ? 'Cancel' : 'New Schedule'}
         </button>
       </div>
 
@@ -159,77 +136,90 @@ export function ScheduleManager({ reportId }: ScheduleManagerProps) {
         </div>
       )}
 
-      {isCreating && (
+      {showForm && (
         <div className="bg-white p-6 rounded-lg shadow">
           <h3 className="text-lg font-medium mb-4">New Schedule</h3>
-          <div className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700">Name</label>
               <input
                 type="text"
-                value={newSchedule.name || ''}
-                onChange={e => setNewSchedule({ ...newSchedule, name: e.target.value })}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                placeholder="Weekly Marketing Report"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500"
+                required
               />
             </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700">Schedule Type</label>
-              <div className="mt-1 space-y-2">
-                <div className="flex items-center">
-                  <input
-                    type="text"
-                    value={newSchedule.customCron || ''}
-                    onChange={e => setNewSchedule({ ...newSchedule, customCron: e.target.value })}
-                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                    placeholder="Cron expression (e.g., 0 0 * * *)"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowCronHelper(!showCronHelper)}
-                    className="ml-2 px-3 py-2 text-sm text-blue-600 hover:text-blue-800"
-                  >
-                    Help
-                  </button>
-                </div>
-                
-                {showCronHelper && (
-                  <div className="mt-2 bg-gray-50 p-4 rounded-md">
-                    <h4 className="text-sm font-medium text-gray-900 mb-2">Common Schedule Patterns</h4>
-                    <div className="space-y-2">
-                      {cronPresets.map(preset => (
-                        <button
-                          key={preset.value}
-                          onClick={() => handleCronPresetSelect(preset)}
-                          className="block w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded"
-                        >
-                          <div className="font-medium">{preset.label}</div>
-                          <div className="text-xs text-gray-500">
-                            {preset.description} ({preset.value})
-                          </div>
-                        </button>
-                      ))}
-                    </div>
-                    <div className="mt-3 text-xs text-gray-500">
-                      Format: minute hour day month weekday
-                      <br />
-                      Example: 0 9 * * 1 (Every Monday at 9 AM)
-                    </div>
-                  </div>
-                )}
-              </div>
+              <select
+                value={formData.scheduleType}
+                onChange={(e) => setFormData({ ...formData, scheduleType: e.target.value as 'custom' | 'preset' })}
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500"
+              >
+                <option value="preset">Preset Schedule</option>
+                <option value="custom">Custom Cron Expression</option>
+              </select>
+
+              <button
+                type="button"
+                className="ml-2 px-3 py-2 text-sm hover:underline"
+                style={{ color: '#067A46' }}
+                onClick={() => setShowForm(false)}
+              >
+                Learn about cron expressions
+              </button>
             </div>
+
+            {formData.scheduleType === 'preset' && (
+              <div className="mt-2 p-4 rounded-md" style={{ backgroundColor: '#B5E7BA' }}>
+                <h4 className="text-sm font-medium text-gray-900 mb-2">Common Schedule Patterns</h4>
+                <div className="space-y-2">
+                  {PRESET_SCHEDULES.map((preset) => (
+                    <button
+                      key={preset.value}
+                      type="button"
+                      onClick={() => setFormData({ ...formData, cronExpression: preset.value })}
+                      className="block w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded"
+                    >
+                      <strong>{preset.label}</strong>
+                      <div className="text-xs text-gray-500">
+                        {preset.description}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+                <div className="mt-3 text-xs text-gray-500">
+                  Current: {formData.cronExpression}
+                </div>
+              </div>
+            )}
+
+            {formData.scheduleType === 'custom' && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Cron Expression</label>
+                <input
+                  type="text"
+                  value={formData.cronExpression}
+                  onChange={(e) => setFormData({ ...formData, cronExpression: e.target.value })}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500"
+                  placeholder="0 9 * * 1"
+                  required
+                />
+              </div>
+            )}
 
             <div>
               <label className="block text-sm font-medium text-gray-700">Analysis Timeframe (days)</label>
               <input
                 type="number"
-                value={newSchedule.timeframe}
-                onChange={e => setNewSchedule({ ...newSchedule, timeframe: parseInt(e.target.value) })}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                value={formData.analysisTimeframe}
+                onChange={(e) => setFormData({ ...formData, analysisTimeframe: parseInt(e.target.value) })}
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500"
                 min="1"
-                max="90"
+                max="30"
+                required
               />
             </div>
 
@@ -237,88 +227,77 @@ export function ScheduleManager({ reportId }: ScheduleManagerProps) {
               <label className="block text-sm font-medium text-gray-700">Recipients (comma-separated)</label>
               <input
                 type="text"
-                value={newSchedule.recipients?.join(', ') || ''}
-                onChange={e => setNewSchedule({ ...newSchedule, recipients: e.target.value.split(',').map(s => s.trim()) })}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                placeholder="user@example.com, another@example.com"
+                value={formData.recipients}
+                onChange={(e) => setFormData({ ...formData, recipients: e.target.value })}
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500"
+                placeholder="email1@example.com, email2@example.com"
+                required
               />
             </div>
 
             <div className="flex items-center">
               <input
-                type="checkbox"
                 id="notifyOnChanges"
-                checked={newSchedule.notifyOnChanges}
-                onChange={e => setNewSchedule({ ...newSchedule, notifyOnChanges: e.target.checked })}
-                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                type="checkbox"
+                checked={formData.notifyOnChanges}
+                onChange={(e) => setFormData({ ...formData, notifyOnChanges: e.target.checked })}
+                className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
               />
               <label htmlFor="notifyOnChanges" className="ml-2 block text-sm text-gray-700">
-                Only notify when changes detected
+                Send notifications for significant changes
               </label>
             </div>
 
             <div className="flex justify-end space-x-3">
               <button
-                onClick={() => setIsCreating(false)}
+                type="button"
+                onClick={() => setShowForm(false)}
                 className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
               >
                 Cancel
               </button>
               <button
-                onClick={createSchedule}
-                disabled={!newSchedule.name || !newSchedule.recipients?.length || !newSchedule.customCron}
-                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-blue-400"
+                type="submit"
+                className="px-4 py-2 bg-black text-white rounded-md hover:bg-gray-800 disabled:bg-gray-400"
               >
-                Create
+                Create Schedule
               </button>
             </div>
-          </div>
+          </form>
         </div>
       )}
 
-      <div className="space-y-4">
-        {schedules.length === 0 ? (
-          <p className="text-gray-500 text-center py-4">No schedules configured</p>
-        ) : (
-          schedules.map(schedule => (
+      {schedules.length === 0 ? (
+        <p className="text-gray-500 text-center py-4">No schedules configured</p>
+      ) : (
+        <div className="space-y-4">
+          {schedules.map((schedule) => (
             <div key={schedule.id} className="bg-white p-6 rounded-lg shadow">
               <div className="flex justify-between items-start">
                 <div>
                   <h3 className="text-lg font-medium">{schedule.name}</h3>
                   <p className="text-gray-500 text-sm mt-1">
-                    Schedule: {schedule.customCron} • {schedule.timeframe} days • {schedule.recipients.length} recipients
-                  </p>
-                  <p className="text-gray-500 text-sm mt-1">
                     Next run: {new Date(schedule.nextRun).toLocaleString()}
                   </p>
-                  {schedule.lastRun && (
-                    <p className="text-gray-500 text-sm">
-                      Last run: {new Date(schedule.lastRun).toLocaleString()}
-                    </p>
-                  )}
+                  <p className="text-gray-500 text-sm mt-1">
+                    Project: {schedule.projectId}
+                  </p>
+                  <p className="text-gray-500 text-sm">
+                    {schedule.recipients.length} recipient(s)
+                  </p>
                 </div>
-                <div className="flex items-center space-x-2">
-                  <select
-                    value={schedule.status}
-                    onChange={e => updateScheduleStatus(schedule.id, e.target.value as Schedule['status'])}
-                    className="rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                  >
-                    <option value="ACTIVE">Active</option>
-                    <option value="PAUSED">Paused</option>
-                    <option value="DISABLED">Disabled</option>
-                  </select>
-                  <button
-                    onClick={() => deleteSchedule(schedule.id)}
-                    className="p-2 text-red-600 hover:text-red-800"
-                  >
-                    🗑️
-                  </button>
-                </div>
+                <button
+                  onClick={() => handleDelete(schedule.id)}
+                  className="p-2 text-red-600 hover:text-red-800"
+                  title="Delete schedule"
+                >
+                  <TrashIcon className="h-5 w-5" />
+                </button>
               </div>
             </div>
-          ))
-        )}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 } 

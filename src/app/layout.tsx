@@ -1,14 +1,11 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
 import "./globals.css";
 import { Navigation } from "@/components/Navigation";
-import { Providers } from "./providers";
-
-const inter = Inter({ subsets: ["latin"] });
+import AuthProvider from "./providers/AuthProvider";
 
 export const metadata: Metadata = {
   title: "Competitor Research Agent",
-  description: "AI-powered competitor analysis and monitoring tool",
+  description: "AI-powered competitor research and analysis",
 };
 
 export default function RootLayout({
@@ -18,13 +15,13 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className={inter.className}>
-        <Providers>
+      <body>
+        <AuthProvider>
           <Navigation />
-          <main className="min-h-screen bg-gray-50">
+          <main className="min-h-screen" style={{ backgroundColor: '#EFE9DE' }}>
             {children}
           </main>
-        </Providers>
+        </AuthProvider>
       </body>
     </html>
   );

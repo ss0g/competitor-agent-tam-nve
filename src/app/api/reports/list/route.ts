@@ -8,7 +8,6 @@ import {
   trackError, 
   trackPerformance,
   trackDatabaseOperation,
-  trackFileSystemOperation,
   LogContext 
 } from '@/lib/logger';
 
@@ -30,9 +29,29 @@ interface ReportFile {
   focusArea?: string;
 }
 
+// Simple in-memory cache with TTL
+const reportCache = new Map<string, { data: ReportFile[]; timestamp: number }>();
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+function getCachedReports(key: string): ReportFile[] | null {
+  const cached = reportCache.get(key);
+  if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+    return cached.data;
+  }
+  return null;
+}
+
+function setCachedReports(key: string, data: ReportFile[]): void {
+  reportCache.set(key, { data, timestamp: Date.now() });
+}
+
 export async function GET(request: NextRequest) {
   const correlationId = generateCorrelationId();
   const startTime = performance.now();
+  
+  const { searchParams } = new URL(request.url);
+  const limit = parseInt(searchParams.get('limit') || '10');
+  const offset = parseInt(searchParams.get('offset') || '0');
   
   const logContext: LogContext = {
     correlationId,
@@ -44,12 +63,32 @@ export async function GET(request: NextRequest) {
     trackEvent({
       eventType: 'reports_list_request_started',
       category: 'system_event',
-      metadata: { url: request.url }
+      metadata: { url: request.url, limit, offset }
     }, logContext);
+
+    // Check cache first
+    const cacheKey = `reports_${limit}_${offset}`;
+    const cachedReports = getCachedReports(cacheKey);
+    if (cachedReports) {
+      const totalTime = performance.now() - startTime;
+      trackPerformance('reports_list_total', totalTime, {
+        ...logContext,
+        totalReports: cachedReports.length,
+        cached: true
+      });
+      
+      return NextResponse.json({
+        reports: cachedReports,
+        total: cachedReports.length,
+        limit,
+        offset,
+        cached: true
+      });
+    }
 
     const reports: ReportFile[] = [];
 
-    // 1. Get reports from database
+    // 1. Get reports from database (optimized query)
     try {
       const dbStartTime = performance.now();
       
@@ -59,16 +98,25 @@ export async function GET(request: NextRequest) {
       });
 
       const dbReports = await prisma.report.findMany({
-        include: {
+        select: {
+          id: true,
+          name: true,
+          projectId: true,
+          competitorId: true,
+          createdAt: true,
           project: {
-            include: {
-              competitors: true
+            select: {
+              name: true,
+              competitors: {
+                select: { id: true }
+              }
             }
           }
         },
         orderBy: {
           createdAt: 'desc',
         },
+        take: limit * 2, // Get more than needed to account for file reports
       });
 
       trackPerformance('database_reports_fetch', performance.now() - dbStartTime, {
@@ -125,41 +173,36 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // 2. Get reports from file system
+    // 2. Get reports from file system (OPTIMIZED - parallel processing with early termination)
     const reportsDir = './reports';
     try {
       const fsStartTime = performance.now();
       
-      trackFileSystemOperation('readdir', reportsDir, {
-        ...logContext,
-        operation: 'read_reports_directory',
-      });
-
       const files = await readdir(reportsDir);
+      
+      // Filter .md files and sort by name (newest first based on timestamp in filename)
+      const mdFiles = files
+        .filter(f => f.endsWith('.md'))
+        .sort((a, b) => b.localeCompare(a)) // Sort descending (newest first)
+        .slice(0, Math.min(100, limit * 3)); // Only process a reasonable subset
 
       trackPerformance('filesystem_directory_read', performance.now() - fsStartTime, {
         ...logContext,
-        fileCount: files.length,
+        totalFiles: files.length,
+        mdFiles: mdFiles.length,
       });
 
-      let processedFiles = 0;
-      for (const filename of files) {
-        if (filename.endsWith('.md')) {
+      // CRITICAL FIX: Parallel processing instead of sequential
+      const fileProcessingStartTime = performance.now();
+      const filePromises = mdFiles.slice(0, limit * 2).map(async (filename) => {
+        try {
           const filePath = join(reportsDir, filename);
-          const statStartTime = performance.now();
-          
           const stats = await stat(filePath);
           
-          trackFileSystemOperation('stat', filePath, {
-            ...logContext,
-            fileSize: stats.size,
-            success: true,
-          });
-          
-          // Extract project ID from filename (format: projectId_timestamp.md)
+          // Extract project ID from filename
           const projectId = filename.split('_')[0];
           
-          // Determine report type from filename or content
+          // Determine report type from filename
           let reportType: 'comparative' | 'individual' | 'unknown' = 'unknown';
           if (filename.toLowerCase().includes('comparative') || 
               filename.toLowerCase().includes('consolidated')) {
@@ -168,7 +211,7 @@ export async function GET(request: NextRequest) {
             reportType = 'individual';
           }
           
-          reports.push({
+          return {
             filename,
             projectId,
             title: reportType === 'comparative' 
@@ -177,95 +220,106 @@ export async function GET(request: NextRequest) {
             generatedAt: stats.birthtime,
             size: stats.size,
             downloadUrl: `/api/reports/download?filename=${encodeURIComponent(filename)}`,
-            source: 'file',
+            source: 'file' as const,
             reportType,
             competitorCount: reportType === 'comparative' ? 0 : 1,
             template: reportType === 'comparative' ? 'comprehensive' : 'standard',
             focusArea: reportType === 'comparative' ? 'overall' : 'individual',
-          });
-          
-          processedFiles++;
+          };
+        } catch (error) {
+          // Skip files that can't be processed
+          return null;
         }
-      }
+      });
+
+      const fileResults = await Promise.all(filePromises);
+      const validFileReports = fileResults.filter((report) => report !== null) as ReportFile[];
+      
+      reports.push(...validFileReports);
+
+      trackPerformance('filesystem_files_processed', performance.now() - fileProcessingStartTime, {
+        ...logContext,
+        processedFiles: validFileReports.length,
+        totalFiles: mdFiles.length,
+      });
 
       trackEvent({
         eventType: 'file_reports_processed',
         category: 'system_event',
         metadata: { 
           totalFiles: files.length,
-          processedFiles,
+          processedFiles: validFileReports.length,
           reportsDir 
         }
       }, logContext);
 
-    } catch (dirError) {
-      trackError(dirError as Error, 'filesystem_reports_read', {
+    } catch (fsError) {
+      trackError(fsError as Error, 'filesystem_reports_fetch', {
         ...logContext,
-        operation: 'read_reports_directory',
-        reportsDir,
+        operation: 'fetch_file_reports',
       });
     }
 
-    // 3. Sort by creation date (newest first) and remove duplicates
-    const uniqueReports = new Map<string, ReportFile>();
+    // 3. Sort all reports by date and apply pagination
+    const sortedReports = reports
+      .sort((a, b) => new Date(b.generatedAt).getTime() - new Date(a.generatedAt).getTime())
+      .slice(offset, offset + limit);
+
+    // Cache the results
+    setCachedReports(cacheKey, sortedReports);
+
+    const totalTime = performance.now() - startTime;
     
-    for (const report of reports) {
-      const key = `${report.projectId}_${report.source}`;
-      if (!uniqueReports.has(key) || 
-          uniqueReports.get(key)!.generatedAt < report.generatedAt) {
-        uniqueReports.set(key, report);
-      }
-    }
+    const responseData = {
+      reports: sortedReports,
+      total: sortedReports.length,
+      databaseReports: reports.filter(r => r.source === 'database').length,
+      fileReports: reports.filter(r => r.source === 'file').length,
+      limit,
+      offset,
+      cached: false
+    };
 
-    const sortedReports = Array.from(uniqueReports.values())
-      .sort((a, b) => b.generatedAt.getTime() - a.generatedAt.getTime());
-
-    const totalDuration = trackPerformance('reports_list_total', startTime, {
+    // Update log context with final metrics
+    const finalLogContext = {
       ...logContext,
       totalReports: sortedReports.length,
-      databaseReports: sortedReports.filter(r => r.source === 'database').length,
-      fileReports: sortedReports.filter(r => r.source === 'file').length,
-    });
+      databaseReports: responseData.databaseReports,
+      fileReports: responseData.fileReports,
+    };
 
+    trackPerformance('reports_list_total', totalTime, finalLogContext);
+    
     trackEvent({
       eventType: 'reports_list_request_completed',
       category: 'system_event',
-      metadata: {
-        totalReports: sortedReports.length,
-        duration: totalDuration,
-        success: true,
-      }
-    }, logContext);
+      metadata: { totalReports: sortedReports.length, success: true }
+    }, finalLogContext);
 
-    return NextResponse.json({
-      reports: sortedReports,
-      total: sortedReports.length,
-      sources: {
-        database: sortedReports.filter(r => r.source === 'database').length,
-        files: sortedReports.filter(r => r.source === 'file').length,
-      },
-    });
+    return NextResponse.json(responseData);
 
   } catch (error) {
-    const errorDuration = performance.now() - startTime;
+    const totalTime = performance.now() - startTime;
     
     trackError(error as Error, 'reports_list_request', {
       ...logContext,
-      duration: errorDuration,
-      success: false,
+      totalTime,
     });
-
+    
     trackEvent({
       eventType: 'reports_list_request_failed',
       category: 'error',
-      metadata: {
+      metadata: { 
         error: (error as Error).message,
-        duration: errorDuration,
+        totalTime 
       }
     }, logContext);
 
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { 
+        error: 'Failed to fetch reports',
+        details: process.env.NODE_ENV === 'development' ? (error as Error).message : undefined
+      },
       { status: 500 }
     );
   }
