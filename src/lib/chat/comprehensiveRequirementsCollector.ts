@@ -359,43 +359,49 @@ You can provide information in any format that works for you:
     // Phase 2.2: Enhanced field validation with context awareness
     this.validateExtractedFields(extractedData, invalidFields, preprocessedMessage);
 
-    // Email extraction with enhanced validation
-    const emailResult = this.extractField(preprocessedMessage, 'userEmail');
-    if (emailResult.value) {
-      extractedData.userEmail = emailResult.value;
-      confidence.userEmail = emailResult.confidence;
-    } else if (emailResult.candidates.length > 0) {
-      invalidFields.push({
-        field: 'userEmail',
-        reason: 'Invalid email format detected',
-        suggestion: `Found "${emailResult.candidates[0]}" - please provide valid email format: user@company.com`
-      });
+    // Email extraction with enhanced validation (only if not already extracted)
+    if (!extractedData.userEmail) {
+      const emailResult = this.extractField(preprocessedMessage, 'userEmail');
+      if (emailResult.value) {
+        extractedData.userEmail = emailResult.value;
+        confidence.userEmail = emailResult.confidence;
+      } else if (emailResult.candidates.length > 0) {
+        invalidFields.push({
+          field: 'userEmail',
+          reason: 'Invalid email format detected',
+          suggestion: `Found "${emailResult.candidates[0]}" - please provide valid email format: user@company.com`
+        });
+      }
     }
 
-    // Frequency extraction with enhanced patterns
-    const frequencyResult = this.extractField(preprocessedMessage, 'reportFrequency');
-    if (frequencyResult.value) {
-      extractedData.reportFrequency = frequencyResult.value;
-      confidence.reportFrequency = frequencyResult.confidence;
-    } else if (frequencyResult.candidates.length > 0) {
-      invalidFields.push({
-        field: 'reportFrequency',
-        reason: 'Unclear frequency specification',
-        suggestion: `Found "${frequencyResult.candidates[0]}" - please specify: Weekly, Monthly, or Quarterly`
-      });
+    // Frequency extraction with enhanced patterns (only if not already extracted)
+    if (!extractedData.reportFrequency) {
+      const frequencyResult = this.extractField(preprocessedMessage, 'reportFrequency');
+      if (frequencyResult.value) {
+        extractedData.reportFrequency = frequencyResult.value;
+        confidence.reportFrequency = frequencyResult.confidence;
+      } else if (frequencyResult.candidates.length > 0) {
+        invalidFields.push({
+          field: 'reportFrequency',
+          reason: 'Unclear frequency specification',
+          suggestion: `Found "${frequencyResult.candidates[0]}" - please specify: Weekly, Monthly, or Quarterly`
+        });
+      }
     }
 
-    // URL extraction with enhanced validation
-    const urlResult = this.extractField(preprocessedMessage, 'productUrl');
-    if (urlResult.value) {
-      extractedData.productUrl = urlResult.value;
-      confidence.productUrl = urlResult.confidence;
-    } else if (urlResult.candidates.length > 0) {
-      invalidFields.push({
-        field: 'productUrl',
-        reason: 'Invalid URL format',
-        suggestion: `Found "${urlResult.candidates[0]}" - please provide full URL starting with https://`
-      });
+    // URL extraction with enhanced validation (only if not already extracted)
+    if (!extractedData.productUrl) {
+      const urlResult = this.extractField(preprocessedMessage, 'productUrl');
+      if (urlResult.value) {
+        extractedData.productUrl = urlResult.value;
+        confidence.productUrl = urlResult.confidence;
+      } else if (urlResult.candidates.length > 0) {
+        invalidFields.push({
+          field: 'productUrl',
+          reason: 'Invalid URL format',
+          suggestion: `Found "${urlResult.candidates[0]}" - please provide full URL starting with https://`
+        });
+      }
     }
 
     // Phase 2.2: Contextual field extraction with industry intelligence
@@ -434,8 +440,10 @@ You can provide information in any format that works for you:
     // Normalize line breaks
     processed = processed.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
     
-    // Clean up excessive whitespace
-    processed = processed.replace(/\n\s*\n/g, '\n').replace(/\s+/g, ' ');
+    // Clean up excessive whitespace but preserve line structure
+    processed = processed.replace(/\n\s*\n/g, '\n'); // Remove empty lines
+    // Replace multiple spaces/tabs on same line with single space, but preserve newlines
+    processed = processed.replace(/[ \t]+/g, ' ');
     
     // Normalize bullet points
     processed = processed.replace(/[•▪▫◦‣⁃]/g, '•');
@@ -679,7 +687,42 @@ You can provide information in any format that works for you:
             confidence.projectName = 80;
           }
           break;
-        // Continue for other fields...
+        case 3:
+          if (item.length > 2) {
+            extractedData.productName = item;
+            confidence.productName = 80;
+          }
+          break;
+        case 4:
+          if (this.fieldExtractionConfigs.productUrl.validator?.(item)) {
+            extractedData.productUrl = this.fieldExtractionConfigs.productUrl.cleaner?.(item) || item;
+            confidence.productUrl = 85;
+          }
+          break;
+        case 5:
+          if (item.length > 2) {
+            extractedData.industry = item;
+            confidence.industry = 80;
+          }
+          break;
+        case 6:
+          if (item.length >= 10) {
+            extractedData.positioning = item;
+            confidence.positioning = 80;
+          }
+          break;
+        case 7:
+          if (item.length >= 10) {
+            extractedData.customerData = item;
+            confidence.customerData = 80;
+          }
+          break;
+        case 8:
+          if (item.length >= 10) {
+            extractedData.userProblem = item;
+            confidence.userProblem = 80;
+          }
+          break;
       }
     });
   }
@@ -878,7 +921,9 @@ You can provide information in any format that works for you:
       const match = trimmedLine.match(/^(\d+)\.?\s*(.+)$/);
       if (match) {
         const itemNumber = parseInt(match[1]);
-        const content = match[2].trim();
+        let content = match[2].trim();
+        // Remove surrounding quotes if present
+        content = content.replace(/^["'](.*)["']$/, '$1');
         if (itemNumber >= 1 && itemNumber <= 9 && content.length > 0) {
           numberedItems[itemNumber] = content;
         }
@@ -886,6 +931,20 @@ You can provide information in any format that works for you:
     }
 
     // Map numbered items to fields based on our expected order
+    // Fix: Add mapping for items 1 and 2 which were missing
+    if (numberedItems[1] && !extractedData.userEmail) {
+      // Validate email format
+      if (this.fieldExtractionConfigs.userEmail.validator?.(numberedItems[1])) {
+        extractedData.userEmail = numberedItems[1];
+        confidence.userEmail = 95;
+      }
+    }
+    if (numberedItems[2] && !extractedData.reportFrequency) {
+      // Clean and validate frequency
+      const cleanedFrequency = this.fieldExtractionConfigs.reportFrequency.cleaner?.(numberedItems[2]) || numberedItems[2];
+      extractedData.reportFrequency = cleanedFrequency;
+      confidence.reportFrequency = 95;
+    }
     if (numberedItems[3] && !extractedData.projectName) {
       extractedData.projectName = numberedItems[3];
       confidence.projectName = 90;
@@ -893,6 +952,13 @@ You can provide information in any format that works for you:
     if (numberedItems[4] && !extractedData.productName) {
       extractedData.productName = numberedItems[4];
       confidence.productName = 90;
+    }
+    if (numberedItems[5] && !extractedData.productUrl) {
+      // Validate URL format
+      if (this.fieldExtractionConfigs.productUrl.validator?.(numberedItems[5])) {
+        extractedData.productUrl = this.fieldExtractionConfigs.productUrl.cleaner?.(numberedItems[5]) || numberedItems[5];
+        confidence.productUrl = 95;
+      }
     }
     if (numberedItems[6] && !extractedData.industry) {
       extractedData.industry = numberedItems[6];
