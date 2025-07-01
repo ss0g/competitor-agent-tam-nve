@@ -2305,11 +2305,7 @@ What would you prefer?`,
             projectId: result.project.id
           });
 
-          const reportTask = await autoReportService.generateInitialReport(result.project.id, {
-            reportTemplate: 'comprehensive',
-            reportName: `Initial Report - ${projectName}`,
-            priority: 'high'
-          });
+          const reportTask = await autoReportService.generateInitialComparativeReport(result.project.id);
 
           reportGenerationInfo = {
             initialReportQueued: true,
