@@ -1,0 +1,237 @@
+# Initial Reports Monitoring Alert Rules
+# Phase 5.2.1: Production alerting configuration
+
+groups:
+  - name: initial_reports_critical
+    rules:
+      # Critical: Report Success Rate < 85% for 5 minutes
+      - alert: InitialReportsSuccessRateCritical
+        expr: initial_reports_generation_success_rate < 0.85
+        for: 5m
+        labels:
+          severity: critical
+          category: performance
+          service: initial-reports
+        annotations:
+          summary: "Initial reports success rate critically low"
+          description: "Initial report generation success rate has been below 85% for more than 5 minutes. Current rate: {{ $value | humanizePercentage }}"
+          runbook_url: "https://docs.company.com/runbooks/initial-reports-success-rate"
+          recommended_action: "Investigate snapshot capture failures and system capacity"
+
+      # Critical: System Error Rate > 5% for 1 minute
+      - alert: InitialReportsErrorRateCritical
+        expr: initial_reports_error_rate > 0.05
+        for: 1m
+        labels:
+          severity: critical
+          category: performance
+          service: initial-reports
+        annotations:
+          summary: "Initial reports error rate critically high"
+          description: "System error rate has exceeded 5% for more than 1 minute. Current rate: {{ $value | humanizePercentage }}"
+          runbook_url: "https://docs.company.com/runbooks/initial-reports-error-rate"
+          recommended_action: "Check application logs and system resources immediately"
+
+      # Critical: Average Response Time > 60 seconds for 5 minutes
+      - alert: InitialReportsResponseTimeCritical
+        expr: initial_reports_avg_generation_time > 60000
+        for: 5m
+        labels:
+          severity: critical
+          category: performance
+          service: initial-reports
+        annotations:
+          summary: "Initial reports generation time critically high"
+          description: "Average generation time has exceeded 60 seconds for more than 5 minutes. Current time: {{ $value | humanizeDuration }}"
+          runbook_url: "https://docs.company.com/runbooks/initial-reports-response-time"
+          recommended_action: "Scale snapshot capture capacity or optimize data collection"
+
+      # Critical: Snapshot Capture Failure Rate > 30% for 5 minutes
+      - alert: InitialReportsSnapshotFailureCritical
+        expr: (1 - initial_reports_snapshot_capture_success_rate) > 0.30
+        for: 5m
+        labels:
+          severity: critical
+          category: quality
+          service: initial-reports
+        annotations:
+          summary: "Snapshot capture failure rate critically high"
+          description: "Snapshot capture failure rate has exceeded 30% for more than 5 minutes. Current failure rate: {{ $value | humanizePercentage }}"
+          runbook_url: "https://docs.company.com/runbooks/snapshot-capture-failures"
+          recommended_action: "Check snapshot capture service health and competitor website accessibility"
+
+  - name: initial_reports_warning
+    rules:
+      # Warning: Report Success Rate < 90% for 10 minutes
+      - alert: InitialReportsSuccessRateWarning
+        expr: initial_reports_generation_success_rate < 0.90
+        for: 10m
+        labels:
+          severity: warning
+          category: performance
+          service: initial-reports
+        annotations:
+          summary: "Initial reports success rate below optimal"
+          description: "Initial report generation success rate has been below 90% for more than 10 minutes. Current rate: {{ $value | humanizePercentage }}"
+          runbook_url: "https://docs.company.com/runbooks/initial-reports-success-rate"
+          recommended_action: "Monitor system performance and investigate potential issues"
+
+      # Warning: Data Completeness Score < 50% for 15 minutes
+      - alert: InitialReportsDataCompletenessWarning
+        expr: initial_reports_avg_data_completeness_score < 50
+        for: 15m
+        labels:
+          severity: warning
+          category: quality
+          service: initial-reports
+        annotations:
+          summary: "Data completeness score low"
+          description: "Average data completeness score has been below 50% for more than 15 minutes. Current score: {{ $value }}"
+          runbook_url: "https://docs.company.com/runbooks/data-completeness"
+          recommended_action: "Investigate data collection issues and competitor accessibility"
+
+      # Warning: Snapshot Success Rate < 80% for 10 minutes
+      - alert: InitialReportsSnapshotSuccessWarning
+        expr: initial_reports_snapshot_capture_success_rate < 0.80
+        for: 10m
+        labels:
+          severity: warning
+          category: quality
+          service: initial-reports
+        annotations:
+          summary: "Snapshot capture success rate below target"
+          description: "Snapshot capture success rate has been below 80% for more than 10 minutes. Current rate: {{ $value | humanizePercentage }}"
+          runbook_url: "https://docs.company.com/runbooks/snapshot-success"
+          recommended_action: "Review competitor website accessibility and timeout settings"
+
+      # Warning: Generation Time > 45 seconds for 10 minutes
+      - alert: InitialReportsGenerationTimeWarning
+        expr: initial_reports_avg_generation_time > 45000
+        for: 10m
+        labels:
+          severity: warning
+          category: performance
+          service: initial-reports
+        annotations:
+          summary: "Generation time above target"
+          description: "Average generation time has exceeded 45 seconds for more than 10 minutes. Current time: {{ $value | humanizeDuration }}"
+          runbook_url: "https://docs.company.com/runbooks/generation-time"
+          recommended_action: "Consider optimizing data collection and analysis processes"
+
+      # Warning: Fallback Usage > 20% for 15 minutes
+      - alert: InitialReportsFallbackUsageWarning
+        expr: initial_reports_fallback_usage_rate > 0.20
+        for: 15m
+        labels:
+          severity: warning
+          category: quality
+          service: initial-reports
+        annotations:
+          summary: "High fallback usage rate"
+          description: "Fallback usage rate has exceeded 20% for more than 15 minutes. Current rate: {{ $value | humanizePercentage }}"
+          runbook_url: "https://docs.company.com/runbooks/fallback-usage"
+          recommended_action: "Improve snapshot capture reliability and data collection"
+
+  - name: initial_reports_budget
+    rules:
+      # Budget: Daily Cost > $500
+      - alert: InitialReportsDailyCostThreshold
+        expr: initial_reports_daily_cost_estimate > 500
+        for: 0m
+        labels:
+          severity: warning
+          category: cost
+          service: initial-reports
+        annotations:
+          summary: "Daily cost approaching threshold"
+          description: "Estimated daily cost has exceeded $500. Current estimate: ${{ $value }}"
+          runbook_url: "https://docs.company.com/runbooks/cost-management"
+          recommended_action: "Review cost optimization opportunities and usage patterns"
+
+      # Budget: Hourly Snapshot Limit > 1000
+      - alert: InitialReportsHourlySnapshotLimitExceeded
+        expr: increase(initial_reports_snapshots_captured_total[1h]) > 1000
+        for: 0m
+        labels:
+          severity: warning
+          category: cost
+          service: initial-reports
+        annotations:
+          summary: "Hourly snapshot limit exceeded"
+          description: "Snapshot capture rate has exceeded 1000 per hour. Current hourly rate: {{ $value }}"
+          runbook_url: "https://docs.company.com/runbooks/snapshot-limits"
+          recommended_action: "Review snapshot capture patterns and implement rate limiting if necessary"
+
+      # Budget: Storage Usage > 85%
+      - alert: InitialReportsStorageUsageHigh
+        expr: initial_reports_storage_usage_percentage > 0.85
+        for: 5m
+        labels:
+          severity: warning
+          category: cost
+          service: initial-reports
+        annotations:
+          summary: "Storage usage high"
+          description: "Storage usage has exceeded 85% of allocated capacity. Current usage: {{ $value | humanizePercentage }}"
+          runbook_url: "https://docs.company.com/runbooks/storage-management"
+          recommended_action: "Review data retention policies and cleanup old snapshots"
+
+  - name: initial_reports_resource
+    rules:
+      # Resource: High Resource Utilization > 85% for 5 minutes
+      - alert: InitialReportsResourceUtilizationHigh
+        expr: initial_reports_resource_utilization > 0.85
+        for: 5m
+        labels:
+          severity: warning
+          category: performance
+          service: initial-reports
+        annotations:
+          summary: "Resource utilization high"
+          description: "System resource utilization has exceeded 85% for more than 5 minutes. Current utilization: {{ $value | humanizePercentage }}"
+          runbook_url: "https://docs.company.com/runbooks/resource-utilization"
+          recommended_action: "Scale system resources or optimize resource usage"
+
+      # Resource: Rate Limiting Triggered > 10% for 10 minutes
+      - alert: InitialReportsRateLimitingHigh
+        expr: initial_reports_rate_limit_trigger_frequency > 0.10
+        for: 10m
+        labels:
+          severity: warning
+          category: performance
+          service: initial-reports
+        annotations:
+          summary: "Rate limiting triggered frequently"
+          description: "Rate limiting has been triggered more than 10% of the time for more than 10 minutes. Current frequency: {{ $value | humanizePercentage }}"
+          runbook_url: "https://docs.company.com/runbooks/rate-limiting"
+          recommended_action: "Review rate limiting configuration and system capacity"
+
+  - name: initial_reports_user_experience
+    rules:
+      # User Experience: User Satisfaction < 3.0 for 30 minutes
+      - alert: InitialReportsUserSatisfactionLow
+        expr: initial_reports_user_satisfaction_score < 3.0
+        for: 30m
+        labels:
+          severity: warning
+          category: user_experience
+          service: initial-reports
+        annotations:
+          summary: "User satisfaction score low"
+          description: "User satisfaction score has been below 3.0 for more than 30 minutes. Current score: {{ $value }}"
+          runbook_url: "https://docs.company.com/runbooks/user-satisfaction"
+          recommended_action: "Review user feedback and improve report quality and performance"
+
+      # User Experience: Report View Rate < 50% for 1 hour
+      - alert: InitialReportsViewRateLow
+        expr: initial_reports_report_view_rate < 0.50
+        for: 1h
+        labels:
+          severity: info
+          category: user_experience
+          service: initial-reports
+        annotations:
+          summary: "Report view rate low"
+          description: "Report view rate has been below 50% for more than 1 hour. Current rate: {{ $value | humanizePercentage }}"
+          runbook_url: "https://docs.company.com/runbooks/report-engagement"
+          recommended_action: "Review report quality and user experience improvements" 
