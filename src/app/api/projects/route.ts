@@ -6,6 +6,8 @@ import { ProductScrapingService } from '@/services/productScrapingService';
 import { SmartSchedulingService } from '@/services/smartSchedulingService';
 import { smartAIService } from '@/services/smartAIService'; // PHASE AI-2: Import SmartAIService
 import { productRepository } from '@/lib/repositories';
+import { InitialComparativeReportService } from '@/services/reports/initialComparativeReportService'; // PHASE 1.2: Import InitialComparativeReportService
+import { asyncReportProcessingService } from '@/services/reports/asyncReportProcessingService'; // PHASE 4.2: Enhanced async processing
 
 // Default mock user for testing without authentication
 const DEFAULT_USER_EMAIL = 'mock@example.com';
@@ -65,6 +67,9 @@ interface EnhancedProjectRequest {
   frequency?: 'daily' | 'weekly' | 'biweekly' | 'monthly';
   reportTemplate?: 'comprehensive' | 'executive' | 'technical' | 'strategic';
   autoGenerateInitialReport?: boolean;
+  // PHASE 1.2: Enhanced initial report generation options
+  generateInitialReport?: boolean;  // New flag for immediate report generation (default: true)
+  requireFreshSnapshots?: boolean;  // Require fresh competitor snapshots (default: true)
   reportName?: string;
   parameters?: any;
   // PHASE AI-2: Auto-AI analysis configuration
@@ -348,60 +353,151 @@ export async function POST(request: Request) {
         });
       });
 
-    const autoReportService = getAutoReportService();
+    // PHASE 4.2: Enhanced async processing with sophisticated fallback mechanisms
     let reportGenerationInfo: any = null;
+    const shouldGenerateInitialReport = (json.generateInitialReport !== false && json.autoGenerateInitialReport !== false) && competitorIds.length > 0;
 
-    if (json.autoGenerateInitialReport !== false && competitorIds.length > 0) {
+    if (shouldGenerateInitialReport) {
       try {
-        logger.info('Generating initial report for project', {
+        logger.info('Starting async initial report processing with enhanced fallbacks', {
           ...context,
-          projectId: result.project.id
+          projectId: finalResult.project.id,
+          productId: finalResult.product.id,
+          competitorCount: competitorIds.length,
+          requireFreshSnapshots: json.requireFreshSnapshots !== false
         });
 
-        // PHASE 2.1 FIX: Use comparative report generation instead of individual reports
-        const reportTask = await autoReportService.generateInitialComparativeReport(result.project.id);
+        // PHASE 4.2: Use AsyncReportProcessingService for enhanced processing
+        const processingResult = await asyncReportProcessingService.processInitialReport(
+          finalResult.project.id,
+          {
+            timeout: 45000, // 45 seconds per implementation plan
+            priority: 'high',
+            fallbackToQueue: true, // Enable sophisticated fallback strategy
+            enableGracefulDegradation: true,
+            maxConcurrentProcessing: 5,
+            notifyOnCompletion: false,
+            retryAttempts: 2
+          }
+        );
+
+        // Build response based on processing result
+        if (processingResult.success) {
+          reportGenerationInfo = {
+            initialReportGenerated: true,
+            reportId: processingResult.reportId,
+            reportStatus: 'completed',
+            reportTitle: processingResult.report?.title,
+            processingMethod: processingResult.processingMethod,
+            processingTime: processingResult.processingTime,
+            dataFreshness: 'new', // Fresh data was used
+            competitorSnapshotsCaptured: true,
+            fallbackUsed: processingResult.fallbackUsed,
+            timeoutExceeded: processingResult.timeoutExceeded
+          };
+
+          trackBusinessEvent('async_report_generated_successfully', {
+            ...context,
+            projectId: finalResult.project.id,
+            reportId: processingResult.reportId,
+            processingMethod: processingResult.processingMethod,
+            processingTime: processingResult.processingTime,
+            fallbackUsed: processingResult.fallbackUsed
+          });
+
+        } else if (processingResult.queueScheduled) {
+          // Processing was scheduled in queue
+          reportGenerationInfo = {
+            initialReportGenerated: false,
+            fallbackScheduled: true,
+            taskId: processingResult.taskId,
+            processingMethod: processingResult.processingMethod,
+            estimatedQueueCompletion: processingResult.estimatedQueueCompletion,
+            error: processingResult.error,
+            timeoutExceeded: processingResult.timeoutExceeded,
+            fallbackUsed: processingResult.fallbackUsed
+          };
+
+          trackBusinessEvent('async_report_queued_for_processing', {
+            ...context,
+            projectId: finalResult.project.id,
+            taskId: processingResult.taskId,
+            processingMethod: processingResult.processingMethod,
+            estimatedCompletion: processingResult.estimatedQueueCompletion?.toISOString()
+          });
+
+        } else {
+          // Complete failure
+          reportGenerationInfo = {
+            initialReportGenerated: false,
+            fallbackScheduled: false,
+            error: processingResult.error,
+            processingMethod: processingResult.processingMethod,
+            processingTime: processingResult.processingTime,
+            timeoutExceeded: processingResult.timeoutExceeded,
+            fallbackUsed: processingResult.fallbackUsed
+          };
+
+          trackBusinessEvent('async_report_generation_failed', {
+            ...context,
+            projectId: finalResult.project.id,
+            error: processingResult.error,
+            processingMethod: processingResult.processingMethod,
+            timeoutExceeded: processingResult.timeoutExceeded
+          });
+        }
+
+        logger.info('Async report processing completed', {
+          ...context,
+          projectId: finalResult.project.id,
+          success: processingResult.success,
+          processingMethod: processingResult.processingMethod,
+          processingTime: processingResult.processingTime,
+          fallbackUsed: processingResult.fallbackUsed,
+          queueScheduled: processingResult.queueScheduled
+        });
+
+      } catch (processingError) {
+        logger.error('Async report processing failed completely', processingError as Error, {
+          ...context,
+          projectId: finalResult.project.id,
+          errorMessage: (processingError as Error).message
+        });
 
         reportGenerationInfo = {
-          initialReportQueued: true,
-          taskId: reportTask.taskId,
-          queuePosition: reportTask.queuePosition || 0,
-          estimatedCompletion: new Date(Date.now() + ((reportTask.queuePosition || 0) * 120000)) // 2 min per report
+          initialReportGenerated: false,
+          fallbackScheduled: false,
+          error: `Async processing failed: ${(processingError as Error).message}`,
+          processingMethod: 'failed'
         };
 
-        trackBusinessEvent('initial_report_generation_queued', {
+        trackBusinessEvent('async_report_processing_system_failure', {
           ...context,
-          projectId: result.project.id,
-          taskId: reportTask.taskId,
-          queuePosition: reportTask.queuePosition || 0
+          projectId: finalResult.project.id,
+          error: (processingError as Error).message
         });
-
-        logger.info('Initial report generation queued', {
-          ...context,
-          projectId: result.project.id,
-          taskId: reportTask.taskId
-        });
-      } catch (reportError) {
-        logger.error('Failed to queue initial report generation', reportError as Error, {
-          ...context,
-          projectId: result.project.id
-        });
-        reportGenerationInfo = {
-          initialReportQueued: false,
-          error: 'Failed to queue initial report generation'
-        };
       }
+    } else {
+      logger.info('Initial report generation not requested or no competitors available', {
+        ...context,
+        projectId: finalResult.project.id,
+        generateInitialReport: json.generateInitialReport,
+        autoGenerateInitialReport: json.autoGenerateInitialReport,
+        competitorCount: competitorIds.length
+      });
     }
 
     if (json.frequency && ['daily', 'weekly', 'biweekly', 'monthly'].includes(json.frequency)) {
       try {
         logger.info('Setting up periodic reports for project', {
           ...context,
-          projectId: result.project.id,
+          projectId: finalResult.project.id,
           frequency: json.frequency
         });
 
+        const autoReportService = getAutoReportService();
         const schedule = await autoReportService.schedulePeriodicReports(
-          result.project.id,
+          finalResult.project.id,
           json.frequency,
           {
             reportTemplate: json.reportTemplate || 'comprehensive'
@@ -417,21 +513,21 @@ export async function POST(request: Request) {
 
         trackBusinessEvent('periodic_reports_scheduled', {
           ...context,
-          projectId: result.project.id,
+          projectId: finalResult.project.id,
           frequency: json.frequency,
           nextScheduledReport: schedule.nextRunTime.toISOString()
         });
 
         logger.info('Periodic reports scheduled', {
           ...context,
-          projectId: result.project.id,
+          projectId: finalResult.project.id,
           frequency: json.frequency,
           nextScheduledReport: schedule.nextRunTime.toISOString()
         });
       } catch (scheduleError) {
         logger.error('Failed to schedule periodic reports', scheduleError as Error, {
           ...context,
-          projectId: result.project.id
+          projectId: finalResult.project.id
         });
         reportGenerationInfo = {
           ...reportGenerationInfo,

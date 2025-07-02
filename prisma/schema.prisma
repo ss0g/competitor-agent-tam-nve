@@ -66,24 +66,37 @@ model Competitor {
 }
 
 model Report {
-  id           String           @id @default(cuid())
-  name         String
-  description  String?
-  competitorId String?          // Optional for comparative reports
-  createdAt    DateTime         @default(now())
-  updatedAt    DateTime         @updatedAt
-  projectId    String?
-  status       ReportStatus     @default(PENDING)
-  title        String?
-  reportType   String           @default("INDIVIDUAL") // Temporarily use String instead of enum
-  competitor   Competitor?      @relation(fields: [competitorId], references: [id])
-  project      Project?         @relation(fields: [projectId], references: [id])
-  schedules    ReportSchedule[]
-  versions     ReportVersion[]
+  id                            String           @id @default(cuid())
+  name                          String
+  description                   String?
+  competitorId                  String?          // Optional for comparative reports
+  createdAt                     DateTime         @default(now())
+  updatedAt                     DateTime         @updatedAt
+  projectId                     String?
+  status                        ReportStatus     @default(PENDING)
+  title                         String?
+  reportType                    String           @default("INDIVIDUAL") // Temporarily use String instead of enum
+  // Phase 5.2.1: Initial Reports Monitoring fields
+  isInitialReport               Boolean          @default(false)
+  dataCompletenessScore         Int?
+  dataFreshness                 String?
+  competitorSnapshotsCaptured   Int              @default(0)
+  generationContext             Json?
+  views                         Int              @default(0)
+  generationStartTime           DateTime?
+  generationEndTime             DateTime?
+  errorDetails                  Json?
+  competitor                    Competitor?      @relation(fields: [competitorId], references: [id])
+  project                       Project?         @relation(fields: [projectId], references: [id])
+  schedules                     ReportSchedule[]
+  versions                      ReportVersion[]
 
   @@index([projectId])
   @@index([status])
   @@index([reportType])
+  @@index([isInitialReport])
+  @@index([dataFreshness])
+  @@index([createdAt, isInitialReport])
 }
 
 model ReportVersion {
@@ -97,13 +110,22 @@ model ReportVersion {
 }
 
 model Snapshot {
-  id           String     @id @default(cuid())
-  competitorId String
-  metadata     Json
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
-  analyses     Analysis[]
-  competitor   Competitor @relation(fields: [competitorId], references: [id])
+  id               String     @id @default(cuid())
+  competitorId     String
+  metadata         Json
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+  // Phase 5.2.1: Monitoring fields
+  captureStartTime DateTime?
+  captureEndTime   DateTime?
+  captureSuccess   Boolean    @default(true)
+  errorMessage     String?
+  captureSize      Int?
+  analyses         Analysis[]
+  competitor       Competitor @relation(fields: [competitorId], references: [id])
+
+  @@index([captureSuccess])
+  @@index([createdAt, captureSuccess])
 }
 
 model Analysis {
@@ -194,14 +216,23 @@ model Product {
 }
 
 model ProductSnapshot {
-  id        String   @id @default(cuid())
-  productId String
-  content   Json
-  metadata  Json
-  createdAt DateTime @default(now())
-  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  id               String   @id @default(cuid())
+  productId        String
+  content          Json?
+  metadata         Json
+  // Phase 5.2.1: Monitoring fields
+  captureStartTime DateTime?
+  captureEndTime   DateTime?
+  captureSuccess   Boolean  @default(true)
+  errorMessage     String?
+  scrapingDuration Int?     // milliseconds
+  error            String?
+  createdAt        DateTime @default(now())
+  product          Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
 
   @@index([productId])
+  @@index([captureSuccess])
+  @@index([createdAt, captureSuccess])
 }
 
 enum ReportType {
@@ -213,6 +244,7 @@ enum ReportType {
 enum ReportStatus {
   PENDING
   IN_PROGRESS
+  GENERATING  // Phase 5.2.1: For initial reports
   COMPLETED
   FAILED
 }
@@ -244,4 +276,47 @@ enum ProjectPriority {
   MEDIUM
   HIGH
   URGENT
+}
+
+// Phase 5.2.1: Monitoring tables for initial reports
+model MonitoringEvent {
+  id           String   @id @default(cuid())
+  eventType    String
+  resourceType String   // 'report', 'snapshot', 'project', etc.
+  resourceId   String
+  eventData    Json
+  correlationId String?
+  timestamp    DateTime @default(now())
+  source       String   @default("system")
+
+  @@index([eventType])
+  @@index([resourceType])
+  @@index([timestamp])
+  @@index([correlationId])
+  @@index([resourceType, resourceId])
+}
+
+model MonitoringAlert {
+  id              String    @id @default(cuid())
+  alertType       String    // 'CRITICAL', 'WARNING', 'BUDGET'
+  category        String    // 'performance', 'quality', 'cost', 'user_experience'
+  metric          String
+  message         String
+  currentValue    Float
+  threshold       Float
+  window          String
+  correlationId   String?
+  acknowledged    Boolean   @default(false)
+  acknowledgedAt  DateTime?
+  acknowledgedBy  String?
+  resolvedAt      DateTime?
+  metadata        Json?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([alertType])
+  @@index([category])
+  @@index([acknowledged])
+  @@index([createdAt])
+  @@index([metric, window])
 }
