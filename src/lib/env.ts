@@ -37,7 +37,7 @@ const envSchema = z.object({
   MAX_CONCURRENT_SNAPSHOTS_PER_PROJECT: z.coerce.number().default(5),
   MAX_CONCURRENT_SNAPSHOTS_GLOBAL: z.coerce.number().default(20),
   DOMAIN_THROTTLE_INTERVAL: z.coerce.number().default(10000), // 10 seconds
-  MIN_DATA_COMPLETENESS_SCORE: z.coerce.number().default(60),
+  MIN_DATA_COMPLETENESS_SCORE: z.coerce.number().default(40),
   FALLBACK_TO_PARTIAL_DATA_THRESHOLD: z.coerce.number().default(30),
   ENABLE_FRESH_SNAPSHOT_REQUIREMENT: z.enum(['true', 'false']).default('true'),
   ENABLE_REAL_TIME_UPDATES: z.enum(['true', 'false']).default('true'),

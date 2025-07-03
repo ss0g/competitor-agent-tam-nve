@@ -73,8 +73,18 @@ function convertReportToMarkdown(report: any, content: any): string {
   // Add metadata
   markdown += `## Report Details\n\n`;
   markdown += `- **Project**: ${report.project?.name || 'Unknown'}\n`;
-  markdown += `- **Competitor**: ${report.competitor.name}\n`;
-  markdown += `- **Website**: ${data.metadata?.competitor?.url || report.competitor.website}\n`;
+  
+  // Handle both individual competitor reports and comparative reports
+  if (report.competitor) {
+    markdown += `- **Competitor**: ${report.competitor.name}\n`;
+    markdown += `- **Website**: ${data.metadata?.competitor?.url || report.competitor.website}\n`;
+  } else {
+    // This is likely a comparative report
+    markdown += `- **Report Type**: Comparative Analysis\n`;
+    if (data.metadata?.competitor?.url) {
+      markdown += `- **Website**: ${data.metadata.competitor.url}\n`;
+    }
+  }
   if (data.metadata?.dateRange) {
     markdown += `- **Analysis Period**: ${new Date(data.metadata.dateRange.start).toLocaleDateString()} - ${new Date(data.metadata.dateRange.end).toLocaleDateString()}\n`;
   }

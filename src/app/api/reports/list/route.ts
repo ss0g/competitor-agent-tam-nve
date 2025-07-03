@@ -133,7 +133,10 @@ export async function GET(request: NextRequest) {
         
         // Check if this is a comparative report
         if (report.name?.toLowerCase().includes('comparative') || 
-            report.name?.toLowerCase().includes('consolidated')) {
+            report.name?.toLowerCase().includes('consolidated') ||
+            report.name?.toLowerCase().includes('competitive analysis') ||
+            report.name?.toLowerCase().includes(' vs ') ||
+            report.name?.toLowerCase().includes('comparison')) {
           reportType = 'comparative';
           competitorCount = report.project?.competitors?.length || 0;
           template = 'comprehensive';
@@ -152,7 +155,7 @@ export async function GET(request: NextRequest) {
           downloadUrl: `/api/reports/database/${report.id}`,
           source: 'database',
           status: 'COMPLETED',
-          competitorName: reportType === 'individual' ? 'Unknown Competitor' : undefined,
+          competitorName: reportType === 'individual' ? 'Unknown Competitor' : 'Multiple Competitors',
           reportType,
           competitorCount,
           template,
@@ -205,7 +208,10 @@ export async function GET(request: NextRequest) {
           // Determine report type from filename
           let reportType: 'comparative' | 'individual' | 'unknown' = 'unknown';
           if (filename.toLowerCase().includes('comparative') || 
-              filename.toLowerCase().includes('consolidated')) {
+              filename.toLowerCase().includes('consolidated') ||
+              filename.toLowerCase().includes('competitive') ||
+              filename.toLowerCase().includes('vs') ||
+              filename.toLowerCase().includes('comparison')) {
             reportType = 'comparative';
           } else {
             reportType = 'individual';

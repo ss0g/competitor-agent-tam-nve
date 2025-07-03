@@ -32,6 +32,7 @@ export interface InitialReportOptions {
   fallbackToPartialData?: boolean;
   notifyOnCompletion?: boolean;
   requireFreshSnapshots?: boolean; // NEW: Require fresh competitor snapshots
+  forceGeneration?: boolean; // NEW: Force generation even if recent reports exist
 }
 
 // Project Readiness Result interface as defined in implementation plan
@@ -91,6 +92,17 @@ export class InitialComparativeReportService {
 
     try {
       logger.info('Starting initial comparative report generation', context);
+
+      // NEW: Check for recent duplicate reports (prevent multiple reports within 5 minutes)
+      const recentDuplicateReport = await this.checkForRecentDuplicateReport(projectId);
+      if (recentDuplicateReport && !options.forceGeneration) {
+        logger.info('Recent comparative report found, returning existing report', {
+          ...context,
+          existingReportId: recentDuplicateReport.id,
+          existingReportAge: Date.now() - recentDuplicateReport.createdAt.getTime()
+        });
+        return recentDuplicateReport;
+      }
 
       // 1. Validate project readiness
       const readinessResult = await this.validateProjectReadiness(projectId);
@@ -294,6 +306,55 @@ export class InitialComparativeReportService {
         smartCollectionResult.dataCompletenessScore
       );
 
+      // CRITICAL FIX: Save the report to database so it shows up in reports list
+      try {
+        await prisma.report.create({
+          data: {
+            id: enhancedReport.id,
+            name: enhancedReport.title,
+            title: enhancedReport.title,
+            description: enhancedReport.description,
+            projectId: enhancedReport.projectId,
+            competitorId: null, // This is a comparative report, not individual competitor
+            status: 'COMPLETED',
+            createdAt: enhancedReport.createdAt,
+            updatedAt: enhancedReport.updatedAt
+          }
+        });
+
+        // Create report version with content
+        await prisma.reportVersion.create({
+          data: {
+            reportId: enhancedReport.id,
+            version: 1,
+            content: JSON.parse(JSON.stringify({
+              title: enhancedReport.title,
+              description: enhancedReport.description,
+              sections: enhancedReport.sections,
+              executiveSummary: enhancedReport.executiveSummary,
+              keyFindings: enhancedReport.keyFindings,
+              strategicRecommendations: enhancedReport.strategicRecommendations,
+              competitiveIntelligence: enhancedReport.competitiveIntelligence,
+              metadata: enhancedReport.metadata
+            })),
+            createdAt: enhancedReport.createdAt
+          }
+        });
+
+        logger.info('Comparative report saved to database successfully', {
+          ...context,
+          reportId: enhancedReport.id,
+          reportTitle: enhancedReport.title
+        });
+
+      } catch (dbError) {
+        logger.error('Failed to save comparative report to database', dbError as Error, {
+          ...context,
+          reportId: enhancedReport.id
+        });
+        // Don't throw error - report was generated successfully, just storage failed
+      }
+
       logger.info('Initial comparative report generated successfully', {
         ...context,
         reportId: enhancedReport.id,
@@ -316,6 +377,110 @@ export class InitialComparativeReportService {
 
       logger.error('Failed to generate initial comparative report', error as Error, context);
       throw error;
+    }
+  }
+
+  /**
+   * Check for recent duplicate comparative reports to prevent spam generation
+   */
+  private async checkForRecentDuplicateReport(projectId: string): Promise<ComparativeReport | null> {
+    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000); // 5 minutes ago
+    
+    try {
+      // Look for recent comparative reports for this project
+      const recentReport = await prisma.report.findFirst({
+        where: {
+          projectId,
+          createdAt: {
+            gte: fiveMinutesAgo
+          },
+          // Filter for comparative reports by name pattern
+          OR: [
+            {
+              name: {
+                contains: 'Competitive Analysis',
+                mode: 'insensitive'
+              }
+            },
+            {
+              name: {
+                contains: 'comparative',
+                mode: 'insensitive'
+              }
+            }
+          ]
+        },
+        include: {
+          versions: {
+            orderBy: { version: 'desc' },
+            take: 1
+          }
+        },
+        orderBy: {
+          createdAt: 'desc'
+        }
+      });
+
+      if (!recentReport) {
+        return null;
+      }
+
+      // Convert database report to ComparativeReport format
+      const latestVersion = recentReport.versions[0];
+      if (!latestVersion) {
+        return null;
+      }
+
+      const reportContent = latestVersion.content as any;
+      
+      return {
+        id: recentReport.id,
+        title: recentReport.name,
+        description: recentReport.description || '',
+        projectId: recentReport.projectId || '',
+        productId: '', // May not be available in legacy reports
+        analysisId: reportContent.metadata?.analysisId || recentReport.id,
+        metadata: {
+          productName: reportContent.metadata?.productName || '',
+          productUrl: reportContent.metadata?.productUrl || '',
+          competitorCount: reportContent.metadata?.competitorCount || 0,
+          analysisDate: new Date(reportContent.metadata?.analysisDate || recentReport.createdAt),
+          reportGeneratedAt: recentReport.createdAt,
+          analysisId: reportContent.metadata?.analysisId || recentReport.id,
+          analysisMethod: reportContent.metadata?.analysisMethod || 'standard',
+          confidenceScore: reportContent.metadata?.confidenceScore || 70,
+          dataQuality: reportContent.metadata?.dataQuality || 'medium',
+          reportVersion: reportContent.metadata?.reportVersion || '1.0',
+          focusAreas: reportContent.metadata?.focusAreas || [],
+          analysisDepth: reportContent.metadata?.analysisDepth || 'standard'
+        },
+        sections: reportContent.sections || [],
+        executiveSummary: reportContent.executiveSummary || '',
+        keyFindings: reportContent.keyFindings || [],
+        strategicRecommendations: reportContent.strategicRecommendations || {
+          immediate: [],
+          shortTerm: [],
+          longTerm: [],
+          priorityScore: 50
+        },
+        competitiveIntelligence: reportContent.competitiveIntelligence || {
+          marketPosition: 'unknown',
+          keyThreats: [],
+          opportunities: [],
+          competitiveAdvantages: []
+        },
+        createdAt: recentReport.createdAt,
+        updatedAt: recentReport.updatedAt,
+        status: recentReport.status as 'draft' | 'completed' | 'archived',
+        format: 'markdown'
+      };
+
+    } catch (error) {
+      logger.warn('Failed to check for recent duplicate reports', {
+        projectId,
+        error: (error as Error).message
+      });
+      return null;
     }
   }
 

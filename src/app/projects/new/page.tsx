@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import ProjectCreationWizard, { 
   ProjectFormData, 
@@ -13,6 +13,14 @@ import ErrorBoundary from '@/components/ErrorBoundary';
 export default function NewProject() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
+
+  // Set page title for E2E tests
+  useEffect(() => {
+    document.title = 'Create New Project - Competitor Research Agent';
+    return () => {
+      document.title = 'Competitor Research Agent';
+    };
+  }, []);
 
   const handleProjectCreated: ProjectCreationWizardProps['onProjectCreated'] = (
     projectId: string, 
@@ -42,6 +50,11 @@ export default function NewProject() {
   // Load draft data if available
   const loadDraftData = (): Partial<ProjectFormData> | undefined => {
     try {
+      // Check if we're running in the browser
+      if (typeof window === 'undefined') {
+        return undefined;
+      }
+      
       const draftData = localStorage.getItem('project_draft');
       if (draftData) {
         const parsed = JSON.parse(draftData);
@@ -51,7 +64,10 @@ export default function NewProject() {
       }
     } catch (error) {
       console.warn('Failed to load draft data:', error);
-      localStorage.removeItem('project_draft'); // Clear corrupted data
+      // Only clear localStorage if we're in the browser
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('project_draft'); // Clear corrupted data
+      }
     }
     return undefined;
   };

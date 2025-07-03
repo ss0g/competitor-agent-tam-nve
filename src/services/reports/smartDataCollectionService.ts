@@ -575,32 +575,41 @@ export class SmartDataCollectionService {
 
   /**
    * Calculate overall data completeness score based on priority usage
+   * FIXED: Dynamic weight adjustment when product data is missing
    */
   private calculateDataCompletenessScore(
     productData: ProductDataResult,
     competitorData: CompetitorDataResult
   ): number {
     let score = 0;
+    let productWeight = 40;
+    let competitorWeight = 60;
 
-    // Product data scoring (40% of total)
+    // Dynamic weight adjustment: If no product data, reallocate weight to competitors
+    if (!productData.available && competitorData.totalCompetitors > 0) {
+      productWeight = 0;
+      competitorWeight = 100; // Give full weight to competitor data
+    }
+
+    // Product data scoring (normally 40% of total, 0% if unavailable)
     if (productData.available) {
       if (productData.source === 'form_input') {
-        score += 40; // Full points for fresh form data
+        score += productWeight; // Full points for fresh form data
       } else if (productData.source === 'existing_snapshot') {
-        score += 30; // Reduced points for existing data
+        score += productWeight * 0.75; // 75% of points for existing data
       } else {
-        score += 20; // Minimal points for basic metadata
+        score += productWeight * 0.5; // 50% of points for basic metadata
       }
     }
 
-    // Competitor data scoring (60% of total)
+    // Competitor data scoring (normally 60% of total, 100% if no product data)
     if (competitorData.totalCompetitors > 0) {
       const competitorScore = 
         (competitorData.freshSnapshots * 0.6 + 
          competitorData.existingSnapshots * 0.4 + 
          competitorData.basicMetadataOnly * 0.2) / competitorData.totalCompetitors;
       
-      score += competitorScore * 60;
+      score += competitorScore * competitorWeight;
     }
 
     return Math.round(Math.min(100, score));

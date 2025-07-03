@@ -321,6 +321,7 @@ export default function ProjectCreationWizard({
               <input
                 type="text"
                 id="name"
+                data-testid="project-name"
                 {...register('name')}
                 className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                 placeholder="Enter a descriptive name for your project"
@@ -424,6 +425,7 @@ export default function ProjectCreationWizard({
               <input
                 type="text"
                 id="productName"
+                data-testid="product-name"
                 {...register('productName')}
                 className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                 placeholder="Enter your product name"
@@ -440,6 +442,7 @@ export default function ProjectCreationWizard({
               <input
                 type="url"
                 id="productWebsite"
+                data-testid="product-website"
                 {...register('productWebsite')}
                 className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                 placeholder="https://your-product.com"
@@ -506,25 +509,48 @@ export default function ProjectCreationWizard({
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-3">
-                Competitor Websites
+                Competitors
               </label>
               {competitorUrls.map((url, index) => (
-                <div key={index} className="flex mb-2">
-                  <input
-                    type="url"
-                    value={url}
-                    onChange={(e) => updateCompetitorUrl(index, e.target.value)}
-                    placeholder="https://competitor.com"
-                    className="flex-1 rounded-l-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => removeCompetitorUrl(index)}
-                    disabled={competitorUrls.length === 1}
-                    className="px-3 py-2 border border-l-0 border-gray-300 rounded-r-md bg-gray-50 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed text-gray-700 text-sm"
-                  >
-                    Remove
-                  </button>
+                <div key={index} className="space-y-2 mb-4 p-4 border border-gray-200 rounded-lg">
+                  <div>
+                    <label htmlFor={`competitor-name-${index}`} className="block text-sm font-medium text-gray-600">
+                      Competitor Name
+                    </label>
+                    <input
+                      type="text"
+                      id={`competitor-name-${index}`}
+                      placeholder={`Competitor ${index + 1}`}
+                      data-testid={`competitor-name-${index}`}
+                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                    />
+                  </div>
+                  <div className="flex">
+                    <div className="flex-1">
+                      <label htmlFor={`competitor-website-${index}`} className="block text-sm font-medium text-gray-600">
+                        Website
+                      </label>
+                      <input
+                        type="url"
+                        id={`competitor-website-${index}`}
+                        value={url}
+                        onChange={(e) => updateCompetitorUrl(index, e.target.value)}
+                        placeholder="https://competitor.com"
+                        data-testid={`competitor-website-${index}`}
+                        className="mt-1 block w-full rounded-l-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                      />
+                    </div>
+                    <div className="flex items-end">
+                      <button
+                        type="button"
+                        onClick={() => removeCompetitorUrl(index)}
+                        disabled={competitorUrls.length === 1}
+                        className="ml-2 px-3 py-2 border border-gray-300 rounded-md bg-gray-50 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed text-gray-700 text-sm"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  </div>
                 </div>
               ))}
               <button
@@ -809,6 +835,7 @@ export default function ProjectCreationWizard({
             {currentStep === 'review' ? (
               <button
                 type="submit"
+                data-testid="create-project"
                 disabled={isSubmitting || !canGoNext()}
                 className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
               >
@@ -827,6 +854,7 @@ export default function ProjectCreationWizard({
             ) : (
               <button
                 type="button"
+                data-testid="next-button"
                 onClick={nextStep}
                 disabled={!canGoNext()}
                 className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"

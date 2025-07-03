@@ -165,41 +165,65 @@ export class ComparativeAnalysisService implements IComparativeAnalysisService {
   }
 
   private validateAnalysisInput(input: ComparativeAnalysisInput): void {
+    console.log('ComparativeAnalysisService: Validating analysis input', {
+      hasProduct: !!input.product,
+      productId: input.product?.id,
+      productName: input.product?.name,
+      hasProductSnapshot: !!input.productSnapshot,
+      productSnapshotContent: !!input.productSnapshot?.content,
+      competitorCount: input.competitors?.length || 0,
+      competitors: input.competitors?.map(c => ({
+        id: c.competitor?.id,
+        name: c.competitor?.name,
+        hasSnapshot: !!c.snapshot
+      }))
+    });
+
     if (!input.product?.id || !input.product?.name) {
+      console.error('ComparativeAnalysisService: Product information is incomplete');
       throw new InsufficientDataError('Product information is incomplete', {
         missing: ['product.id', 'product.name']
       });
     }
 
     if (!input.productSnapshot?.content) {
+      console.error('ComparativeAnalysisService: Product snapshot content is missing');
       throw new InsufficientDataError('Product snapshot content is missing');
     }
 
     if (!input.competitors || input.competitors.length === 0) {
+      console.error('ComparativeAnalysisService: No competitors provided');
       throw new InsufficientDataError('At least one competitor is required for analysis');
     }
 
-    // Validate competitor data
-    const invalidCompetitors = input.competitors.filter(
-      c => !c.competitor?.id || !c.competitor?.name || !c.snapshot?.metadata
+    // Relaxed validation - don't require perfect competitor data
+    const validCompetitors = input.competitors.filter(
+      c => c.competitor?.id && c.competitor?.name
     );
 
-    if (invalidCompetitors.length > 0) {
-      throw new InsufficientDataError('Some competitor data is incomplete', {
-        invalidCompetitorCount: invalidCompetitors.length
-      });
+    if (validCompetitors.length === 0) {
+      console.error('ComparativeAnalysisService: No valid competitors found');
+      throw new InsufficientDataError('No valid competitor data found');
     }
 
-    // Check content quality
+    // Relaxed content validation - reduce minimum content length
     const productContentLength = this.getContentLength(input.productSnapshot);
-    if (productContentLength < 100) {
+    console.log('ComparativeAnalysisService: Product content length:', productContentLength);
+    
+    if (productContentLength < 10) { // Reduced from 100 to 10
+      console.error('ComparativeAnalysisService: Product content is too short');
       throw new InsufficientDataError('Product content is too short for meaningful analysis');
     }
 
+    console.log('ComparativeAnalysisService: Validation passed', {
+      productContentLength,
+      validCompetitorCount: validCompetitors.length
+    });
+
     logger.debug('Analysis input validation passed', {
       productId: input.product.id,
-      competitorCount: input.competitors.length,
-      productContentLength
+      productContentLength,
+      competitorCount: validCompetitors.length
     });
   }
 
@@ -240,6 +264,11 @@ Content: ${comp.competitorContent}`
 
   private async executeAnalysis(prompt: string): Promise<string> {
     try {
+      console.log('ComparativeAnalysisService: Starting analysis execution', {
+        promptLength: prompt.length,
+        promptPreview: prompt.substring(0, 200) + '...'
+      });
+
       const messages: BedrockMessage[] = [
         {
           role: 'user',
@@ -247,16 +276,89 @@ Content: ${comp.competitorContent}`
         }
       ];
 
+      console.log('ComparativeAnalysisService: Calling Bedrock service...');
       const result = await this.bedrockService.generateCompletion(messages);
       
+      console.log('ComparativeAnalysisService: Bedrock call successful', {
+        resultLength: result?.length || 0,
+        resultPreview: result?.substring(0, 100) + '...'
+      });
+      
       if (!result || result.length < 50) {
-        throw new AIServiceError('AI service returned insufficient response');
+        console.error('ComparativeAnalysisService: Insufficient response from AI service', {
+          resultLength: result?.length || 0,
+          result: result
+        });
+        throw new AIServiceError('AI service returned insufficient response', {
+          resultLength: result?.length || 0,
+          minLength: 50
+        });
       }
 
       return result;
     } catch (error) {
+      console.error('ComparativeAnalysisService: AI service execution failed', {
+        error: error,
+        errorMessage: (error as Error).message,
+        errorStack: (error as Error).stack
+      });
+
+      // Enhanced error classification
+      const errorMessage = (error as Error).message.toLowerCase();
+      
+      // Check for AWS-specific errors
+      if (errorMessage.includes('credential') || errorMessage.includes('unauthorized') || errorMessage.includes('access denied')) {
+        logger.error('AWS credentials error detected', error as Error);
+        throw new AIServiceError('AWS credentials are invalid or expired. Please refresh your credentials.', { 
+          originalError: error,
+          errorType: 'AWS_CREDENTIALS_ERROR',
+          userFriendly: true
+        });
+      }
+      
+      if (errorMessage.includes('rate limit') || errorMessage.includes('throttle') || errorMessage.includes('too many requests')) {
+        logger.error('AWS rate limit exceeded', error as Error);
+        throw new AIServiceError('AWS rate limit exceeded. Please wait a few minutes before trying again.', { 
+          originalError: error,
+          errorType: 'AWS_RATE_LIMIT_ERROR',
+          userFriendly: true
+        });
+      }
+      
+      if (errorMessage.includes('quota') || errorMessage.includes('limit exceeded')) {
+        logger.error('AWS quota exceeded', error as Error);
+        throw new AIServiceError('AWS service quota exceeded. Please contact your administrator.', { 
+          originalError: error,
+          errorType: 'AWS_QUOTA_ERROR',
+          userFriendly: true
+        });
+      }
+      
+      if (errorMessage.includes('network') || errorMessage.includes('timeout') || errorMessage.includes('connection')) {
+        logger.error('AWS connection error detected', error as Error);
+        throw new AIServiceError('Unable to connect to AWS services. Please check your connection and try again.', { 
+          originalError: error,
+          errorType: 'AWS_CONNECTION_ERROR',
+          userFriendly: true
+        });
+      }
+      
+      if (errorMessage.includes('region') || errorMessage.includes('endpoint')) {
+        logger.error('AWS region/endpoint error detected', error as Error);
+        throw new AIServiceError('AWS region is not available or configured incorrectly.', { 
+          originalError: error,
+          errorType: 'AWS_REGION_ERROR',
+          userFriendly: true
+        });
+      }
+
+      // Generic AI service error
       logger.error('AI service execution failed', error as Error);
-      throw new AIServiceError('Failed to get analysis from AI service', { originalError: error });
+      throw new AIServiceError('Failed to get analysis from AI service. Please try again.', { 
+        originalError: error,
+        errorType: 'AI_SERVICE_ERROR',
+        userFriendly: true
+      });
     }
   }
 

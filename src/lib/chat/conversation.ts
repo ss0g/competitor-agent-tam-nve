@@ -2293,38 +2293,138 @@ What would you prefer?`,
         return { project };
       });
 
+      // *** NEW: Create product entity like the API route ***
+      let productCreated: any = null;
+      const chatData = this.chatState.collectedData;
+      
+      if (chatData?.productName && chatData?.productUrl) {
+        try {
+          logger.info('Creating product entity for chat-created project', {
+            ...context,
+            projectId: result.project.id,
+            productName: chatData.productName,
+            productUrl: chatData.productUrl
+          });
+
+          productCreated = await productRepository.create({
+            name: chatData.productName,
+            website: chatData.productUrl,
+            positioning: chatData.positioning || 'Competitive product analysis',
+            customerData: chatData.customerData || 'To be analyzed through competitive research',
+            userProblem: chatData.userProblem || 'Market positioning and competitive advantage',
+            industry: chatData.industry || 'General',
+            projectId: result.project.id
+          });
+
+          trackBusinessEvent('product_created_via_chat', {
+            ...context,
+            projectId: result.project.id,
+            productId: productCreated.id,
+            productName: productCreated.name,
+            productUrl: productCreated.website
+          });
+
+          logger.info('Product entity created successfully for chat project', {
+            ...context,
+            projectId: result.project.id,
+            productId: productCreated.id,
+            productName: productCreated.name
+          });
+
+          // *** NEW: Trigger product scraping immediately to create snapshots ***
+          try {
+            const { ProductScrapingService } = await import('@/services/productScrapingService');
+            const productScrapingService = new ProductScrapingService();
+            
+            logger.info('Starting product scraping for chat-created product', {
+              ...context,
+              projectId: result.project.id,
+              productId: productCreated.id,
+              productUrl: productCreated.website
+            });
+
+            // Trigger async scraping (don't wait for completion)
+            productScrapingService.scrapeProductById(productCreated.id)
+              .then(() => {
+                logger.info('Product scraping completed for chat project', {
+                  ...context,
+                  projectId: result.project.id,
+                  productId: productCreated.id
+                });
+              })
+              .catch((scrapingError: any) => {
+                logger.warn('Product scraping failed for chat project', {
+                  ...context,
+                  projectId: result.project.id,
+                  productId: productCreated.id,
+                  error: scrapingError.message
+                });
+              });
+
+          } catch (scrapingSetupError) {
+            logger.warn('Failed to setup product scraping for chat project', {
+              ...context,
+              projectId: result.project.id,
+              productId: productCreated.id,
+              error: (scrapingSetupError as Error).message
+            });
+          }
+
+        } catch (productError) {
+          logger.error('Failed to create product entity for chat project', productError as Error, {
+            ...context,
+            projectId: result.project.id,
+            productName: chatData.productName
+          });
+        }
+      }
+
       // *** NEW: Add automatic report generation like the API route ***
-      const autoReportService = getAutoReportService();
+      const { InitialComparativeReportService } = await import('@/services/reports/initialComparativeReportService');
+      const initialComparativeReportService = new InitialComparativeReportService();
       let reportGenerationInfo: any = null;
 
       // Generate initial report automatically
       if (competitorIds.length > 0) {
         try {
-          logger.info('Generating initial report for chat-created project', {
+          logger.info('Generating initial comparative report for chat-created project', {
             ...context,
             projectId: result.project.id
           });
 
-          const reportTask = await autoReportService.generateInitialComparativeReport(result.project.id);
+          const comparativeReport = await initialComparativeReportService.generateInitialComparativeReport(
+            result.project.id,
+            {
+              template: 'comprehensive',
+              priority: 'high',
+              timeout: 120000, // 2 minutes
+              fallbackToPartialData: true,
+              notifyOnCompletion: true,
+              requireFreshSnapshots: true
+            }
+          );
 
           reportGenerationInfo = {
-            initialReportQueued: true,
-            taskId: reportTask.taskId,
-            queuePosition: reportTask.queuePosition || 0,
-            estimatedCompletion: new Date(Date.now() + ((reportTask.queuePosition || 0) * 120000))
+            initialReportGenerated: true,
+            reportId: comparativeReport.id,
+            reportTitle: comparativeReport.title,
+            reportType: 'comparative',
+            generatedAt: comparativeReport.createdAt
           };
 
-          trackBusinessEvent('initial_report_generation_queued_via_chat', {
+          trackBusinessEvent('initial_comparative_report_generated_via_chat', {
             ...context,
             projectId: result.project.id,
-            taskId: reportTask.taskId,
-            queuePosition: reportTask.queuePosition || 0
+            reportId: comparativeReport.id,
+            reportTitle: comparativeReport.title,
+            reportType: 'comparative'
           });
 
-          logger.info('Initial report generation queued for chat project', {
+          logger.info('Initial comparative report generated for chat project', {
             ...context,
             projectId: result.project.id,
-            taskId: reportTask.taskId
+            reportId: comparativeReport.id,
+            reportTitle: comparativeReport.title
           });
         } catch (reportError) {
           logger.error('Failed to queue initial report generation for chat project', reportError as Error, {
@@ -2348,6 +2448,7 @@ What would you prefer?`,
             frequency: frequency.toLowerCase()
           });
 
+          const autoReportService = getAutoReportService();
           const schedule = await autoReportService.schedulePeriodicReports(
             result.project.id,
             frequency.toLowerCase() as 'daily' | 'weekly' | 'biweekly' | 'monthly',

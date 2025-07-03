@@ -4,8 +4,8 @@ export const claudeConfig: BedrockConfig = {
   modelId: "anthropic.claude-3-sonnet-20240229-v1:0",
   provider: "anthropic",
   region: process.env.AWS_REGION || "eu-west-1",
-  maxTokens: 200,
-  temperature: 1,
+  maxTokens: 4000,
+  temperature: 0.3,
   topP: 0.999,
   topK: 250,
   stopSequences: [],
@@ -21,8 +21,8 @@ export const mistralConfig: BedrockConfig = {
   modelId: "mistral.mistral-large-2402-v1:0",
   provider: "mistral",
   region: process.env.AWS_REGION || "eu-west-1",
-  maxTokens: 200,
-  temperature: 1,
+  maxTokens: 4000,
+  temperature: 0.3,
   topP: 0.999,
   topK: 250,
   stopSequences: [],
@@ -32,3 +32,6 @@ export const mistralConfig: BedrockConfig = {
     sessionToken: process.env.AWS_SESSION_TOKEN || ""
   }
 };
+
+// Development mode check
+export const isDevelopmentMode = !process.env.AWS_ACCESS_KEY_ID || process.env.NODE_ENV === 'development';

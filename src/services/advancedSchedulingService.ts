@@ -689,12 +689,15 @@ class AdvancedSchedulingService {
       select: {
         scrapingDuration: true,
         content: true,
-        error: true
+        error: true,
+        captureSuccess: true
       }
     });
     
     const totalTasks = recentSnapshots.length;
-    const failedTasks = recentSnapshots.filter(s => !s.content || s.error).length;
+    const failedTasks = recentSnapshots.filter(s => 
+      !s.captureSuccess || s.content === null || s.error
+    ).length;
     const errorRate = totalTasks > 0 ? failedTasks / totalTasks : 0;
     
     const validDurations = recentSnapshots

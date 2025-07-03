@@ -1,11 +1,12 @@
 'use client'
 
 import Link from 'next/link'
-import { HomeIcon, DocumentTextIcon, UserGroupIcon, ChatBubbleLeftRightIcon } from '@heroicons/react/24/outline'
+import { HomeIcon, DocumentTextIcon, UserGroupIcon, ChatBubbleLeftRightIcon, FolderIcon } from '@heroicons/react/24/outline'
 
 const navigation = [
   { name: 'Dashboard', href: '/', icon: HomeIcon },
   { name: 'Chat Agent', href: '/chat', icon: ChatBubbleLeftRightIcon },
+  { name: 'Projects', href: '/projects', icon: FolderIcon },
   { name: 'Competitors', href: '/competitors', icon: UserGroupIcon },
   { name: 'Reports', href: '/reports', icon: DocumentTextIcon },
 ]

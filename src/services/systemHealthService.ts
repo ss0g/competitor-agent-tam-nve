@@ -240,10 +240,7 @@ class SystemHealthService {
       const failedSnapshots = await prisma.productSnapshot.count({
         where: {
           createdAt: { gte: oneDayAgo },
-          OR: [
-            { content: null },
-            { error: { not: null } }
-          ]
+          OR: [{ content: { equals: null } }, { errorMessage: { not: null } }]
         }
       });
       
@@ -660,7 +657,7 @@ class SystemHealthService {
       prisma.productSnapshot.count({
         where: {
           createdAt: { gte: oneDayAgo },
-          OR: [{ content: null }, { error: { not: null } }]
+          OR: [{ content: { equals: null } }, { error: { not: null } }]
         }
       }),
       prisma.analysis.count({ where: { createdAt: { gte: oneDayAgo } } })
@@ -702,7 +699,7 @@ class SystemHealthService {
     const recentFailures = await prisma.productSnapshot.count({
       where: {
         createdAt: { gte: new Date(now.getTime() - 60 * 60 * 1000) }, // Last hour
-        OR: [{ content: null }, { error: { not: null } }]
+        OR: [{ content: { equals: null } }, { errorMessage: { not: null } }]
       }
     });
     

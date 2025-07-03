@@ -12,10 +12,20 @@ export class BedrockService {
       ...config
     };
 
-    this.client = new BedrockRuntimeClient({
-      region: this.config.region,
-      credentials: this.config.credentials
-    });
+    const clientConfig: any = {
+      region: this.config.region
+    };
+
+    // Only add credentials if they're properly configured
+    if (this.config.credentials?.accessKeyId && this.config.credentials?.secretAccessKey) {
+      clientConfig.credentials = {
+        accessKeyId: this.config.credentials.accessKeyId,
+        secretAccessKey: this.config.credentials.secretAccessKey,
+        ...(this.config.credentials.sessionToken && { sessionToken: this.config.credentials.sessionToken })
+      };
+    }
+
+    this.client = new BedrockRuntimeClient(clientConfig);
   }
 
   private async invokeModel(request: BedrockRequest): Promise<BedrockResponse> {
@@ -38,8 +48,7 @@ export class BedrockService {
 
   private formatRequest(request: BedrockRequest): BedrockRequest {
     if (this.config.provider === 'anthropic') {
-      return {
-        anthropic_version: this.config.anthropicVersion,
+      const formattedRequest: BedrockRequest = {
         max_tokens: this.config.maxTokens,
         temperature: this.config.temperature,
         top_k: this.config.topK,
@@ -47,6 +56,12 @@ export class BedrockService {
         stop_sequences: this.config.stopSequences,
         messages: request.messages as BedrockMessage[]
       };
+      
+      if (this.config.anthropicVersion) {
+        formattedRequest.anthropic_version = this.config.anthropicVersion;
+      }
+      
+      return formattedRequest;
     } else {
       return {
         max_tokens: this.config.maxTokens,
@@ -92,7 +107,22 @@ export class BedrockService {
 
     try {
       const response = await this.invokeModel(request);
-      return response.completion;
+      
+      // Handle different response formats based on provider
+      if (this.config.provider === 'anthropic') {
+        // Claude response format: { content: [{ text: "...", type: "text" }], ... }
+        if (response.content && Array.isArray(response.content) && response.content.length > 0) {
+          return response.content[0]?.text || '';
+        }
+        // Fallback for old format
+        if (response.completion) {
+          return response.completion;
+        }
+        throw new Error('Invalid response format from Claude model');
+      } else {
+        // Mistral format
+        return response.completion || '';
+      }
     } catch (error) {
       console.error('Error generating completion:', error);
       throw error;

@@ -119,9 +119,18 @@ export async function GET() {
       timestamp: new Date().toISOString()
     });
   } catch (error) {
-    return NextResponse.json(
-      { error: 'Failed to check rollback status' }, 
-      { status: 500 }
-    );
+    // Graceful degradation: Return conservative rollback recommendation
+    return NextResponse.json({
+      shouldTriggerAutomaticRollback: false, // Conservative default
+      reason: 'Rollback monitoring temporarily unavailable',
+      fallback: true,
+      timestamp: new Date().toISOString(),
+      error: 'Rollback status check degraded'
+    }, {
+      headers: {
+        'X-Monitoring-Status': 'degraded',
+        'X-Fallback-Mode': 'true'
+      }
+    });
   }
 } 

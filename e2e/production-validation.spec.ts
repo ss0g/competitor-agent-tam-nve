@@ -89,7 +89,8 @@ test.describe('Task 5.1: Production Validation - System Health', () => {
     expect(competitorsResponse.status()).toBe(200);
     
     const competitorsData = await competitorsResponse.json();
-    expect(Array.isArray(competitorsData)).toBe(true);
+    expect(competitorsData).toHaveProperty('competitors');
+    expect(Array.isArray(competitorsData.competitors)).toBe(true);
 
     console.log('✅ Database connectivity validated');
   });
@@ -128,13 +129,23 @@ test.describe('Task 5.1: Production Validation - Complete User Journey', () => {
     await expect(page.locator('h1')).toContainText('Create New Project');
 
     // 4. Fill comprehensive project form with production-quality data
-    await page.fill('[name="name"]', PRODUCTION_VALIDATION_CONFIG.testData.projectName);
-    await page.fill('[name="productName"]', PRODUCTION_VALIDATION_CONFIG.testData.productName);
-    await page.fill('[name="productWebsite"]', PRODUCTION_VALIDATION_CONFIG.testData.productWebsite);
-    await page.fill('[name="positioning"]', PRODUCTION_VALIDATION_CONFIG.testData.positioning);
-    await page.fill('[name="customerData"]', PRODUCTION_VALIDATION_CONFIG.testData.customerData);
-    await page.fill('[name="userProblem"]', PRODUCTION_VALIDATION_CONFIG.testData.userProblem);
-    await page.fill('[name="industry"]', PRODUCTION_VALIDATION_CONFIG.testData.industry);
+    await page.fill('[data-testid="project-name"]', PRODUCTION_VALIDATION_CONFIG.testData.projectName);
+    
+    // Navigate to product step
+    await page.waitForSelector('[data-testid="next-button"]:not([disabled])', { timeout: 10000 });
+    await page.click('[data-testid="next-button"]');
+    
+    // Fill product information
+    await page.fill('[data-testid="product-name"]', PRODUCTION_VALIDATION_CONFIG.testData.productName);
+    await page.fill('[data-testid="product-website"]', PRODUCTION_VALIDATION_CONFIG.testData.productWebsite);
+    
+    // Optional fields
+    if (await page.locator('[name="positioning"]').isVisible()) {
+      await page.fill('[name="positioning"]', PRODUCTION_VALIDATION_CONFIG.testData.positioning);
+    }
+    if (await page.locator('[name="industry"]').isVisible()) {
+      await page.fill('[name="industry"]', PRODUCTION_VALIDATION_CONFIG.testData.industry);
+    }
 
     // 5. Configure advanced options
     await page.check('[name="generateInitialReport"]'); // Ensure immediate report generation
@@ -145,9 +156,27 @@ test.describe('Task 5.1: Production Validation - Complete User Journey', () => {
       await page.selectOption('[name="reportTemplate"]', 'comprehensive');
     }
 
+    // Navigate through the remaining steps
+    // Continue to competitors step
+    await page.waitForSelector('[data-testid="next-button"]:not([disabled])', { timeout: 10000 });
+    await page.click('[data-testid="next-button"]');
+    
+    // Skip competitors or add minimal competitor data if required
+    if (await page.locator('[data-testid="next-button"]').isVisible()) {
+      await page.waitForSelector('[data-testid="next-button"]:not([disabled])', { timeout: 10000 });
+      await page.click('[data-testid="next-button"]');
+    }
+    
+    // Configuration step - keep defaults
+    if (await page.locator('[data-testid="next-button"]').isVisible()) {
+      await page.waitForSelector('[data-testid="next-button"]:not([disabled])', { timeout: 10000 });
+      await page.click('[data-testid="next-button"]');
+    }
+    
     // 6. Submit project creation and measure API response time
     const createStartTime = Date.now();
-    await page.click('button[type="submit"]');
+    await page.waitForSelector('[data-testid="create-project"]:not([disabled])', { timeout: 10000 });
+    await page.click('[data-testid="create-project"]');
     
     // 7. Wait for navigation to project page
     await page.waitForURL(/\/projects\/.*/, { 
@@ -268,61 +297,61 @@ test.describe('Task 5.1: Production Validation - Error Handling & Resilience', (
     await page.goto('/projects/new');
 
     // Test empty form submission - try to go to next step without filling required fields
-    await page.click('text=Next');
+    // The Next button should be disabled when required fields are empty
+    const nextButton = page.locator('[data-testid="next-button"]');
+    await expect(nextButton).toBeDisabled({ timeout: 5000 });
     
-    // Should show validation errors
-    const errorIndicators = [
-      '.error',
-      '[role="alert"]',
-      'text=required',
-      'text=Please',
-      '.text-red'
-    ];
-
-    let errorFound = false;
-    for (const indicator of errorIndicators) {
-      try {
-        await expect(page.locator(indicator)).toBeVisible({ timeout: 5000 });
-        errorFound = true;
-        console.log(`✅ Error handling validated: ${indicator}`);
-        break;
-      } catch (error) {
-        // Continue checking
-      }
-    }
-
-    expect(errorFound).toBe(true);
+    console.log('✅ Next button correctly disabled for empty form');
 
     // Fill basic info and proceed to product step to test URL validation
-    await page.fill('[name="name"]', 'Test Project');
-    await page.click('text=Next');
+    await page.fill('[data-testid="project-name"]', 'Test Project');
     
-    // Test invalid URL format
-    await page.fill('[name="productWebsite"]', 'invalid-url');
-    await page.click('text=Next');
+    // Wait for button to be enabled after filling required field
+    await page.waitForSelector('[data-testid="next-button"]:not([disabled])', { timeout: 10000 });
+    await page.click('[data-testid="next-button"]');
     
-    // Should show URL validation error
-    try {
-      await expect(page.locator('text=valid URL')).toBeVisible({ timeout: 5000 });
-      console.log('✅ URL validation error handling working');
-    } catch (error) {
-      console.log('⚠️ URL validation error not explicitly shown, but form prevented submission');
-    }
+    console.log('✅ Form validation works correctly - proceeding to next step after filling required fields');
+    
+    // Test invalid URL format - this step happens on the product step  
+    await page.fill('[data-testid="product-website"]', 'invalid-url');
+    
+    // The Next button should be disabled due to invalid URL
+    const nextButtonOnProduct = page.locator('[data-testid="next-button"]');
+    await expect(nextButtonOnProduct).toBeDisabled({ timeout: 5000 });
+    
+    console.log('✅ URL validation works correctly - Next button disabled for invalid URL');
   });
 
   test('should handle network failures gracefully', async ({ page, context }) => {
     await page.goto('/projects/new');
 
     // Fill valid form data
-    await page.fill('[name="name"]', 'Network Test Project');
-    await page.fill('[name="productWebsite"]', 'https://network-test.com');
+    await page.fill('[data-testid="project-name"]', 'Network Test Project');
+    
+    // Navigate to product step and fill required fields
+    await page.waitForSelector('[data-testid="next-button"]:not([disabled])', { timeout: 10000 });
+    await page.click('[data-testid="next-button"]');
+    
+    await page.fill('[data-testid="product-name"]', 'Network Test Product');
+    await page.fill('[data-testid="product-website"]', 'https://network-test.com');
+
+    // Navigate through remaining steps quickly
+    for (let i = 0; i < 3; i++) {
+      try {
+        await page.waitForSelector('[data-testid="next-button"]:not([disabled])', { timeout: 5000 });
+        await page.click('[data-testid="next-button"]');
+      } catch (error) {
+        break; // No more next buttons, we're at the final step
+      }
+    }
 
     // Simulate network failure by intercepting requests
     await page.route('/api/projects', (route) => {
       route.abort('failed');
     });
 
-    await page.click('button[type="submit"]');
+    await page.waitForSelector('[data-testid="create-project"]:not([disabled])', { timeout: 10000 });
+    await page.click('[data-testid="create-project"]');
 
     // Should show network error handling
     const networkErrorIndicators = [
@@ -494,7 +523,7 @@ test.describe('Task 5.1: Production Validation - Final Acceptance Criteria', () 
       await expect(page.locator('h1')).toContainText('Create New Project');
       
       // Test that form elements are present
-      await expect(page.locator('[name="name"]')).toBeVisible();
+      await expect(page.locator('[data-testid="project-name"]')).toBeVisible();
       
       // Test navigation to projects page works
       await page.goto('/projects');

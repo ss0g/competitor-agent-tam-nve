@@ -5,6 +5,7 @@ import { PaperAirplaneIcon } from '@heroicons/react/24/outline';
 import { Message, ChatState } from '@/types/chat';
 import { ChatMessage } from './ChatMessage';
 import { ChatTypingIndicator } from './ChatTypingIndicator';
+import { AWSStatusBadge } from '@/components/status/AWSStatusIndicator';
 
 interface ChatInterfaceProps {
   onSendMessage: (message: string) => Promise<void>;
@@ -69,12 +70,25 @@ export function ChatInterface({ onSendMessage, messages, isLoading, chatState }:
               {chatState.currentStep ? `Step ${chatState.currentStep}: ${chatState.stepDescription}` : 'Ready to help with competitor analysis'}
             </p>
           </div>
-          <div className="flex items-center space-x-2 flex-shrink-0">
-            <div className={`w-2 h-2 rounded-full ${isLoading ? 'bg-yellow-400' : 'bg-green-400'}`} />
-            <span className="text-xs text-gray-500 hidden sm:inline">
-              {isLoading ? 'Processing...' : 'Online'}
-            </span>
+          <div className="flex items-center space-x-3 flex-shrink-0">
+            {/* Chat Status */}
+            <div className="flex items-center space-x-2">
+              <div className={`w-2 h-2 rounded-full ${isLoading ? 'bg-yellow-400' : 'bg-green-400'}`} />
+              <span className="text-xs text-gray-500 hidden sm:inline">
+                {isLoading ? 'Processing...' : 'Online'}
+              </span>
+            </div>
+            
+            {/* AWS Status Badge */}
+            <div className="hidden sm:block">
+              <AWSStatusBadge className="text-xs" />
+            </div>
           </div>
+        </div>
+        
+        {/* Mobile AWS Status (shown below header on small screens) */}
+        <div className="mt-2 sm:hidden">
+          <AWSStatusBadge className="text-xs" />
         </div>
       </div>
 

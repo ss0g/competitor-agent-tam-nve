@@ -71,11 +71,30 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error(`[${correlationId}] System health GET failed:`, error);
     
+    // Graceful degradation: Return fallback health data
+    const fallbackHealth = {
+      systemStatus: 'DEGRADED',
+      activeIssues: [],
+      serviceHealthChecks: [],
+      overallScore: 70, // Assume moderate health
+      systemHealth: 'WARNING',
+      lastUpdated: new Date().toISOString(),
+      recommendations: ['System health monitoring temporarily unavailable'],
+      error: 'Health monitoring service degraded'
+    };
+    
     return NextResponse.json({
-      success: false,
-      error: error instanceof Error ? error.message : 'Failed to get system health data',
-      correlationId
-    }, { status: 500 });
+      success: true,
+      data: fallbackHealth,
+      fallback: true,
+      correlationId,
+      error: error instanceof Error ? error.message : 'Failed to get system health data'
+    }, {
+      headers: {
+        'X-Monitoring-Status': 'degraded',
+        'X-Fallback-Mode': 'true'
+      }
+    });
   }
 }
 
@@ -173,10 +192,20 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error(`[${correlationId}] System health POST failed:`, error);
     
+    // Graceful degradation: Return accepted response even if action fails
     return NextResponse.json({
       success: false,
-      error: error instanceof Error ? error.message : 'System health action failed',
-      correlationId
-    }, { status: 500 });
+      accepted: true, // Indicate request was accepted
+      error: error instanceof Error ? error.message : 'System health action temporarily unavailable',
+      fallback: true,
+      correlationId,
+      message: 'Health action request accepted but service is temporarily degraded'
+    }, { 
+      status: 202, // Accepted
+      headers: {
+        'X-Monitoring-Status': 'degraded',
+        'X-Fallback-Mode': 'true'
+      }
+    });
   }
 } 

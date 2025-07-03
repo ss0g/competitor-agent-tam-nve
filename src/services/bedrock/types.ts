@@ -42,9 +42,24 @@ export interface BedrockRequest {
 }
 
 export interface BedrockResponse {
-  completion: string;
+  // Claude response format
+  content?: Array<{
+    text: string;
+    type: string;
+  }>;
+  // Mistral/legacy format
+  completion?: string;
   stop_reason: string;
   stop_sequence?: string;
+  // Additional Claude response fields
+  id?: string;
+  model?: string;
+  role?: string;
+  type?: string;
+  usage?: {
+    input_tokens: number;
+    output_tokens: number;
+  };
 }
 
 export interface BedrockCredentials {

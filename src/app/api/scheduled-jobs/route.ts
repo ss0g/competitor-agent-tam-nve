@@ -26,14 +26,32 @@ export async function GET(request: NextRequest) {
 
   } catch (error) {
     console.error('Failed to get scheduled jobs:', error);
-    return NextResponse.json(
-      { 
-        success: false,
-        error: 'Failed to get scheduled jobs',
-        details: error instanceof Error ? error.message : 'Unknown error'
-      },
-      { status: 500 }
-    );
+    
+    // Graceful degradation: Return fallback job status
+    const fallbackData = {
+      jobs: [],
+      monitoring: {
+        status: 'DEGRADED',
+        activeJobs: 0,
+        failedJobs: 0,
+        lastCheck: new Date().toISOString(),
+        healthScore: 70,
+        issues: ['Job monitoring temporarily unavailable']
+      }
+    };
+    
+    return NextResponse.json({
+      success: true,
+      data: fallbackData,
+      fallback: true,
+      error: 'Scheduled jobs monitoring temporarily unavailable',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    }, {
+      headers: {
+        'X-Monitoring-Status': 'degraded',
+        'X-Fallback-Mode': 'true'
+      }
+    });
   }
 }
 

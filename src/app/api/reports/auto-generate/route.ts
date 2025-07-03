@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAutoReportService } from '@/services/autoReportGenerationService';
+import { InitialComparativeReportService } from '@/services/reports/initialComparativeReportService';
 import { handleAPIError } from '@/lib/utils/errorHandler';
 import { prisma } from '@/lib/prisma';
 import { 
@@ -9,6 +10,7 @@ import {
   trackBusinessEvent,
   trackCorrelation 
 } from '@/lib/logger';
+import { formatErrorResponse } from '@/constants/errorMessages';
 
 export async function POST(request: Request) {
   const correlationId = generateCorrelationId();
@@ -120,57 +122,143 @@ export async function POST(request: Request) {
       template
     });
 
-    // Get auto report service and generate report
-    const autoReportService = getAutoReportService();
+    // FIXED: Use InitialComparativeReportService for true comparative reports
+    const initialComparativeReportService = new InitialComparativeReportService();
     
     if (immediate) {
-      // Generate initial report with high priority
-      const reportTask = await autoReportService.generateInitialReport(projectId, {
-        reportTemplate: template,
-        reportName: `Manual Report - ${project.name}`,
-        priority: 'high'
-      });
+      try {
+        // Generate comparative report directly (not queued)
+        logger.info('Generating comparative report immediately', {
+          ...context,
+          projectId,
+          projectName: project.name,
+          template
+        });
 
-      trackBusinessEvent('auto_report_task_queued', {
-        ...context,
-        projectId,
-        taskId: reportTask.taskId,
-        queuePosition: reportTask.queuePosition
-      });
+        const comparativeReport = await initialComparativeReportService.generateInitialComparativeReport(
+          projectId,
+          {
+            template: template as 'comprehensive' | 'executive' | 'technical' | 'strategic',
+            priority: 'high',
+            timeout: 120000, // 2 minutes
+            fallbackToPartialData: true,
+            notifyOnCompletion: notify,
+            requireFreshSnapshots: true
+          }
+        );
 
-      logger.info('Auto report generation task queued', {
-        ...context,
-        projectId,
-        taskId: reportTask.taskId,
-        queuePosition: reportTask.queuePosition
-      });
+        trackBusinessEvent('comparative_report_generated_successfully', {
+          ...context,
+          projectId,
+          reportId: comparativeReport.id,
+          reportTitle: comparativeReport.title,
+          isComparative: true
+        });
 
-      // Get current queue status
-      const queueStatus = await autoReportService.getQueueStatus(projectId);
+        logger.info('Comparative report generated successfully', {
+          ...context,
+          projectId,
+          reportId: comparativeReport.id,
+          reportTitle: comparativeReport.title
+        });
 
-      const response = {
-        success: true,
-        projectId: project.id,
-        projectName: project.name,
-        taskId: reportTask.taskId,
-        queuePosition: reportTask.queuePosition,
-        estimatedCompletion: new Date(Date.now() + (reportTask.queuePosition * 120000)), // 2 min per report
-        competitorCount: project.competitors.length,
-        template,
-        queueStatus,
-        timestamp: new Date().toISOString(),
-        correlationId
-      };
+        const response = {
+          success: true,
+          projectId: project.id,
+          projectName: project.name,
+          reportId: comparativeReport.id,
+          reportTitle: comparativeReport.title,
+          reportType: 'comparative',
+          competitorCount: project.competitors.length,
+          template,
+          generatedAt: comparativeReport.createdAt.toISOString(),
+          timestamp: new Date().toISOString(),
+          correlationId
+        };
 
-      trackCorrelation(correlationId, 'auto_report_generation_response_sent', {
-        ...context,
-        success: true,
-        taskId: reportTask.taskId
-      });
+        trackCorrelation(correlationId, 'comparative_report_generation_response_sent', {
+          ...context,
+          success: true,
+          reportId: comparativeReport.id
+        });
 
-      return NextResponse.json(response, { status: 200 });
+        return NextResponse.json(response, { status: 200 });
+
+      } catch (reportError) {
+        // Enhanced error classification for better fallback messages
+        const errorMessage = (reportError as Error).message;
+        const { error: friendlyError } = formatErrorResponse('AI_SERVICE_ERROR', errorMessage, correlationId);
+        
+        logger.warn('Immediate comparative report generation failed, falling back to queue', {
+          ...context,
+          projectId,
+          error: errorMessage,
+          errorClassification: friendlyError.code,
+          userFriendlyMessage: friendlyError.message
+        });
+
+        const autoReportService = getAutoReportService();
+        const reportTask = await autoReportService.generateInitialReport(projectId, {
+          reportTemplate: template,
+          reportName: `Manual Report - ${project.name}`,
+          priority: 'high'
+        });
+
+        trackBusinessEvent('comparative_report_fallback_queued', {
+          ...context,
+          projectId,
+          taskId: reportTask.taskId,
+          queuePosition: reportTask.queuePosition,
+          fallbackReason: errorMessage,
+          friendlyReason: friendlyError.message
+        });
+
+        logger.info('Comparative report fallback task queued', {
+          ...context,
+          projectId,
+          taskId: reportTask.taskId,
+          queuePosition: reportTask.queuePosition,
+          friendlyReason: friendlyError.message
+        });
+
+        // Get current queue status
+        const queueStatus = await autoReportService.getQueueStatus(projectId);
+
+        const response = {
+          success: true,
+          projectId: project.id,
+          projectName: project.name,
+          taskId: reportTask.taskId,
+          queuePosition: reportTask.queuePosition,
+          estimatedCompletion: new Date(Date.now() + (reportTask.queuePosition * 120000)), // 2 min per report
+          competitorCount: project.competitors.length,
+          template,
+          queueStatus,
+          fallbackUsed: true,
+          fallbackReason: friendlyError.message,
+          fallbackDetails: {
+            originalError: errorMessage,
+            errorCode: friendlyError.code,
+            userAction: friendlyError.userAction,
+            canRetry: true,
+            suggestedWaitTime: '2-3 minutes'
+          },
+          timestamp: new Date().toISOString(),
+          correlationId
+        };
+
+        trackCorrelation(correlationId, 'comparative_report_fallback_response_sent', {
+          ...context,
+          success: true,
+          taskId: reportTask.taskId,
+          friendlyReason: friendlyError.message
+        });
+
+        return NextResponse.json(response, { status: 200 });
+      }
     } else {
       // Just check current status without generating new report
+      const autoReportService = getAutoReportService();
       const queueStatus = await autoReportService.getQueueStatus(projectId);
 
       const response = {
