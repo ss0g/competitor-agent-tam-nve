@@ -49,13 +49,36 @@ export interface CompetitorComparison {
 }
 
 export class UserExperienceAnalyzer {
-  private bedrockService: BedrockService;
+  private bedrockService: BedrockService | null = null;
 
   constructor() {
-    this.bedrockService = new BedrockService({
-      maxTokens: 6000,
-      temperature: 0.2
-    }, 'anthropic');
+    // Service will be initialized lazily
+  }
+
+  /**
+   * Initialize the Bedrock service with stored credentials
+   */
+  private async initializeBedrockService(): Promise<BedrockService> {
+    if (!this.bedrockService) {
+      try {
+        // Try to create with stored credentials first
+        this.bedrockService = await BedrockService.createWithStoredCredentials(
+          'anthropic',
+          {
+            maxTokens: 6000,
+            temperature: 0.2
+          }
+        );
+      } catch (error) {
+        logger.warn('Failed to initialize with stored credentials, falling back to environment variables', { error });
+        // Fallback to traditional constructor with environment variables
+        this.bedrockService = new BedrockService({
+          maxTokens: 6000,
+          temperature: 0.2
+        }, 'anthropic');
+      }
+    }
+    return this.bedrockService;
   }
 
   async analyzeProductVsCompetitors(
@@ -85,7 +108,8 @@ export class UserExperienceAnalyzer {
         content: [{ type: 'text', text: prompt }]
       }];
 
-      const analysis = await this.bedrockService.generateCompletion(messages);
+      const bedrockService = await this.initializeBedrockService();
+      const analysis = await bedrockService.generateCompletion(messages);
       const result = this.parseAnalysisResult(analysis, limitedCompetitorData, correlationId);
 
       logger.info('UX analysis completed', {

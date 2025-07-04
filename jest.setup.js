@@ -3,9 +3,34 @@ const { TextEncoder, TextDecoder } = require('util');
 // Import jest-dom matchers only when needed
 require('@testing-library/jest-dom');
 
-// Global polyfills
+// Global polyfills for Node.js
 global.TextEncoder = TextEncoder;
 global.TextDecoder = TextDecoder;
+
+// Web API polyfills for Next.js API routes - Fix 3.1
+// These are needed for Next.js API routes to work in Jest test environment
+if (typeof global.Request === 'undefined') {
+  // First, add stream polyfills required by undici
+  const { Readable, Transform } = require('stream');
+  const { ReadableStream, WritableStream, TransformStream } = require('stream/web');
+  
+  global.ReadableStream = ReadableStream;
+  global.WritableStream = WritableStream;
+  global.TransformStream = TransformStream;
+  
+  // Now use undici for Web API polyfills
+  const { Request, Response, Headers, fetch } = require('undici');
+  global.Request = Request;
+  global.Response = Response;
+  global.Headers = Headers;
+  global.fetch = fetch;
+}
+
+// URL polyfill for Next.js
+if (typeof global.URL === 'undefined') {
+  global.URL = require('url').URL;
+  global.URLSearchParams = require('url').URLSearchParams;
+}
 
 // Performance monitoring
 const testStartTime = Date.now();
@@ -320,12 +345,108 @@ jest.mock('@/services/analysis/comparativeAnalysisService', () => ({
       },
     }),
     analyzeProductVsCompetitors: jest.fn().mockResolvedValue({
-      summary: 'Mock analysis summary',
-      insights: ['Mock insight'],
-      trends: ['Mock trend'],
-      recommendations: ['Mock recommendation'],
-      confidence: 0.85,
-      metadata: { analysisType: 'comparative' },
+      id: 'mock-analysis-id',
+      projectId: 'mock-project-id', 
+      productId: 'mock-product-id',
+      competitorIds: ['mock-competitor-1'],
+      analysisDate: new Date(),
+      summary: {
+        overallPosition: 'competitive',
+        keyStrengths: ['Mock strength 1', 'Mock strength 2'],
+        keyWeaknesses: ['Mock weakness 1'],
+        opportunityScore: 85,
+        threatLevel: 'medium'
+      },
+      detailed: {
+        featureComparison: {
+          productFeatures: ['Feature 1', 'Feature 2'],
+          competitorFeatures: [
+            { 
+              competitorId: 'mock-competitor-1', 
+              competitorName: 'Mock Competitor', 
+              features: ['Comp Feature 1'] 
+            }
+          ],
+          uniqueToProduct: ['Unique Feature 1'],
+          uniqueToCompetitors: ['Missing Feature 1'],
+          commonFeatures: ['Common Feature 1'],
+          featureGaps: ['Gap 1'],
+          innovationScore: 80
+        },
+        positioningAnalysis: {
+          productPositioning: {
+            primaryMessage: 'Mock positioning message',
+            valueProposition: 'Mock value proposition',
+            targetAudience: 'Mock target audience',
+            differentiators: ['Differentiator 1']
+          },
+          competitorPositioning: [
+            { 
+              competitorId: 'mock-competitor-1',
+              competitorName: 'Mock Competitor',
+              primaryMessage: 'Comp message',
+              valueProposition: 'Comp value prop',
+              targetAudience: 'Comp audience',
+              differentiators: ['Comp diff']
+            }
+          ],
+          positioningGaps: ['Gap 1'],
+          marketOpportunities: ['AI-first competitive intelligence'],
+          messagingEffectiveness: 85
+        },
+        userExperienceComparison: {
+          productUX: {
+            designQuality: 80,
+            usabilityScore: 85,
+            navigationStructure: 'Modern navigation',
+            keyUserFlows: ['Main flow', 'Secondary flow']
+          },
+          competitorUX: [
+            {
+              competitorId: 'mock-competitor-1',
+              competitorName: 'Mock Competitor',
+              designQuality: 75,
+              usabilityScore: 70,
+              navigationStructure: 'Traditional navigation',
+              keyUserFlows: ['Basic flow']
+            }
+          ],
+          uxStrengths: ['Clean design', 'Intuitive interface'],
+          uxWeaknesses: ['Mobile responsiveness'],
+          uxRecommendations: ['Improve mobile UX']
+        },
+        customerTargeting: {
+          productTargeting: {
+            primarySegments: ['Enterprise', 'SMB'],
+            customerTypes: ['Decision makers'],
+            useCases: ['Use case 1', 'Use case 2']
+          },
+          competitorTargeting: [
+            { 
+              competitorId: 'mock-competitor-1',
+              competitorName: 'Mock Competitor',
+              primarySegments: ['General market'],
+              customerTypes: ['General users'],
+              useCases: ['Basic use case']
+            }
+          ],
+          targetingOverlap: ['Some overlap'],
+          untappedSegments: ['Small business market'],
+          competitiveAdvantage: ['Better technology', 'Superior UX']
+        }
+      },
+      recommendations: {
+        immediate: ['Immediate action 1', 'Immediate action 2'],
+        shortTerm: ['Short term action 1'],
+        longTerm: ['Long term action 1'],
+        priorityScore: 85
+      },
+      metadata: {
+        analysisMethod: 'ai_powered',
+        confidenceScore: 85,
+        dataQuality: 'high',
+        processingTime: 2500
+      }
     }),
     updateAnalysisConfiguration: jest.fn().mockResolvedValue({
       configurationId: 'mock-config-id',
@@ -335,6 +456,22 @@ jest.mock('@/services/analysis/comparativeAnalysisService', () => ({
       reportId: 'mock-report-id',
       status: 'completed',
     }),
+    generateAnalysisReport: jest.fn().mockResolvedValue(`
+      # Competitive Analysis Report
+      
+      ## Executive Summary
+      The analysis shows competitive positioning with key insights...
+      
+      ## Detailed Findings
+      - Strong positioning capabilities
+      - Clear messaging strategy
+      
+      ## Recommendations
+      1. Immediate: Enhance competitive features
+      2. Short-term: Develop market presence  
+      3. Long-term: Strategic market expansion
+    `),
+    getAnalysisHistory: jest.fn().mockResolvedValue([]),
   })),
 }));
 

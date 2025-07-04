@@ -89,12 +89,28 @@ interface ReportContext {
 }
 
 export class ComparativeReportService {
-  private bedrockService: BedrockService;
+  private bedrockService: BedrockService | null = null;
   private uxAnalyzer: UserExperienceAnalyzer;
 
   constructor() {
-    this.bedrockService = new BedrockService();
     this.uxAnalyzer = new UserExperienceAnalyzer();
+  }
+
+  /**
+   * Initialize the Bedrock service with stored credentials
+   */
+  private async initializeBedrockService(): Promise<BedrockService> {
+    if (!this.bedrockService) {
+      try {
+        // Try to create with stored credentials first
+        this.bedrockService = await BedrockService.createWithStoredCredentials('anthropic');
+      } catch (error) {
+        logger.warn('Failed to initialize with stored credentials, falling back to environment variables', { error });
+        // Fallback to traditional constructor with environment variables
+        this.bedrockService = new BedrockService();
+      }
+    }
+    return this.bedrockService;
   }
 
   /**
@@ -269,7 +285,8 @@ export class ComparativeReportService {
           content: [{ type: 'text', text: prompt }]
         }
       ];
-      const enhancedContent = await this.bedrockService.generateCompletion(messages);
+      const bedrockService = await this.initializeBedrockService();
+      const enhancedContent = await bedrockService.generateCompletion(messages);
 
       logger.info('Enhanced report content generated successfully', {
         ...context,

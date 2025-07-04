@@ -10,11 +10,16 @@ const customJestConfig = {
   setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
   testEnvironment: 'jest-environment-jsdom',
   
-  // Module resolution
+  // Module resolution - Fix 1.1: Enhanced ES module mappings
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
     '^cheerio$': 'jest-mock',
     '^puppeteer$': 'jest-mock',
+    // ES Module mappings for problematic packages
+    '^uuid$': 'uuid',
+    '^p-limit$': 'p-limit',
+    '^msgpackr$': 'msgpackr',
+    '^yocto-queue$': 'yocto-queue',
   },
   
   // Performance optimizations
@@ -36,10 +41,32 @@ const customJestConfig = {
     '!**/node_modules/**'
   ],
   
-  // Transform ES modules
+  // Transform ES modules - Fix 1.1: Complete ES module support
   transformIgnorePatterns: [
-    'node_modules/(?!(cheerio|@\\w+)/)',
+    'node_modules/(?!(p-limit|msgpackr|uuid|yocto-queue|cheerio|launchdarkly-node-server-sdk|@\\w+)/)',
   ],
+  
+  // ES Module support - Fix 1.1: Complete configuration
+  extensionsToTreatAsEsm: ['.ts', '.tsx'],
+  preset: 'ts-jest/presets/default-esm',
+  globals: {
+    'ts-jest': {
+      useESM: true,
+      tsconfig: {
+        module: 'esnext'
+      }
+    }
+  },
+  
+  // Fix 1.1: Additional ES module support
+  transform: {
+    '^.+\\.(ts|tsx)$': ['ts-jest', {
+      useESM: true
+    }]
+  },
+  
+  // Enable dynamic imports and other ES features
+  resolver: undefined,
   
   // Global setup/teardown
   globalSetup: '<rootDir>/src/__tests__/setup/globalSetup.js',
