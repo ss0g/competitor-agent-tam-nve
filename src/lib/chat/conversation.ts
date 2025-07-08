@@ -16,13 +16,26 @@ export class ConversationManager {
   private messages: Message[] = [];
   private reportGenerator: MarkdownReportGenerator;
   private comprehensiveCollector: ComprehensiveRequirementsCollector;
+  
+  // Implement standardized error templates
+  private errorTemplates = {
+    projectCreation: 'Failed to create project: {reason}',
+    parsing: 'Unable to parse input: {reason}',
+    validation: 'Validation error: {reason}',
+    dataExtraction: 'Could not extract required data: {reason}',
+    reportGeneration: 'Failed to generate report: {reason}',
+    systemError: 'System error occurred: {reason}',
+    authentication: 'Authentication failed: {reason}',
+    authorization: 'Authorization failed: {reason}'
+  };
 
   constructor(initialState?: Partial<ChatState>) {
+    // Fix feature flag implementation using environment variable access
     this.chatState = {
       currentStep: null,
       stepDescription: 'Welcome',
       expectedInputType: 'text',
-      useComprehensiveFlow: true, // Phase 5.2: Default to comprehensive flow
+      useComprehensiveFlow: process.env.NEXT_PUBLIC_ENABLE_COMPREHENSIVE_FLOW === 'true', // Fix using environment variable
       ...initialState,
     };
     this.reportGenerator = new MarkdownReportGenerator();
@@ -1041,14 +1054,17 @@ Now, what is the name of the product that you want to perform competitive analys
     let message = `🔄 **Oops! I had trouble parsing your input.**\n\n`;
     message += `Don't worry - this happens sometimes. Let me help you get back on track!\n\n`;
     
-    // Provide specific guidance based on error type
+    // Use standardized error templates based on error type
+    let errorMessage = '';
     if (error.message.includes('JSON') || error.message.includes('parse')) {
-      message += `💡 **What happened:** I had trouble understanding the format of your input.\n\n`;
+      errorMessage = this.errorTemplates.parsing.replace('{reason}', 'Format could not be recognized');
     } else if (error.message.includes('URL') || error.message.includes('url')) {
-      message += `💡 **What happened:** There was an issue with the URL format you provided.\n\n`;
+      errorMessage = this.errorTemplates.dataExtraction.replace('{reason}', 'Invalid URL format');
     } else {
-      message += `💡 **What happened:** I encountered an unexpected issue while processing your request.\n\n`;
+      errorMessage = this.errorTemplates.systemError.replace('{reason}', 'Unexpected processing issue');
     }
+    
+    message += `💡 **What happened:** ${errorMessage}\n\n`;
     
     message += `🚀 **How to proceed:**\n`;
     message += `• **Try again** - You can resubmit your information\n`;
@@ -1062,7 +1078,7 @@ Now, what is the name of the product that you want to perform competitive analys
       nextStep: 0,
       stepDescription: 'Error Recovery',
       expectedInputType: 'text',
-      error: 'Failed to parse input format'
+      error: errorMessage
     };
   }
 
@@ -1123,8 +1139,11 @@ Now, what is the name of the product that you want to perform competitive analys
     requirements: ComprehensiveProjectRequirements,
     validation?: { warnings: ValidationWarning[]; suggestions: string[] }
   ): ChatResponse {
+    // Add null checks for collectedData
+    const collectedData = requirements || {};
+    
     // *** FIX: Store the requirements in chat state BEFORE showing confirmation ***
-    this.chatState.collectedData = this.comprehensiveCollector.toChatState(requirements).collectedData;
+    this.chatState.collectedData = this.comprehensiveCollector.toChatState(collectedData as ComprehensiveProjectRequirements).collectedData;
     
     let message = `🎯 **Ready to Create Your Competitive Analysis Project!**\n\n`;
     
@@ -1132,24 +1151,24 @@ Now, what is the name of the product that you want to perform competitive analys
 
     // Phase 4.2: Contact & Project Information Section
     message += `📧 **CONTACT & PROJECT SETUP**\n`;
-    message += `• **Email Address:** ${requirements.userEmail}\n`;
-    message += `• **Report Frequency:** ${this.formatReportFrequency(requirements.reportFrequency)}\n`;
-    message += `• **Project Name:** "${requirements.projectName}"\n\n`;
+    message += `• **Email Address:** ${collectedData.userEmail || 'Not provided'}\n`;
+    message += `• **Report Frequency:** ${this.formatReportFrequency(collectedData.reportFrequency || 'Weekly')}\n`;
+    message += `• **Project Name:** "${collectedData.projectName || 'Untitled Project'}"\n\n`;
 
     // Phase 4.2: Product Information Section
     message += `🎯 **PRODUCT INFORMATION**\n`;
-    message += `• **Product Name:** ${requirements.productName}\n`;
-    message += `• **Product URL:** ${requirements.productUrl}\n`;
-    message += `• **Industry:** ${requirements.industry}\n\n`;
+    message += `• **Product Name:** ${collectedData.productName || 'Not provided'}\n`;
+    message += `• **Product URL:** ${collectedData.productUrl || 'Not provided'}\n`;
+    message += `• **Industry:** ${collectedData.industry || 'Not specified'}\n\n`;
 
     // Phase 4.2: Business Context Section
     message += `📊 **BUSINESS CONTEXT**\n`;
     message += `• **Product Positioning:**\n`;
-    message += `  ${this.formatMultilineText(requirements.positioning, '  ')}\n\n`;
+    message += `  ${this.formatMultilineText(collectedData.positioning || 'Not provided', '  ')}\n\n`;
     message += `• **Target Customers:**\n`;
-    message += `  ${this.formatMultilineText(requirements.customerData, '  ')}\n\n`;
+    message += `  ${this.formatMultilineText(collectedData.customerData || 'Not provided', '  ')}\n\n`;
     message += `• **User Problems Solved:**\n`;
-    message += `  ${this.formatMultilineText(requirements.userProblem, '  ')}\n\n`;
+    message += `  ${this.formatMultilineText(collectedData.userProblem || 'Not provided', '  ')}\n\n`;
 
     // Phase 4.2: Optional Enhancements Section
     if (requirements.competitorHints || requirements.focusAreas || requirements.reportTemplate) {

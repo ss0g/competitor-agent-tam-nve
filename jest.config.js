@@ -27,6 +27,10 @@ const customJestConfig = {
   testTimeout: 30000,
   cache: true,
   
+  // Phase 4.1 Fix: Add test retry options for flaky tests
+  // Note: Jest's built-in retry is only available in Jest 27+
+  // We're using our custom retry implementation instead
+  
   // Test patterns
   testMatch: [
     '<rootDir>/src/**/__tests__/**/*.(test|spec).[jt]s?(x)',

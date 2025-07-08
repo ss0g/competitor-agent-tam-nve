@@ -8,6 +8,7 @@ import { smartAIService } from '@/services/smartAIService'; // PHASE AI-2: Impor
 import { productRepository } from '@/lib/repositories';
 import { InitialComparativeReportService } from '@/services/reports/initialComparativeReportService'; // PHASE 1.2: Import InitialComparativeReportService
 import { asyncReportProcessingService } from '@/services/reports/asyncReportProcessingService'; // PHASE 4.2: Enhanced async processing
+import { withRetry, withLock } from '@/lib/concurrency'; // Import concurrency utilities
 
 // Default mock user for testing without authentication
 const DEFAULT_USER_EMAIL = 'mock@example.com';
@@ -78,16 +79,28 @@ interface EnhancedProjectRequest {
   aiAutoTrigger?: boolean;          // Trigger initial AI analysis immediately
 }
 
+// Get auto report service
+const autoReportService = getAutoReportService();
+
 // POST /api/projects
 export async function POST(request: Request) {
   const correlationId = generateCorrelationId();
   const context = { operation: 'createProjectWithProduct', correlationId };
-
+  
   try {
+    logger.info('Processing project creation request', { ...context });
+    trackBusinessEvent('project_creation_started', context);
+    
     // Always use mock user (auth disabled)
     const mockUser = await getOrCreateMockUser();
 
+    // Parse and validate request body
     const json: EnhancedProjectRequest = await request.json();
+    
+    if (!json.name) {
+      logger.warn('Invalid project creation request: name is required', { ...context, payload: json });
+      return NextResponse.json({ error: 'Project name is required' }, { status: 400 });
+    }
     
     if (!json.productWebsite) {
       trackBusinessEvent('project_creation_failed_validation', {
@@ -134,47 +147,87 @@ export async function POST(request: Request) {
       });
     }
 
-    const result = await prisma.$transaction(async (tx) => {
-      const project = await tx.project.create({
-        data: {
-          name: json.name,
-          description: json.description,
-          status: 'ACTIVE', // ← PHASE 1.3: Auto-activate projects
-          userId: mockUser.id,
-          parameters: {
-            ...json.parameters || {},
-            autoAssignedCompetitors: competitorIds.length > 0 && (json.competitorIds?.length === 0 || json.autoAssignCompetitors === true),
-            assignedCompetitorCount: competitorIds.length,
-            frequency: json.frequency,
-            autoGenerateInitialReport: json.autoGenerateInitialReport !== false,
-            reportTemplate: json.reportTemplate || 'comprehensive',
-            hasProduct: true,
-            productWebsite: json.productWebsite
-          },
-          competitors: {
-            connect: competitorIds.map((id: string) => ({ id }))
-          }
-        },
-        include: {
-          competitors: true
-        }
+    // Wrap the project creation in withRetry and withLock
+    // This ensures we handle concurrent project creation and retry on race conditions
+    const finalResult = await withRetry(async () => {
+      // Use a unique lock key based on user ID and project name to prevent duplicate projects
+      const lockKey = `project_creation:${mockUser.id}:${json.name}`;
+      
+      return await withLock(lockKey, async () => {
+        // Inside the lock, perform the transaction and product creation
+            // Wrap project creation in retry and lock for handling race conditions
+    const result = await withRetry(async () => {
+      // Use a unique lock key based on user ID and project name to prevent duplicate projects
+      const lockKey = `project_creation:${mockUser.id}:${json.name}`;
+      
+      return await withLock(lockKey, async () => {
+        return await prisma.$transaction(async (tx) => {
+          const project = await tx.project.create({
+            data: {
+              name: json.name,
+              description: json.description,
+              status: 'ACTIVE', // ← PHASE 1.3: Auto-activate projects
+              userId: mockUser.id,
+              parameters: {
+                ...json.parameters || {},
+                autoAssignedCompetitors: competitorIds.length > 0 && (json.competitorIds?.length === 0 || json.autoAssignCompetitors === true),
+                assignedCompetitorCount: competitorIds.length,
+                frequency: json.frequency,
+                autoGenerateInitialReport: json.autoGenerateInitialReport !== false,
+                reportTemplate: json.reportTemplate || 'comprehensive',
+                hasProduct: true,
+                productWebsite: json.productWebsite
+              },
+              competitors: {
+                connect: competitorIds.map((id: string) => ({ id }))
+              }
+            },
+            include: {
+              competitors: true
+            }
+          });
+
+          return { project };
+        });
       });
-
-      return { project };
+    }, {
+      maxRetries: 3,
+      initialDelay: 300,
+      maxDelay: 2000,
+      onRetry: (error, attempt) => {
+        logger.warn('Retrying project creation due to concurrent operation error', {
+          ...context,
+          attempt,
+          error: error.message
+        });
+      }
     });
 
-    // 2. NEW: Create product entity using repository (outside transaction to avoid typing issues)
-    const product = await productRepository.create({
-      name: json.productName || json.name,
-      website: json.productWebsite,
-      positioning: json.positioning || 'Competitive product analysis',
-      customerData: json.customerData || 'To be analyzed through competitive research',
-      userProblem: json.userProblem || 'Market positioning and competitive advantage',
-      industry: json.industry || 'General',
-      projectId: result.project.id
-    });
+        // Create product entity using repository (outside transaction to avoid typing issues)
+        const product = await productRepository.create({
+          name: json.productName || json.name,
+          website: json.productWebsite,
+          positioning: json.positioning || 'Competitive product analysis',
+          customerData: json.customerData || 'To be analyzed through competitive research',
+          userProblem: json.userProblem || 'Market positioning and competitive advantage',
+          industry: json.industry || 'General',
+          projectId: result.project.id
+        });
 
-    const finalResult = { project: result.project, product };
+        return { project: result.project, product };
+      });
+    }, {
+      maxRetries: 3,
+      initialDelay: 300,
+      maxDelay: 2000,
+      onRetry: (error, attempt) => {
+        logger.warn('Retrying project creation due to concurrent operation error', {
+          ...context,
+          attempt,
+          error: error.message
+        });
+      }
+    });
 
     // ← PHASE 1.3: Trigger smart scheduling immediately after project creation
     let smartSchedulingStatus = null;
@@ -495,7 +548,6 @@ export async function POST(request: Request) {
           frequency: json.frequency
         });
 
-        const autoReportService = getAutoReportService();
         const schedule = await autoReportService.schedulePeriodicReports(
           finalResult.project.id,
           json.frequency,

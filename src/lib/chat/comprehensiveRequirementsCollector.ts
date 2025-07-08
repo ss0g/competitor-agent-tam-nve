@@ -101,15 +101,16 @@ export class ComprehensiveRequirementsCollector {
     },
     productUrl: {
       patterns: [
-        /https?:\/\/[^\s<>"{}|\\^`\[\]]+/gi,
+        // Improve URL extraction with more robust pattern
+        /https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)/gi,
         /(?:website|url|link|site)\s*:?\s*(https?:\/\/[^\s<>"{}|\\^`\[\]]+)/gi,
         // Add test-friendly pattern
-        /\b([a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]*\.(?:com|org|net|io|co)(?:\/[^\s]*)?)\b/gi
+        /\b([a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]*\.(?:com|org|net|io|co|app|dev)(?:\/[^\s]*)?)\b/gi
       ],
       keywords: ['https', 'http', 'www', 'website', 'url'],
       validator: (url: string) => {
-        // More lenient validation
-        return /^https?:\/\/[^\s<>"{}|\\^`\[\]]+$/.test(url) || 
+        // More lenient validation with improved regex
+        return /^https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)$/.test(url) || 
                /^[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]*\.[a-zA-Z]{2,}/.test(url);
       },
       cleaner: (url: string) => {
@@ -1204,14 +1205,40 @@ You can provide information in any format that works for you:
       /we're\s+analyzing\s+["']?([^"'\n,]{2,30})["']?/gi
     ];
 
+    // Add confidence scoring for extracted product names
+    const validateProductName = (name: string, confidenceScore: number) => {
+      if (confidenceScore > 0.7) {
+        return name;
+      }
+      return null;
+    };
+
     for (const pattern of patterns) {
       const match = message.match(pattern);
       if (match && match[1]) {
         const productName = match[1].trim().replace(/['"]/g, '');
         if (productName.length >= 2) {
-          extractedData.productName = productName;
-          confidence.productName = 80;
-          break;
+          // Calculate confidence based on pattern type and name characteristics
+          let confidenceScore = 0.8; // Default confidence
+          
+          // Adjust based on pattern type (more explicit patterns are more reliable)
+          if (pattern.toString().includes('product.*name') || pattern.toString().includes('4\\.')) {
+            confidenceScore += 0.15;
+          }
+          
+          // Lower confidence for very generic names
+          const genericTerms = ['product', 'app', 'service', 'platform', 'website'];
+          if (genericTerms.includes(productName.toLowerCase())) {
+            confidenceScore -= 0.3;
+          }
+          
+          // Validate the product name with confidence scoring
+          const validatedName = validateProductName(productName, confidenceScore);
+          if (validatedName) {
+            extractedData.productName = validatedName;
+            confidence.productName = Math.round(confidenceScore * 100);
+            break;
+          }
         }
       }
     }

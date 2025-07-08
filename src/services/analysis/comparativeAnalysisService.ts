@@ -15,7 +15,7 @@ import { getAnalysisPrompt, COMPREHENSIVE_ANALYSIS_PROMPT } from './analysisProm
 import { createId } from '@paralleldrive/cuid2';
 
 export class ComparativeAnalysisService implements IComparativeAnalysisService {
-  private bedrockService: BedrockService;
+  private bedrockService: BedrockService | null = null;
   private configuration: AnalysisConfiguration;
 
   constructor(config?: Partial<AnalysisConfiguration>) {
@@ -30,28 +30,43 @@ export class ComparativeAnalysisService implements IComparativeAnalysisService {
       analysisDepth: 'detailed',
       ...config
     };
+  }
 
-    this.bedrockService = new BedrockService(
-      {
-        maxTokens: this.configuration.maxTokens,
-        temperature: this.configuration.temperature
-      },
-      'anthropic'
-    );
+  /**
+   * Initialize the Bedrock service with stored credentials
+   */
+  private async initializeBedrockService(): Promise<BedrockService> {
+    if (!this.bedrockService) {
+      try {
+        // Try to create with stored credentials first
+        this.bedrockService = await BedrockService.createWithStoredCredentials(
+          'anthropic',
+          {
+            maxTokens: this.configuration.maxTokens,
+            temperature: this.configuration.temperature
+          }
+        );
+      } catch (error) {
+        logger.warn('Failed to initialize with stored credentials, falling back to environment variables', { error });
+        // Fallback to traditional constructor with environment variables
+        this.bedrockService = new BedrockService(
+          {
+            maxTokens: this.configuration.maxTokens,
+            temperature: this.configuration.temperature
+          },
+          'anthropic'
+        );
+      }
+    }
+    return this.bedrockService;
   }
 
   public updateAnalysisConfiguration(config: Partial<AnalysisConfiguration>): void {
     this.configuration = { ...this.configuration, ...config };
     
-    // Update Bedrock service if relevant config changed
+    // Reset Bedrock service if relevant config changed to force re-initialization
     if (config.maxTokens || config.temperature) {
-      this.bedrockService = new BedrockService(
-        {
-          maxTokens: this.configuration.maxTokens,
-          temperature: this.configuration.temperature
-        },
-        'anthropic'
-      );
+      this.bedrockService = null;
     }
 
     logger.info('Analysis configuration updated', { config });
@@ -277,7 +292,8 @@ Content: ${comp.competitorContent}`
       ];
 
       console.log('ComparativeAnalysisService: Calling Bedrock service...');
-      const result = await this.bedrockService.generateCompletion(messages);
+      const bedrockService = await this.initializeBedrockService();
+      const result = await bedrockService.generateCompletion(messages);
       
       console.log('ComparativeAnalysisService: Bedrock call successful', {
         resultLength: result?.length || 0,
@@ -371,11 +387,235 @@ Content: ${comp.competitorContent}`
       }
 
       const parsed = JSON.parse(jsonMatch[0]);
-      return parsed;
+      
+      // Ensure the parsed result has the correct structure with comprehensive validation
+      if (parsed && typeof parsed === 'object') {
+        return {
+          summary: this.validateAndNormalizeSummary(parsed.summary, rawResult),
+          detailed: this.validateAndNormalizeDetailed(parsed.detailed) || this.createDefaultDetailedStructure(),
+          recommendations: this.validateAndNormalizeRecommendations(parsed.recommendations, rawResult),
+          metadata: {
+            analysisMethod: 'ai_powered' as const,
+            confidenceScore: parsed.metadata?.confidenceScore || 85,
+            processingTime: 0,
+            dataQuality: parsed.metadata?.dataQuality || 'medium' as const
+          }
+        };
+      }
+      
+      return this.createFallbackAnalysis(rawResult);
     } catch (error) {
       logger.warn('Failed to parse analysis result as JSON, using fallback', { error });
-      
-      // Fallback: create basic analysis from text response
+      return this.createFallbackAnalysis(rawResult);
+    }
+  }
+
+  private validateAndNormalizeSummary(summary: any, rawResult: string) {
+    if (summary && typeof summary === 'object') {
+      return {
+        overallPosition: this.validatePosition(summary.overallPosition) || 'competitive' as const,
+        keyStrengths: Array.isArray(summary.keyStrengths) ? summary.keyStrengths : this.extractListFromText(rawResult, 'strength'),
+        keyWeaknesses: Array.isArray(summary.keyWeaknesses) ? summary.keyWeaknesses : this.extractListFromText(rawResult, 'weakness'),
+        opportunityScore: typeof summary.opportunityScore === 'number' ? Math.max(0, Math.min(100, summary.opportunityScore)) : 70,
+        threatLevel: this.validateThreatLevel(summary.threatLevel) || 'medium' as const
+      };
+    }
+    
+    return {
+      overallPosition: 'competitive' as const,
+      keyStrengths: this.extractListFromText(rawResult, 'strength'),
+      keyWeaknesses: this.extractListFromText(rawResult, 'weakness'),
+      opportunityScore: 70,
+      threatLevel: 'medium' as const
+    };
+  }
+
+  private validateAndNormalizeDetailed(detailed: any) {
+    if (!detailed || typeof detailed !== 'object') {
+      return null;
+    }
+
+    return {
+      featureComparison: this.validateFeatureComparison(detailed.featureComparison),
+      positioningAnalysis: this.validatePositioningAnalysis(detailed.positioningAnalysis),
+      userExperienceComparison: this.validateUserExperienceComparison(detailed.userExperienceComparison),
+      customerTargeting: this.validateCustomerTargeting(detailed.customerTargeting)
+    };
+  }
+
+  private validateAndNormalizeRecommendations(recommendations: any, rawResult: string) {
+    if (recommendations && typeof recommendations === 'object') {
+      return {
+        immediate: Array.isArray(recommendations.immediate) ? recommendations.immediate : this.extractListFromText(rawResult, 'immediate'),
+        shortTerm: Array.isArray(recommendations.shortTerm) ? recommendations.shortTerm : this.extractListFromText(rawResult, 'short'),
+        longTerm: Array.isArray(recommendations.longTerm) ? recommendations.longTerm : this.extractListFromText(rawResult, 'long'),
+        priorityScore: typeof recommendations.priorityScore === 'number' ? Math.max(0, Math.min(100, recommendations.priorityScore)) : 75
+      };
+    }
+    
+    return {
+      immediate: this.extractListFromText(rawResult, 'immediate'),
+      shortTerm: this.extractListFromText(rawResult, 'short'),
+      longTerm: this.extractListFromText(rawResult, 'long'),
+      priorityScore: 75
+    };
+  }
+
+  private validatePosition(position: string): 'leading' | 'competitive' | 'trailing' | null {
+    const validPositions = ['leading', 'competitive', 'trailing'];
+    return validPositions.includes(position) ? position as any : null;
+  }
+
+  private validateThreatLevel(level: string): 'low' | 'medium' | 'high' | null {
+    const validLevels = ['low', 'medium', 'high'];
+    return validLevels.includes(level) ? level as any : null;
+  }
+
+  private validateFeatureComparison(featureComparison: any) {
+    const defaultFeatureComparison = {
+      productFeatures: ['Core features'],
+      competitorFeatures: [],
+      uniqueToProduct: [],
+      uniqueToCompetitors: [],
+      commonFeatures: [],
+      featureGaps: [],
+      innovationScore: 70
+    };
+
+    if (!featureComparison || typeof featureComparison !== 'object') {
+      return defaultFeatureComparison;
+    }
+
+    return {
+      productFeatures: Array.isArray(featureComparison.productFeatures) ? featureComparison.productFeatures : defaultFeatureComparison.productFeatures,
+      competitorFeatures: Array.isArray(featureComparison.competitorFeatures) ? featureComparison.competitorFeatures : defaultFeatureComparison.competitorFeatures,
+      uniqueToProduct: Array.isArray(featureComparison.uniqueToProduct) ? featureComparison.uniqueToProduct : defaultFeatureComparison.uniqueToProduct,
+      uniqueToCompetitors: Array.isArray(featureComparison.uniqueToCompetitors) ? featureComparison.uniqueToCompetitors : defaultFeatureComparison.uniqueToCompetitors,
+      commonFeatures: Array.isArray(featureComparison.commonFeatures) ? featureComparison.commonFeatures : defaultFeatureComparison.commonFeatures,
+      featureGaps: Array.isArray(featureComparison.featureGaps) ? featureComparison.featureGaps : defaultFeatureComparison.featureGaps,
+      innovationScore: typeof featureComparison.innovationScore === 'number' ? Math.max(0, Math.min(100, featureComparison.innovationScore)) : defaultFeatureComparison.innovationScore
+    };
+  }
+
+  private validatePositioningAnalysis(positioningAnalysis: any) {
+    const defaultPositioning = {
+      productPositioning: {
+        primaryMessage: 'Strong value proposition',
+        valueProposition: 'Innovative solution',
+        targetAudience: 'Business users',
+        differentiators: ['Unique approach']
+      },
+      competitorPositioning: [],
+      positioningGaps: [],
+      marketOpportunities: [],
+      messagingEffectiveness: 70
+    };
+
+    if (!positioningAnalysis || typeof positioningAnalysis !== 'object') {
+      return defaultPositioning;
+    }
+
+    return {
+      productPositioning: this.validateProductPositioning(positioningAnalysis.productPositioning) || defaultPositioning.productPositioning,
+      competitorPositioning: Array.isArray(positioningAnalysis.competitorPositioning) ? positioningAnalysis.competitorPositioning : defaultPositioning.competitorPositioning,
+      positioningGaps: Array.isArray(positioningAnalysis.positioningGaps) ? positioningAnalysis.positioningGaps : defaultPositioning.positioningGaps,
+      marketOpportunities: Array.isArray(positioningAnalysis.marketOpportunities) ? positioningAnalysis.marketOpportunities : defaultPositioning.marketOpportunities,
+      messagingEffectiveness: typeof positioningAnalysis.messagingEffectiveness === 'number' ? Math.max(0, Math.min(100, positioningAnalysis.messagingEffectiveness)) : defaultPositioning.messagingEffectiveness
+    };
+  }
+
+  private validateProductPositioning(productPositioning: any) {
+    if (!productPositioning || typeof productPositioning !== 'object') {
+      return null;
+    }
+
+    return {
+      primaryMessage: typeof productPositioning.primaryMessage === 'string' ? productPositioning.primaryMessage : 'Strong value proposition',
+      valueProposition: typeof productPositioning.valueProposition === 'string' ? productPositioning.valueProposition : 'Innovative solution',
+      targetAudience: typeof productPositioning.targetAudience === 'string' ? productPositioning.targetAudience : 'Business users',
+      differentiators: Array.isArray(productPositioning.differentiators) ? productPositioning.differentiators : ['Unique approach']
+    };
+  }
+
+  private validateUserExperienceComparison(uxComparison: any) {
+    const defaultUX = {
+      productUX: {
+        designQuality: 75,
+        usabilityScore: 75,
+        navigationStructure: 'Standard navigation',
+        keyUserFlows: ['Main user flow']
+      },
+      competitorUX: [],
+      uxStrengths: [],
+      uxWeaknesses: [],
+      uxRecommendations: []
+    };
+
+    if (!uxComparison || typeof uxComparison !== 'object') {
+      return defaultUX;
+    }
+
+    return {
+      productUX: this.validateProductUX(uxComparison.productUX) || defaultUX.productUX,
+      competitorUX: Array.isArray(uxComparison.competitorUX) ? uxComparison.competitorUX : defaultUX.competitorUX,
+      uxStrengths: Array.isArray(uxComparison.uxStrengths) ? uxComparison.uxStrengths : defaultUX.uxStrengths,
+      uxWeaknesses: Array.isArray(uxComparison.uxWeaknesses) ? uxComparison.uxWeaknesses : defaultUX.uxWeaknesses,
+      uxRecommendations: Array.isArray(uxComparison.uxRecommendations) ? uxComparison.uxRecommendations : defaultUX.uxRecommendations
+    };
+  }
+
+  private validateProductUX(productUX: any) {
+    if (!productUX || typeof productUX !== 'object') {
+      return null;
+    }
+
+    return {
+      designQuality: typeof productUX.designQuality === 'number' ? Math.max(0, Math.min(100, productUX.designQuality)) : 75,
+      usabilityScore: typeof productUX.usabilityScore === 'number' ? Math.max(0, Math.min(100, productUX.usabilityScore)) : 75,
+      navigationStructure: typeof productUX.navigationStructure === 'string' ? productUX.navigationStructure : 'Standard navigation',
+      keyUserFlows: Array.isArray(productUX.keyUserFlows) ? productUX.keyUserFlows : ['Main user flow']
+    };
+  }
+
+  private validateCustomerTargeting(customerTargeting: any) {
+    const defaultTargeting = {
+      productTargeting: {
+        primarySegments: ['Business segment'],
+        customerTypes: ['Enterprise customers'],
+        useCases: ['Primary use case']
+      },
+      competitorTargeting: [],
+      targetingOverlap: [],
+      untappedSegments: [],
+      competitiveAdvantage: []
+    };
+
+    if (!customerTargeting || typeof customerTargeting !== 'object') {
+      return defaultTargeting;
+    }
+
+    return {
+      productTargeting: this.validateProductTargeting(customerTargeting.productTargeting) || defaultTargeting.productTargeting,
+      competitorTargeting: Array.isArray(customerTargeting.competitorTargeting) ? customerTargeting.competitorTargeting : defaultTargeting.competitorTargeting,
+      targetingOverlap: Array.isArray(customerTargeting.targetingOverlap) ? customerTargeting.targetingOverlap : defaultTargeting.targetingOverlap,
+      untappedSegments: Array.isArray(customerTargeting.untappedSegments) ? customerTargeting.untappedSegments : defaultTargeting.untappedSegments,
+      competitiveAdvantage: Array.isArray(customerTargeting.competitiveAdvantage) ? customerTargeting.competitiveAdvantage : defaultTargeting.competitiveAdvantage
+    };
+  }
+
+  private validateProductTargeting(productTargeting: any) {
+    if (!productTargeting || typeof productTargeting !== 'object') {
+      return null;
+    }
+
+    return {
+      primarySegments: Array.isArray(productTargeting.primarySegments) ? productTargeting.primarySegments : ['Business segment'],
+      customerTypes: Array.isArray(productTargeting.customerTypes) ? productTargeting.customerTypes : ['Enterprise customers'],
+      useCases: Array.isArray(productTargeting.useCases) ? productTargeting.useCases : ['Primary use case']
+    };
+  }
+
+  private createFallbackAnalysis(rawResult: string): Partial<ComparativeAnalysis> {
       return {
         summary: {
           overallPosition: 'competitive' as const,
@@ -384,6 +624,13 @@ Content: ${comp.competitorContent}`
           opportunityScore: 70,
           threatLevel: 'medium' as const
         },
+      detailed: this.createDefaultDetailedStructure(),
+      recommendations: {
+        immediate: this.extractListFromText(rawResult, 'immediate'),
+        shortTerm: this.extractListFromText(rawResult, 'short'),
+        longTerm: this.extractListFromText(rawResult, 'long'),
+        priorityScore: 75
+      },
         metadata: {
           analysisMethod: 'ai_powered' as const,
           confidenceScore: 60,
@@ -392,6 +639,54 @@ Content: ${comp.competitorContent}`
         }
       };
     }
+
+  private createDefaultDetailedStructure() {
+    return {
+      featureComparison: {
+        productFeatures: ['Core features'],
+        competitorFeatures: [],
+        uniqueToProduct: [],
+        uniqueToCompetitors: [],
+        commonFeatures: [],
+        featureGaps: [],
+        innovationScore: 70
+      },
+      positioningAnalysis: {
+        productPositioning: {
+          primaryMessage: 'Strong value proposition',
+          valueProposition: 'Innovative solution',
+          targetAudience: 'Business users',
+          differentiators: ['Unique approach']
+        },
+        competitorPositioning: [],
+        positioningGaps: [],
+        marketOpportunities: [],
+        messagingEffectiveness: 70
+      },
+      userExperienceComparison: {
+        productUX: {
+          designQuality: 75,
+          usabilityScore: 75,
+          navigationStructure: 'Standard navigation',
+          keyUserFlows: ['Main user flow']
+        },
+        competitorUX: [],
+        uxStrengths: [],
+        uxWeaknesses: [],
+        uxRecommendations: []
+      },
+      customerTargeting: {
+        productTargeting: {
+          primarySegments: ['Business segment'],
+          customerTypes: ['Enterprise customers'],
+          useCases: ['Primary use case']
+        },
+        competitorTargeting: [],
+        targetingOverlap: [],
+        untappedSegments: [],
+        competitiveAdvantage: []
+      }
+    };
   }
 
   private buildReportPrompt(analysis: ComparativeAnalysis): string {
@@ -485,25 +780,24 @@ Please format this as a professional business report with executive summary, det
   }
 
   private createDefaultDetailed(input: ComparativeAnalysisInput) {
+    const baseStructure = this.createDefaultDetailedStructure();
+    
+    // Populate with input-specific data
     return {
       featureComparison: {
-        productFeatures: ['Core features'],
+        ...baseStructure.featureComparison,
         competitorFeatures: input.competitors.map(c => ({
           competitorId: c.competitor.id,
           competitorName: c.competitor.name,
           features: ['Basic features']
-        })),
-        uniqueToProduct: [],
-        uniqueToCompetitors: [],
-        commonFeatures: [],
-        featureGaps: [],
-        innovationScore: 70
+        }))
       },
       positioningAnalysis: {
+        ...baseStructure.positioningAnalysis,
         productPositioning: {
-          primaryMessage: input.product.positioning,
+          primaryMessage: input.product.positioning || 'Strong value proposition',
           valueProposition: 'Strong value proposition',
-          targetAudience: 'Target market',
+          targetAudience: input.product.industry || 'Target market',
           differentiators: ['Unique approach']
         },
         competitorPositioning: input.competitors.map(c => ({
@@ -511,20 +805,12 @@ Please format this as a professional business report with executive summary, det
           competitorName: c.competitor.name,
           primaryMessage: 'Competitive positioning',
           valueProposition: 'Standard value proposition',
-          targetAudience: 'Similar market',
+          targetAudience: c.competitor.industry || 'Similar market',
           differentiators: ['Basic differentiators']
-        })),
-        positioningGaps: [],
-        marketOpportunities: [],
-        messagingEffectiveness: 70
+        }))
       },
       userExperienceComparison: {
-        productUX: {
-          designQuality: 75,
-          usabilityScore: 75,
-          navigationStructure: 'Standard navigation',
-          keyUserFlows: ['Main user flow']
-        },
+        ...baseStructure.userExperienceComparison,
         competitorUX: input.competitors.map(c => ({
           competitorId: c.competitor.id,
           competitorName: c.competitor.name,
@@ -532,12 +818,10 @@ Please format this as a professional business report with executive summary, det
           usabilityScore: 70,
           navigationStructure: 'Standard navigation',
           keyUserFlows: ['Basic flows']
-        })),
-        uxStrengths: [],
-        uxWeaknesses: [],
-        uxRecommendations: []
+        }))
       },
       customerTargeting: {
+        ...baseStructure.customerTargeting,
         productTargeting: {
           primarySegments: [input.product.industry],
           customerTypes: ['Primary customers'],
@@ -549,10 +833,7 @@ Please format this as a professional business report with executive summary, det
           primarySegments: [c.competitor.industry],
           customerTypes: ['Similar customers'],
           useCases: ['Basic use cases']
-        })),
-        targetingOverlap: [],
-        untappedSegments: [],
-        competitiveAdvantage: []
+        }))
       }
     };
   }

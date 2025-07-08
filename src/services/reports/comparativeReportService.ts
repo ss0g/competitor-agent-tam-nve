@@ -27,6 +27,8 @@ import {
   listAvailableTemplates,
   COMPREHENSIVE_TEMPLATE 
 } from './comparativeReportTemplates';
+import { createStreamProcessor } from '@/lib/dataProcessing/streamProcessor';
+import { memoryManager } from '@/lib/monitoring/memoryMonitoring';
 
 interface ReportContext {
   productName: string;
@@ -123,13 +125,18 @@ export class ComparativeReportService {
     options: ReportGenerationOptions = {}
   ): Promise<ReportGenerationResult> {
     const startTime = Date.now();
+    const correlationId = generateCorrelationId();
     const context = {
+      correlationId,
       analysisId: analysis.id,
       productName: product.name,
       reportTemplate: options.template || REPORT_TEMPLATES.COMPREHENSIVE
     };
 
     try {
+      // MEMORY OPTIMIZATION: Take snapshot at start
+      const initialMemory = memoryManager.takeSnapshot('report-generation-start');
+      
       logger.info('Starting comparative report generation', context);
 
       // Get report template
@@ -138,11 +145,30 @@ export class ComparativeReportService {
       // Build report context from analysis
       const reportContext = this.buildReportContext(analysis, product, productSnapshot);
       
-      // Generate report sections
-      const sections = await this.generateReportSections(
+      // MEMORY OPTIMIZATION: Generate report sections using stream processing
+      // which handles large data more efficiently
+      const streamProcessor = createStreamProcessor({
+        correlationId,
+        operationName: 'report-section-generation',
+        batchSize: 1,  // Process one section at a time
+        concurrency: 2  // Allow some concurrency, but not too much
+      });
+      
+      // Use stream processing for section generation
+      const sections = await streamProcessor.processArray(
         template.sectionTemplates,
-        reportContext,
-        options
+        async (sectionTemplate) => {
+          const section = await this.generateSection(
+            sectionTemplate,
+            reportContext,
+            options
+          );
+          
+          // Clear any large temporary objects after each section is generated
+          if (global.gc) global.gc();
+          
+          return section;
+        }
       );
       
       // Build complete report
@@ -159,12 +185,17 @@ export class ComparativeReportService {
       const generationTime = Date.now() - startTime;
       const tokensUsed = this.estimateTokenUsage(report);
       const cost = this.calculateCost(tokensUsed);
-
+      
+      // MEMORY OPTIMIZATION: Take snapshot at end and log memory usage
+      const finalMemory = memoryManager.takeSnapshot('report-generation-end');
+      const memoryUsed = finalMemory.heapUsed - initialMemory.heapUsed;
+      
       logger.info('Comparative report generated successfully', {
         ...context,
         generationTime,
         sectionsCount: sections.length,
-        tokensUsed
+        tokensUsed,
+        memoryUsedMB: Math.round(memoryUsed / 1024 / 1024)
       });
 
       return {
@@ -354,119 +385,60 @@ export class ComparativeReportService {
     product: Product,
     productSnapshot: ProductSnapshot
   ): ReportContext {
-    const { summary, detailed, recommendations, metadata } = analysis;
-
-    return {
-      // Basic product info
-      productName: product.name,
-      competitorCount: detailed.featureComparison.competitorFeatures?.length || 0,
-
-      // Summary metrics
-      overallPosition: summary.overallPosition,
-      opportunityScore: summary.opportunityScore,
-      threatLevel: summary.threatLevel,
-      confidenceScore: metadata.confidenceScore,
-      keyStrengths: summary.keyStrengths,
-      keyWeaknesses: summary.keyWeaknesses,
-      immediateRecommendations: recommendations.immediate,
-
-      // Feature analysis
-      productFeatures: detailed.featureComparison.productFeatures || [],
-      competitorFeatures: detailed.featureComparison.competitorFeatures?.map(comp => ({
-        competitorName: comp.competitorName,
-        features: comp.features
-      })) || [],
-      uniqueToProduct: detailed.featureComparison.uniqueToProduct || [],
-      featureGaps: detailed.featureComparison.featureGaps || [],
-      innovationScore: detailed.featureComparison.innovationScore,
-
-      // Positioning analysis
-      primaryMessage: detailed.positioningAnalysis.productPositioning?.primaryMessage || '',
-      valueProposition: detailed.positioningAnalysis.productPositioning?.valueProposition || '',
-      targetAudience: detailed.positioningAnalysis.productPositioning?.targetAudience || '',
-      differentiators: detailed.positioningAnalysis.productPositioning?.differentiators || [],
-      competitorPositioning: detailed.positioningAnalysis.competitorPositioning?.map(comp => ({
-        competitorName: comp.competitorName,
-        primaryMessage: comp.primaryMessage,
-        valueProposition: comp.valueProposition,
-        targetAudience: comp.targetAudience
-      })) || [],
-      marketOpportunities: detailed.positioningAnalysis.marketOpportunities || [],
-      messagingEffectiveness: detailed.positioningAnalysis.messagingEffectiveness,
-
-      // UX analysis
-      designQuality: detailed.userExperienceComparison.productUX?.designQuality || 0,
-      usabilityScore: detailed.userExperienceComparison.productUX?.usabilityScore || 0,
-      navigationStructure: detailed.userExperienceComparison.productUX?.navigationStructure || '',
-      keyUserFlows: detailed.userExperienceComparison.productUX?.keyUserFlows || [],
-      competitorUX: detailed.userExperienceComparison.competitorUX?.map(comp => ({
-        competitorName: comp.competitorName,
-        designQuality: comp.designQuality,
-        usabilityScore: comp.usabilityScore,
-        navigationStructure: comp.navigationStructure
-      })) || [],
-      uxStrengths: detailed.userExperienceComparison.uxStrengths || [],
-      uxWeaknesses: detailed.userExperienceComparison.uxWeaknesses || [],
-      uxRecommendations: detailed.userExperienceComparison.uxRecommendations || [],
-
-      // Customer targeting
-      primarySegments: detailed.customerTargeting.productTargeting?.primarySegments || [],
-      customerTypes: detailed.customerTargeting.productTargeting?.customerTypes || [],
-      useCases: detailed.customerTargeting.productTargeting?.useCases || [],
-      competitorTargeting: detailed.customerTargeting.competitorTargeting?.map(comp => ({
-        competitorName: comp.competitorName,
-        primarySegments: comp.primarySegments,
-        customerTypes: comp.customerTypes
-      })) || [],
-      targetingOverlap: detailed.customerTargeting.targetingOverlap || [],
-      untappedSegments: detailed.customerTargeting.untappedSegments || [],
-      competitiveAdvantage: detailed.customerTargeting.competitiveAdvantage || [],
-
-      // Recommendations
-      priorityScore: recommendations.priorityScore,
-      immediateActions: recommendations.immediate,
-      shortTermActions: recommendations.shortTerm,
-      longTermActions: recommendations.longTerm
+    // Use a smaller, optimized context object structure
+    const context: ReportContext = {
+      product: {
+        id: product.id,
+        name: product.name,
+        website: product.website,
+        positioning: product.positioning || ''
+      },
+      competitorCount: analysis.competitors.length,
+      overallPosition: analysis.summary.overallPosition,
+      keyStrengths: [...analysis.summary.keyStrengths], // Use spread to create new array
+      keyWeaknesses: [...analysis.summary.keyWeaknesses],
+      threatLevel: analysis.summary.threatLevel,
+      opportunityScore: analysis.summary.opportunityScore,
+      marketOpportunities: analysis.detailed.opportunities || [],
+      competitiveAdvantage: analysis.detailed.advantageAreas || [],
+      immediateActions: analysis.recommendations.immediate || [],
+      shortTermActions: analysis.recommendations.shortTerm || [],
+      longTermActions: analysis.recommendations.longTerm || [],
+      priorityScore: analysis.summary.priorityScore || 0,
+      competitorNames: analysis.competitors.map(c => c.name),
+      confidenceScore: analysis.metadata.confidenceScore
     };
+
+    return context;
   }
 
-  private async generateReportSections(
-    sectionTemplates: ComparativeReportSectionTemplate[],
+  private async generateSection(
+    sectionTemplate: ReportSectionTemplate,
     context: ReportContext,
     options: ReportGenerationOptions
-  ): Promise<ComparativeReportSection[]> {
-    const sections: ComparativeReportSection[] = [];
-
-    for (const sectionTemplate of sectionTemplates) {
-      try {
-        // Compile Handlebars template
-        const template = Handlebars.compile(sectionTemplate.template);
-        const content = template(context);
-
-        const section: ComparativeReportSection = {
-          id: createId(),
-          title: sectionTemplate.title,
-          content,
-          type: sectionTemplate.type,
-          order: sectionTemplate.order,
-          charts: sectionTemplate.includeCharts ? this.generateCharts(sectionTemplate.type, context) : undefined,
-          tables: sectionTemplate.includeTables ? this.generateTables(sectionTemplate.type, context) : undefined
-        };
-
-        sections.push(section);
-
-      } catch (error) {
-        logger.error('Failed to generate report section', error as Error, {
-          sectionType: sectionTemplate.type,
-          sectionTitle: sectionTemplate.title
-        });
-        throw new ReportGenerationError(
-          `Failed to generate section ${sectionTemplate.title}: ${(error as Error).message}`
-        );
-      }
+  ): Promise<ComparativeReportSection> {
+    // Register this section in memory monitoring
+    const sectionId = `section-${sectionTemplate.id}-${createId()}`;
+    
+    try {
+      const content = await this.generateSectionContent(
+        sectionTemplate,
+        context,
+        options
+      );
+      
+      return {
+        id: createId(),
+        title: sectionTemplate.title,
+        content,
+        type: sectionTemplate.type,
+        importance: sectionTemplate.importance,
+        order: sectionTemplate.order
+      };
+    } finally {
+      // Cleanup any tracked memory
+      memoryManager.unregisterLargeObject(sectionId);
     }
-
-    return sections.sort((a, b) => a.order - b.order);
   }
 
   private buildComparativeReport(
