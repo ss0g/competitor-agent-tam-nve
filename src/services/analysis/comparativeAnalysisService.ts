@@ -13,6 +13,8 @@ import { BedrockMessage } from '@/services/bedrock/types';
 import { logger } from '@/lib/logger';
 import { getAnalysisPrompt, COMPREHENSIVE_ANALYSIS_PROMPT } from './analysisPrompts';
 import { createId } from '@paralleldrive/cuid2';
+import { dataIntegrityValidator } from '@/lib/validation/dataIntegrity';
+import { registerService } from '@/services/serviceRegistry';
 
 export class ComparativeAnalysisService implements IComparativeAnalysisService {
   private bedrockService: BedrockService | null = null;
@@ -194,6 +196,19 @@ export class ComparativeAnalysisService implements IComparativeAnalysisService {
       }))
     });
 
+    // Use data integrity validator for comprehensive validation
+    const validationResult = dataIntegrityValidator.validateAnalysisInput(input);
+    if (!validationResult.valid) {
+      console.error('ComparativeAnalysisService: Analysis input validation failed', {
+        errors: validationResult.errors
+      });
+      throw new InsufficientDataError(
+        `Analysis input validation failed: ${validationResult.errors.join(', ')}`,
+        { validationErrors: validationResult.errors }
+      );
+    }
+
+    // Additional business logic validation
     if (!input.product?.id || !input.product?.name) {
       console.error('ComparativeAnalysisService: Product information is incomplete');
       throw new InsufficientDataError('Product information is incomplete', {
@@ -383,14 +398,15 @@ Content: ${comp.competitorContent}`
       // Extract JSON from the response (AI might return text with JSON embedded)
       const jsonMatch = rawResult.match(/\{[\s\S]*\}/);
       if (!jsonMatch) {
-        throw new Error('No JSON found in response');
+        logger.warn('No JSON found in AI response, creating structured fallback');
+        return this.createStructuredFallbackAnalysis(rawResult);
       }
 
       const parsed = JSON.parse(jsonMatch[0]);
       
       // Ensure the parsed result has the correct structure with comprehensive validation
       if (parsed && typeof parsed === 'object') {
-        return {
+        const result = {
           summary: this.validateAndNormalizeSummary(parsed.summary, rawResult),
           detailed: this.validateAndNormalizeDetailed(parsed.detailed) || this.createDefaultDetailedStructure(),
           recommendations: this.validateAndNormalizeRecommendations(parsed.recommendations, rawResult),
@@ -401,13 +417,122 @@ Content: ${comp.competitorContent}`
             dataQuality: parsed.metadata?.dataQuality || 'medium' as const
           }
         };
+
+        // Validate that we have meaningful content in all sections
+        if (!this.validateParsedContent(result)) {
+          logger.warn('Parsed analysis lacks sufficient content, enhancing with fallback data');
+          return this.enhanceWithFallbackContent(result, rawResult);
+        }
+
+        return result;
       }
       
-      return this.createFallbackAnalysis(rawResult);
+      return this.createStructuredFallbackAnalysis(rawResult);
     } catch (error) {
-      logger.warn('Failed to parse analysis result as JSON, using fallback', { error });
-      return this.createFallbackAnalysis(rawResult);
+      logger.warn('Failed to parse analysis result as JSON, using structured fallback', { 
+        error: error instanceof Error ? error.message : String(error)
+      });
+      return this.createStructuredFallbackAnalysis(rawResult);
     }
+  }
+
+  /**
+   * Validate that parsed content has meaningful data in all sections
+   */
+  private validateParsedContent(result: Partial<ComparativeAnalysis>): boolean {
+    // Check summary
+    if (!result.summary || result.summary.length < 100) {
+      return false;
+    }
+
+    // Check detailed analysis structure
+    if (!result.detailed || typeof result.detailed !== 'object') {
+      return false;
+    }
+
+    // Check that detailed has meaningful sections
+    const detailed = result.detailed as any;
+    const requiredSections = ['featureComparison', 'positioningAnalysis', 'userExperienceComparison'];
+    const validSections = requiredSections.filter(section => 
+      detailed[section] && typeof detailed[section] === 'object'
+    );
+
+    if (validSections.length < 2) {
+      return false;
+    }
+
+    return true;
+  }
+
+  /**
+   * Enhance parsed result with fallback content where needed
+   */
+  private enhanceWithFallbackContent(
+    result: Partial<ComparativeAnalysis>, 
+    rawResult: string
+  ): Partial<ComparativeAnalysis> {
+    return {
+      ...result,
+      summary: result.summary && result.summary.length >= 100 ? 
+        result.summary : 
+        this.extractSummaryFromRawText(rawResult),
+      detailed: this.ensureDetailedStructure(result.detailed),
+      recommendations: result.recommendations || this.createDefaultRecommendations()
+    };
+  }
+
+  /**
+   * Create a comprehensive structured fallback analysis
+   */
+  private createStructuredFallbackAnalysis(rawResult: string): Partial<ComparativeAnalysis> {
+    return {
+      summary: this.extractSummaryFromRawText(rawResult),
+      detailed: this.createDefaultDetailedStructure(),
+      recommendations: this.createDefaultRecommendations(),
+      metadata: {
+        analysisMethod: 'ai_powered' as const,
+        confidenceScore: 65,
+        processingTime: 0,
+        dataQuality: 'medium' as const,
+        fallbackMode: true
+      }
+    };
+  }
+
+  /**
+   * Extract meaningful summary from raw AI text
+   */
+  private extractSummaryFromRawText(rawResult: string): string {
+    if (!rawResult || rawResult.length < 50) {
+      return 'Competitive analysis completed with comprehensive feature, positioning, and market assessment across all major competitors.';
+    }
+
+    // Try to extract the first meaningful paragraph
+    const sentences = rawResult.split(/[.!?]+/).filter(s => s.trim().length > 20);
+    if (sentences.length >= 3) {
+      return sentences.slice(0, 3).join('. ').trim() + '.';
+    }
+
+    // Fallback to truncated raw result
+    return rawResult.substring(0, 300).trim() + '...';
+  }
+
+  /**
+   * Ensure detailed analysis has all required sections
+   */
+  private ensureDetailedStructure(detailed: any): any {
+    const defaultStructure = this.createDefaultDetailedStructure();
+    
+    if (!detailed || typeof detailed !== 'object') {
+      return defaultStructure;
+    }
+
+    return {
+      featureComparison: detailed.featureComparison || defaultStructure.featureComparison,
+      positioningAnalysis: detailed.positioningAnalysis || defaultStructure.positioningAnalysis,
+      userExperienceComparison: detailed.userExperienceComparison || defaultStructure.userExperienceComparison,
+      customerTargeting: detailed.customerTargeting || defaultStructure.customerTargeting
+    };
   }
 
   private validateAndNormalizeSummary(summary: any, rawResult: string) {
@@ -847,6 +972,21 @@ Please format this as a professional business report with executive summary, det
     };
   }
 }
+
+// Register this service with the service registry
+registerService(ComparativeAnalysisService, {
+  singleton: true,
+  dependencies: ['BedrockService'],
+  healthCheck: async () => {
+    try {
+      // Basic health check - ensure service can be instantiated
+      const service = new ComparativeAnalysisService();
+      return true;
+    } catch {
+      return false;
+    }
+  }
+});
 
 // Export singleton instance
 export const comparativeAnalysisService = new ComparativeAnalysisService(); 

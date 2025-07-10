@@ -10,6 +10,8 @@ import { ComprehensiveRequirementsCollector, ComprehensiveProjectRequirements } 
 import { logger, generateCorrelationId, trackBusinessEvent } from '@/lib/logger';
 import { productRepository } from '@/lib/repositories';
 import { getAutoReportService } from '@/services/autoReportGenerationService';
+import { dataIntegrityValidator } from '@/lib/validation/dataIntegrity';
+import { registerService } from '@/services/serviceRegistry';
 
 export class ConversationManager {
   private chatState: ChatState;
@@ -645,7 +647,7 @@ Now, what is the name of the product that you want to perform competitive analys
   }
 
   /**
-   * Phase 4.1: Comprehensive validation method
+   * Phase 4.1: Comprehensive validation method with data integrity validation
    */
   private async validateAllRequirements(
     requirements: ComprehensiveProjectRequirements
@@ -658,6 +660,33 @@ Now, what is the name of the product that you want to perform competitive analys
     const errors: ValidationError[] = [];
     const warnings: ValidationWarning[] = [];
     const suggestions: string[] = [];
+
+    // Use data integrity validator first
+    const dataValidationResult = dataIntegrityValidator.validateChatData(requirements);
+    if (!dataValidationResult.valid) {
+      // Convert validation errors to our format
+      dataValidationResult.errors.forEach(error => {
+        const [field, message] = error.split(': ');
+        errors.push({
+          field: field || 'unknown',
+          type: 'format',
+          message: message || error,
+          suggestion: `Please check the ${field || 'field'} format`
+        });
+      });
+    }
+
+    // Data quality assessment
+    const qualityAssessment = dataIntegrityValidator.validateDataQuality(requirements);
+    if (qualityAssessment.score < 70) {
+      warnings.push({
+        field: 'overall',
+        type: 'quality',
+        message: `Data quality score is ${qualityAssessment.score}%. Consider providing more detailed information.`,
+        suggestion: 'Add more detailed information to improve analysis quality'
+      });
+      suggestions.push(...qualityAssessment.recommendations);
+    }
 
     // Phase 4.1: Email format validation
     const emailValidation = this.validateEmailFormat(requirements.userEmail);
@@ -1139,11 +1168,19 @@ Now, what is the name of the product that you want to perform competitive analys
     requirements: ComprehensiveProjectRequirements,
     validation?: { warnings: ValidationWarning[]; suggestions: string[] }
   ): ChatResponse {
-    // Add null checks for collectedData
+    // Add null checks for collectedData with proper initialization
     const collectedData = requirements || {};
     
+    // Initialize chatState.collectedData if it doesn't exist
+    if (!this.chatState.collectedData) {
+      this.chatState.collectedData = {};
+    }
+    
     // *** FIX: Store the requirements in chat state BEFORE showing confirmation ***
-    this.chatState.collectedData = this.comprehensiveCollector.toChatState(collectedData as ComprehensiveProjectRequirements).collectedData;
+    const chatStateData = this.comprehensiveCollector.toChatState(collectedData as ComprehensiveProjectRequirements);
+    if (chatStateData.collectedData) {
+      this.chatState.collectedData = chatStateData.collectedData;
+    }
     
     let message = `🎯 **Ready to Create Your Competitive Analysis Project!**\n\n`;
     
@@ -2536,4 +2573,18 @@ What would you prefer?`,
       throw error;
     }
   }
-} 
+}
+
+// Register ConversationManager with the service registry
+registerService(ConversationManager, {
+  singleton: false, // Allow multiple instances for different conversations
+  dependencies: ['MarkdownReportGenerator', 'ComprehensiveRequirementsCollector'],
+  healthCheck: async () => {
+    try {
+      const manager = new ConversationManager();
+      return manager.getChatState() !== null;
+    } catch {
+      return false;
+    }
+  }
+}); 
