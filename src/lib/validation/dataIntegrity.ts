@@ -370,6 +370,106 @@ export class DataIntegrityValidator {
   private getNestedValue(obj: any, path: string): any {
     return path.split('.').reduce((current, key) => current?.[key], obj);
   }
+
+  /**
+   * Calculate data quality score based on completeness and richness
+   */
+  calculateDataQualityScore(data: any): number {
+    if (!data || typeof data !== 'object') {
+      return 0;
+    }
+
+    let score = 0;
+    let maxScore = 0;
+
+    // Product data quality
+    if (data.product) {
+      maxScore += 50;
+      const product = data.product;
+      
+      // Basic fields (20 points)
+      if (product.id) score += 5;
+      if (product.name && product.name.length > 5) score += 5;
+      if (product.website) score += 5;
+      if (product.projectId) score += 5;
+
+      // Rich content (30 points)
+      if (product.description && product.description.length > 50) score += 10;
+      if (product.industry) score += 5;
+      if (product.keyFeatures && product.keyFeatures.length > 0) score += 10;
+      if (product.targetAudience) score += 5;
+    }
+
+    // Competitor data quality
+    if (data.competitors) {
+      maxScore += 50;
+      const competitors = Array.isArray(data.competitors) ? data.competitors : [];
+      
+      if (competitors.length > 0) {
+        score += 10; // Has competitors
+        
+        const competitorScore = competitors.reduce((sum: number, comp: any) => {
+          let compScore = 0;
+          if (comp.id) compScore += 2;
+          if (comp.name && comp.name.length > 5) compScore += 3;
+          if (comp.website) compScore += 3;
+          if (comp.description && comp.description.length > 30) compScore += 2;
+          return sum + compScore;
+        }, 0);
+        
+        // Average competitor quality (max 40 points)
+        score += Math.min(40, (competitorScore / competitors.length) * 4);
+      }
+    }
+
+    return maxScore > 0 ? Math.round((score / maxScore) * 100) : 0;
+  }
+
+  /**
+   * Get recommendations for improving data quality
+   */
+  getDataQualityRecommendations(data: any): string[] {
+    const recommendations: string[] = [];
+
+    if (!data || typeof data !== 'object') {
+      recommendations.push('Provide valid data structure');
+      return recommendations;
+    }
+
+    // Product recommendations
+    if (data.product) {
+      const product = data.product;
+      
+      if (!product.description || product.description.length < 50) {
+        recommendations.push('Add more detailed product description');
+      }
+      if (!product.keyFeatures || product.keyFeatures.length === 0) {
+        recommendations.push('Specify key product features');
+      }
+      if (!product.targetAudience) {
+        recommendations.push('Define target audience');
+      }
+      if (!product.industry) {
+        recommendations.push('Specify industry category');
+      }
+    }
+
+    // Competitor recommendations
+    if (!data.competitors || data.competitors.length === 0) {
+      recommendations.push('Add competitor information for comparative analysis');
+    } else {
+      const competitors = data.competitors;
+      const incompleteCompetitors = competitors.filter((comp: any) => 
+        !comp.description || comp.description.length < 30
+      );
+      
+      if (incompleteCompetitors.length > 0) {
+        recommendations.push('Add more detailed descriptions for competitors');
+      }
+    }
+
+    return recommendations;
+  }
 }
 
 // Export singleton instance

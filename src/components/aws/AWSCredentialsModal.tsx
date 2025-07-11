@@ -68,8 +68,8 @@ export function AWSCredentialsModal({
 
     if (!formData.accessKeyId.trim()) {
       newErrors.accessKeyId = 'Access Key ID is required';
-    } else if (!/^[A-Z0-9]{16,32}$/.test(formData.accessKeyId)) {
-      newErrors.accessKeyId = 'Access Key ID format is invalid';
+    } else if (!/^(AKIA|ASIA|AROA)[A-Z0-9]{16}$/.test(formData.accessKeyId)) {
+      newErrors.accessKeyId = 'Access Key ID must start with AKIA, ASIA, or AROA and be 20 characters total';
     }
 
     if (!formData.secretAccessKey.trim()) {

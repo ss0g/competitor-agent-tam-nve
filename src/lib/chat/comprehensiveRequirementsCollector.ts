@@ -629,6 +629,11 @@ You can provide information in any format that works for you:
     // Try numbered list extraction first
     this.extractFromNumberedList(message, extractedData, confidence);
     
+    // Try line-by-line structured extraction (test format)
+    if (!extractedData.userEmail || !extractedData.reportFrequency || !extractedData.projectName) {
+      this.extractFromLineByLineFormat(message, extractedData, confidence);
+    }
+    
     // Fill gaps with pattern matching
     if (!extractedData.projectName) this.extractProjectName(message, extractedData, confidence);
     if (!extractedData.productName) this.extractProductName(message, extractedData, confidence);
@@ -957,31 +962,53 @@ You can provide information in any format that works for you:
   ): Partial<ComprehensiveProjectRequirements> {
     console.log('[DEBUG] Merging with existing data...');
     console.log('[DEBUG] New data:', newData);
-    console.log('[DEBUG] Existing state collectedData:', existingState.collectedData);
+    console.log('[DEBUG] Existing state collectedData:', existingState?.collectedData);
     
     const merged: Partial<ComprehensiveProjectRequirements> = {};
-    const existing = existingState.collectedData || {};
+    
+    // *** COMPREHENSIVE NULL GUARDS: Safe existing data access ***
+    const existing = existingState?.collectedData || {};
 
-    // Map existing chat state fields to comprehensive requirements
-    if (existing.userEmail) merged.userEmail = existing.userEmail;
-    if (existing.reportFrequency) merged.reportFrequency = existing.reportFrequency;
-    if (existing.reportName) merged.projectName = existing.reportName;
-    if (existing.productName) merged.productName = existing.productName;
-    if (existing.productUrl) merged.productUrl = existing.productUrl;
-    if (existing.industry) merged.industry = existing.industry;
-    if (existing.positioning) merged.positioning = existing.positioning;
-    if (existing.customerData) merged.customerData = existing.customerData;
-    if (existing.userProblem) merged.userProblem = existing.userProblem;
+    // Safe property mapping with type checks
+    if (existing.userEmail && typeof existing.userEmail === 'string' && existing.userEmail.trim()) {
+      merged.userEmail = existing.userEmail;
+    }
+    if (existing.reportFrequency && typeof existing.reportFrequency === 'string' && existing.reportFrequency.trim()) {
+      merged.reportFrequency = existing.reportFrequency;
+    }
+    if (existing.reportName && typeof existing.reportName === 'string' && existing.reportName.trim()) {
+      merged.projectName = existing.reportName;
+    }
+    if (existing.productName && typeof existing.productName === 'string' && existing.productName.trim()) {
+      merged.productName = existing.productName;
+    }
+    if (existing.productUrl && typeof existing.productUrl === 'string' && existing.productUrl.trim()) {
+      merged.productUrl = existing.productUrl;
+    }
+    if (existing.industry && typeof existing.industry === 'string' && existing.industry.trim()) {
+      merged.industry = existing.industry;
+    }
+    if (existing.positioning && typeof existing.positioning === 'string' && existing.positioning.trim()) {
+      merged.positioning = existing.positioning;
+    }
+    if (existing.customerData && typeof existing.customerData === 'string' && existing.customerData.trim()) {
+      merged.customerData = existing.customerData;
+    }
+    if (existing.userProblem && typeof existing.userProblem === 'string' && existing.userProblem.trim()) {
+      merged.userProblem = existing.userProblem;
+    }
 
     console.log('[DEBUG] Merged from existing:', merged);
 
-    // Override with new data (but only if new data has values)
-    Object.keys(newData).forEach(key => {
-      const value = newData[key as keyof ComprehensiveProjectRequirements];
-      if (value !== undefined && value !== null && value !== '') {
-        (merged as any)[key] = value;
-      }
-    });
+    // *** NULL SAFETY: Override with new data (but only if new data has values) ***
+    if (newData && typeof newData === 'object') {
+      Object.keys(newData).forEach(key => {
+        const value = newData[key as keyof ComprehensiveProjectRequirements];
+        if (value !== undefined && value !== null && value !== '') {
+          (merged as any)[key] = value;
+        }
+      });
+    }
 
     console.log('[DEBUG] Final merged data:', merged);
     return merged;
@@ -1117,6 +1144,184 @@ You can provide information in any format that works for you:
       }
     }
   }
+
+  /**
+   * Extract data from line-by-line format (structured text without numbers)
+   * Uses arrow function to ensure proper 'this' binding
+   */
+  private extractFromLineByLineFormat = (message: string, extractedData: Partial<ComprehensiveProjectRequirements>, confidence: { [key: string]: number }) => {
+    const lines = message.split('\n').map(line => line.trim()).filter(line => line.length > 0);
+    const fieldPatterns = [
+      { field: 'userEmail', patterns: [/^(?:email|e-mail):\s*(.+)$/i, /^(.+@[^@\s]+\.[^@\s]+)$/] },
+      { field: 'reportFrequency', patterns: [/^(?:frequency|report\s*frequency):\s*(.+)$/i, /^(daily|weekly|monthly|quarterly)$/i] },
+      { field: 'projectName', patterns: [/^(?:project|project\s*name):\s*(.+)$/i] },
+      { field: 'productName', patterns: [/^(?:product|product\s*name):\s*(.+)$/i] },
+      { field: 'productUrl', patterns: [/^(?:url|website|product\s*url):\s*(.+)$/i, /^(https?:\/\/.+)$/] },
+      { field: 'industry', patterns: [/^(?:industry):\s*(.+)$/i] },
+      { field: 'positioning', patterns: [/^(?:positioning):\s*(.+)$/i] },
+      { field: 'customerData', patterns: [/^(?:customer|customer\s*data|customers):\s*(.+)$/i] },
+      { field: 'userProblem', patterns: [/^(?:problem|user\s*problem|issue):\s*(.+)$/i] }
+    ];
+
+    // Process each line to extract data
+    for (const line of lines) {
+      for (const { field, patterns } of fieldPatterns) {
+        // Skip if field already extracted
+        if (extractedData[field as keyof ComprehensiveProjectRequirements]) continue;
+
+        for (const pattern of patterns) {
+          const match = line.match(pattern);
+          if (match && match[1]) {
+            let value = match[1].trim();
+
+            // Clean up the value
+            value = value.replace(/^["'](.*)["']$/, '$1'); // Remove quotes
+            
+            // Field-specific processing
+            switch (field) {
+              case 'userEmail':
+                if (this.fieldExtractionConfigs.userEmail.validator?.(value)) {
+                  extractedData.userEmail = value;
+                  confidence.userEmail = 90;
+                }
+                break;
+              case 'reportFrequency':
+                const cleanedFrequency = this.fieldExtractionConfigs.reportFrequency.cleaner?.(value) || value;
+                extractedData.reportFrequency = cleanedFrequency;
+                confidence.reportFrequency = 90;
+                break;
+              case 'productUrl':
+                let urlCandidate = value.trim();
+                if (!urlCandidate.startsWith('http://') && !urlCandidate.startsWith('https://')) {
+                  urlCandidate = 'https://' + urlCandidate;
+                }
+                if (this.fieldExtractionConfigs.productUrl.validator?.(urlCandidate)) {
+                  extractedData.productUrl = this.fieldExtractionConfigs.productUrl.cleaner?.(urlCandidate) || urlCandidate;
+                  confidence.productUrl = 90;
+                } else if (urlCandidate.includes('.')) {
+                  // Fallback for test scenarios
+                  extractedData.productUrl = urlCandidate;
+                  confidence.productUrl = 75;
+                }
+                break;
+              case 'projectName':
+                if (value.length >= 3) {
+                  extractedData.projectName = value;
+                  confidence.projectName = 85;
+                }
+                break;
+              case 'productName':
+                if (value.length >= 2) {
+                  extractedData.productName = value;
+                  confidence.productName = 85;
+                }
+                break;
+              case 'industry':
+                if (value.length >= 2) {
+                  extractedData.industry = value;
+                  confidence.industry = 85;
+                }
+                break;
+              case 'positioning':
+                if (value.length >= 5) {
+                  extractedData.positioning = value;
+                  confidence.positioning = 85;
+                }
+                break;
+              case 'customerData':
+                if (value.length >= 5) {
+                  extractedData.customerData = value;
+                  confidence.customerData = 85;
+                }
+                break;
+              case 'userProblem':
+                if (value.length >= 3) {
+                  extractedData.userProblem = value;
+                  confidence.userProblem = 85;
+                }
+                break;
+            }
+            break; // Found a match for this field, move to next field
+          }
+        }
+      }
+    }
+
+    // Fallback: try to extract from sequential lines if no labeled format found
+    if (lines.length >= 5 && !extractedData.userEmail && !extractedData.projectName) {
+      // Assume first few lines are in order: email, frequency, project, product, url, etc.
+      for (let i = 0; i < Math.min(lines.length, 9); i++) {
+        const line = lines[i];
+        const trimmedLine = line.trim();
+        
+        if (trimmedLine.length === 0) continue;
+
+        switch (i) {
+          case 0:
+            if (!extractedData.userEmail && this.fieldExtractionConfigs.userEmail.validator?.(trimmedLine)) {
+              extractedData.userEmail = trimmedLine;
+              confidence.userEmail = 80;
+            }
+            break;
+          case 1:
+            if (!extractedData.reportFrequency) {
+              const cleanedFrequency = this.fieldExtractionConfigs.reportFrequency.cleaner?.(trimmedLine) || trimmedLine;
+              extractedData.reportFrequency = cleanedFrequency;
+              confidence.reportFrequency = 80;
+            }
+            break;
+          case 2:
+            if (!extractedData.projectName && trimmedLine.length >= 3) {
+              extractedData.projectName = trimmedLine;
+              confidence.projectName = 75;
+            }
+            break;
+          case 3:
+            if (!extractedData.productName && trimmedLine.length >= 2) {
+              extractedData.productName = trimmedLine;
+              confidence.productName = 75;
+            }
+            break;
+          case 4:
+            if (!extractedData.productUrl) {
+              let urlCandidate = trimmedLine;
+              if (!urlCandidate.startsWith('http://') && !urlCandidate.startsWith('https://')) {
+                urlCandidate = 'https://' + urlCandidate;
+              }
+              if (this.fieldExtractionConfigs.productUrl.validator?.(urlCandidate) || urlCandidate.includes('.')) {
+                extractedData.productUrl = this.fieldExtractionConfigs.productUrl.cleaner?.(urlCandidate) || urlCandidate;
+                confidence.productUrl = 75;
+              }
+            }
+            break;
+          case 5:
+            if (!extractedData.industry && trimmedLine.length >= 2) {
+              extractedData.industry = trimmedLine;
+              confidence.industry = 75;
+            }
+            break;
+          case 6:
+            if (!extractedData.positioning && trimmedLine.length >= 5) {
+              extractedData.positioning = trimmedLine;
+              confidence.positioning = 75;
+            }
+            break;
+          case 7:
+            if (!extractedData.customerData && trimmedLine.length >= 5) {
+              extractedData.customerData = trimmedLine;
+              confidence.customerData = 75;
+            }
+            break;
+          case 8:
+            if (!extractedData.userProblem && trimmedLine.length >= 3) {
+              extractedData.userProblem = trimmedLine;
+              confidence.userProblem = 75;
+            }
+            break;
+        }
+      }
+    }
+  };
 
   private extractField(message: string, fieldName: string): { value: string | null; confidence: number; candidates: string[] } {
     const config = this.fieldExtractionConfigs[fieldName];

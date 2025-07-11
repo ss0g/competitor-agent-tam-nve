@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { Navigation } from "@/components/Navigation";
 import AuthProvider from "./providers/AuthProvider";
@@ -7,12 +7,17 @@ import Script from "next/script";
 export const metadata: Metadata = {
   title: "Competitor Research Agent",
   description: "AI-powered competitor research and analysis",
-  viewport: "width=device-width, initial-scale=1.0, maximum-scale=1.0",
-  themeColor: "#067A46",
   manifest: "/manifest.json",
   icons: {
     icon: "/favicon.ico"
   }
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1.0,
+  maximumScale: 1.0,
+  themeColor: "#067A46",
 };
 
 export default function RootLayout({

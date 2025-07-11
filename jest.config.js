@@ -13,23 +13,20 @@ const customJestConfig = {
   // Module resolution - Fix 1.1: Enhanced ES module mappings
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
-    '^cheerio$': 'jest-mock',
-    '^puppeteer$': 'jest-mock',
-    // ES Module mappings for problematic packages
-    '^uuid$': 'uuid',
-    '^p-limit$': 'p-limit',
-    '^msgpackr$': 'msgpackr',
-    '^yocto-queue$': 'yocto-queue',
+    '^cheerio$': '<rootDir>/src/__tests__/mocks/cheerio.js',
+    '^puppeteer$': '<rootDir>/src/__tests__/mocks/puppeteer.js',
+    '^redis$': '<rootDir>/src/__tests__/mocks/redis.js',
+    // ES Module mappings for problematic packages - create simple mocks
+    '^p-limit$': '<rootDir>/src/__tests__/mocks/p-limit.js',
+    '^uuid$': require.resolve('uuid'),
+    '^msgpackr$': require.resolve('msgpackr'),
+    '^yocto-queue$': require.resolve('yocto-queue'),
   },
   
   // Performance optimizations
   maxWorkers: '50%',
   testTimeout: 30000,
   cache: true,
-  
-  // Phase 4.1 Fix: Add test retry options for flaky tests
-  // Note: Jest's built-in retry is only available in Jest 27+
-  // We're using our custom retry implementation instead
   
   // Test patterns
   testMatch: [
@@ -49,28 +46,6 @@ const customJestConfig = {
   transformIgnorePatterns: [
     'node_modules/(?!(p-limit|msgpackr|uuid|yocto-queue|cheerio|launchdarkly-node-server-sdk|@\\w+)/)',
   ],
-  
-  // ES Module support - Fix 1.1: Complete configuration
-  extensionsToTreatAsEsm: ['.ts', '.tsx'],
-  preset: 'ts-jest/presets/default-esm',
-  globals: {
-    'ts-jest': {
-      useESM: true,
-      tsconfig: {
-        module: 'esnext'
-      }
-    }
-  },
-  
-  // Fix 1.1: Additional ES module support
-  transform: {
-    '^.+\\.(ts|tsx)$': ['ts-jest', {
-      useESM: true
-    }]
-  },
-  
-  // Enable dynamic imports and other ES features
-  resolver: undefined,
   
   // Global setup/teardown
   globalSetup: '<rootDir>/src/__tests__/setup/globalSetup.js',

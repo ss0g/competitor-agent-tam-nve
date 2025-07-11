@@ -59,6 +59,7 @@ export class AWSCredentialService {
           encryptedAccessKey: encryptedData.encryptedAccessKey,
           encryptedSecretKey: encryptedData.encryptedSecretKey,
           encryptedSessionToken: encryptedData.encryptedSessionToken,
+          salt: encryptedData.salt,
           awsRegion: credentials.awsRegion,
           updatedAt: new Date(),
           isValid: false, // Mark as invalid until validated
@@ -70,6 +71,7 @@ export class AWSCredentialService {
           encryptedAccessKey: encryptedData.encryptedAccessKey,
           encryptedSecretKey: encryptedData.encryptedSecretKey,
           encryptedSessionToken: encryptedData.encryptedSessionToken,
+          salt: encryptedData.salt,
           awsRegion: credentials.awsRegion,
           isValid: false,
           validationError: null,
@@ -145,7 +147,7 @@ export class AWSCredentialService {
         encryptedAccessKey: credentials.encryptedAccessKey,
         encryptedSecretKey: credentials.encryptedSecretKey,
         encryptedSessionToken: credentials.encryptedSessionToken || undefined,
-        salt: credentials.encryptedAccessKey.split(':')[0] // Use first part as salt reference
+        salt: credentials.salt
       });
 
       return {

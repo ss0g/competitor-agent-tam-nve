@@ -15,13 +15,20 @@ export interface ServiceConfig {
   healthCheck?: () => Promise<boolean>;
 }
 
-// Service instance metadata
+// Service metadata interface
 export interface ServiceMetadata {
   instanceCount: number;
   lastAccessed: Date;
   isHealthy: boolean;
   initializationTime: number;
   errors: string[];
+}
+
+// Service health status enum
+export enum ServiceHealthStatus {
+  HEALTHY = 'healthy',
+  UNHEALTHY = 'unhealthy',
+  UNKNOWN = 'unknown'
 }
 
 // Service constructor type
@@ -38,11 +45,15 @@ export class ServiceRegistry {
   private serviceMetadata = new Map<string, ServiceMetadata>();
   private initializationPromises = new Map<string, Promise<any>>();
   private dependencyGraph = new Map<string, Set<string>>();
+  private serviceClasses = new Map<string, ServiceConstructor<any>>();
 
   private constructor() {
     logger.info('Service Registry initialized');
   }
 
+  /**
+   * Get singleton instance
+   */
   public static getInstance(): ServiceRegistry {
     if (!ServiceRegistry.instance) {
       ServiceRegistry.instance = new ServiceRegistry();
@@ -55,15 +66,46 @@ export class ServiceRegistry {
    */
   registerService<T>(
     serviceClass: ServiceConstructor<T>,
-    config: ServiceConfig = {}
-  ): void {
-    const serviceName = serviceClass.name;
+    config?: ServiceConfig
+  ): boolean;
+  registerService<T>(
+    serviceName: string,
+    serviceClass: ServiceConstructor<T>,
+    config?: ServiceConfig
+  ): boolean;
+  registerService<T>(
+    serviceNameOrClass: string | ServiceConstructor<T>,
+    serviceClassOrConfig?: ServiceConstructor<T> | ServiceConfig,
+    configOrUndefined?: ServiceConfig
+  ): boolean {
+    let serviceName: string;
+    let serviceClass: ServiceConstructor<T>;
+    let config: ServiceConfig;
+
+    if (typeof serviceNameOrClass === 'string') {
+      serviceName = serviceNameOrClass;
+      serviceClass = serviceClassOrConfig as ServiceConstructor<T>;
+      config = configOrUndefined || {};
+    } else {
+      serviceName = serviceNameOrClass.name;
+      serviceClass = serviceNameOrClass;
+      config = (serviceClassOrConfig as ServiceConfig) || {};
+    }
+
+    // Check if service is already registered
+    if (this.serviceConfigs.has(serviceName)) {
+      logger.warn(`Service ${serviceName} is already registered`, { serviceName });
+      return false;
+    }
     
     // Validate service configuration
     const validationResult = this.validateServiceConfig(serviceName, config);
     if (!validationResult.valid) {
       throw new Error(`Invalid service configuration for ${serviceName}: ${validationResult.errors.join(', ')}`);
     }
+
+    // Store service class
+    this.serviceClasses.set(serviceName, serviceClass);
 
     this.serviceConfigs.set(serviceName, {
       singleton: true,
@@ -87,13 +129,167 @@ export class ServiceRegistry {
     });
 
     logger.info(`Service ${serviceName} registered`, { config });
+    return true;
+  }
+
+  /**
+   * Check if a service is registered
+   */
+  isServiceRegistered(serviceName: string): boolean {
+    if (!serviceName || typeof serviceName !== 'string') {
+      return false;
+    }
+    return this.serviceConfigs.has(serviceName);
+  }
+
+  /**
+   * Get service dependencies
+   */
+  getServiceDependencies(serviceName: string): string[] {
+    const dependencies = this.dependencyGraph.get(serviceName);
+    return dependencies ? Array.from(dependencies) : [];
+  }
+
+  /**
+   * Get service configuration
+   */
+  getServiceConfig(serviceName: string): ServiceConfig | undefined {
+    return this.serviceConfigs.get(serviceName);
+  }
+
+  /**
+   * Get service metadata
+   */
+  getServiceMetadata(serviceName: string): ServiceMetadata | undefined {
+    return this.serviceMetadata.get(serviceName);
+  }
+
+  /**
+   * Get all registered service names
+   */
+  getRegisteredServices(): string[] {
+    return Array.from(this.serviceConfigs.keys());
+  }
+
+  /**
+   * Detect circular dependencies
+   */
+  detectCircularDependencies(): boolean {
+    const visited = new Set<string>();
+    const recursionStack = new Set<string>();
+
+    for (const serviceName of this.dependencyGraph.keys()) {
+      if (this.hasCircularDependency(serviceName, visited, recursionStack)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private hasCircularDependency(
+    serviceName: string,
+    visited: Set<string>,
+    recursionStack: Set<string>
+  ): boolean {
+    if (recursionStack.has(serviceName)) {
+      return true;
+    }
+    if (visited.has(serviceName)) {
+      return false;
+    }
+
+    visited.add(serviceName);
+    recursionStack.add(serviceName);
+
+    const dependencies = this.dependencyGraph.get(serviceName);
+    if (dependencies) {
+      for (const dep of dependencies) {
+        if (this.hasCircularDependency(dep, visited, recursionStack)) {
+          return true;
+        }
+      }
+    }
+
+    recursionStack.delete(serviceName);
+    return false;
+  }
+
+  /**
+   * Check service health
+   */
+  async checkServiceHealth(serviceName: string): Promise<ServiceHealthStatus> {
+    const config = this.serviceConfigs.get(serviceName);
+    const metadata = this.serviceMetadata.get(serviceName);
+
+    if (!config || !metadata) {
+      return ServiceHealthStatus.UNKNOWN;
+    }
+
+    if (config.healthCheck) {
+      try {
+        const isHealthy = await config.healthCheck();
+        metadata.isHealthy = isHealthy;
+        return isHealthy ? ServiceHealthStatus.HEALTHY : ServiceHealthStatus.UNHEALTHY;
+      } catch (error) {
+        metadata.isHealthy = false;
+        this.recordServiceError(serviceName, error as Error);
+        return ServiceHealthStatus.UNHEALTHY;
+      }
+    }
+
+    return metadata.isHealthy ? ServiceHealthStatus.HEALTHY : ServiceHealthStatus.UNHEALTHY;
+  }
+
+  /**
+   * Perform system-wide health check
+   */
+  async performSystemHealthCheck(): Promise<{
+    overall: ServiceHealthStatus;
+    services: Record<string, ServiceHealthStatus>;
+  }> {
+    const results: Record<string, ServiceHealthStatus> = {};
+    let healthyCount = 0;
+    let totalCount = 0;
+
+    for (const serviceName of this.serviceConfigs.keys()) {
+      const status = await this.checkServiceHealth(serviceName);
+      results[serviceName] = status;
+      totalCount++;
+      if (status === ServiceHealthStatus.HEALTHY) {
+        healthyCount++;
+      }
+    }
+
+    const overall = totalCount === 0 
+      ? ServiceHealthStatus.UNKNOWN
+      : healthyCount === totalCount 
+        ? ServiceHealthStatus.HEALTHY 
+        : ServiceHealthStatus.UNHEALTHY;
+
+    return { overall, services: results };
   }
 
   /**
    * Get service instance with dependency resolution
    */
-  async getService<T>(serviceClass: ServiceConstructor<T>): Promise<T> {
-    const serviceName = serviceClass.name;
+  async getService<T>(serviceClass: ServiceConstructor<T>): Promise<T>;
+  async getService<T>(serviceName: string): Promise<T>;
+  async getService<T>(serviceNameOrClass: string | ServiceConstructor<T>): Promise<T> {
+    let serviceName: string;
+    let serviceClass: ServiceConstructor<T>;
+
+    if (typeof serviceNameOrClass === 'string') {
+      serviceName = serviceNameOrClass;
+      // Find the service class from stored registrations
+      if (!this.serviceClasses.has(serviceName)) {
+        throw new Error(`Service ${serviceName} is not registered`);
+      }
+      serviceClass = this.serviceClasses.get(serviceName)!;
+    } else {
+      serviceName = serviceNameOrClass.name;
+      serviceClass = serviceNameOrClass;
+    }
+
     const config = this.serviceConfigs.get(serviceName) || { singleton: true };
 
     // Handle singleton services
@@ -247,7 +443,7 @@ export class ServiceRegistry {
       logger.debug(`Health check for ${serviceName}: ${isHealthy ? 'HEALTHY' : 'UNHEALTHY'}`);
       return isHealthy;
     } catch (error) {
-      logger.warn(`Health check failed for ${serviceName}`, error as Error);
+              logger.warn(`Health check failed for ${serviceName}`, { error: error instanceof Error ? error.message : String(error) });
       return false;
     }
   }
@@ -349,13 +545,11 @@ export class ServiceRegistry {
    */
   clearAll(): void {
     this.services.clear();
+    this.serviceConfigs.clear();
+    this.serviceMetadata.clear();
     this.initializationPromises.clear();
-    
-    for (const [serviceName, metadata] of this.serviceMetadata) {
-      metadata.instanceCount = 0;
-      metadata.isHealthy = true;
-      metadata.errors = [];
-    }
+    this.dependencyGraph.clear();
+    this.serviceClasses.clear();
     
     logger.info('All services cleared from registry');
   }
@@ -411,14 +605,42 @@ export class ServiceRegistry {
 export const serviceRegistry = ServiceRegistry.getInstance();
 
 // Convenience function for getting services
-export async function getService<T>(serviceClass: ServiceConstructor<T>): Promise<T> {
-  return serviceRegistry.getService(serviceClass);
+export async function getService<T>(serviceClass: ServiceConstructor<T>): Promise<T>;
+export async function getService<T>(serviceName: string): Promise<T>;
+export async function getService<T>(serviceNameOrClass: string | ServiceConstructor<T>): Promise<T> {
+  return serviceRegistry.getService(serviceNameOrClass as any);
 }
 
 // Convenience function for registering services
 export function registerService<T>(
   serviceClass: ServiceConstructor<T>,
   config?: ServiceConfig
-): void {
-  serviceRegistry.registerService(serviceClass, config);
+): boolean;
+export function registerService<T>(
+  serviceName: string,
+  serviceClass: ServiceConstructor<T>,
+  config?: ServiceConfig
+): boolean;
+export function registerService<T>(
+  serviceNameOrClass: string | ServiceConstructor<T>,
+  serviceClassOrConfig?: ServiceConstructor<T> | ServiceConfig,
+  configOrUndefined?: ServiceConfig
+): boolean {
+  if (typeof serviceNameOrClass === 'string') {
+    return serviceRegistry.registerService(
+      serviceNameOrClass,
+      serviceClassOrConfig as ServiceConstructor<T>,
+      configOrUndefined
+    );
+  } else {
+    return serviceRegistry.registerService(
+      serviceNameOrClass,
+      serviceClassOrConfig as ServiceConfig
+    );
+  }
+}
+
+// Clear service registry function for testing
+export function clearServiceRegistry(): void {
+  serviceRegistry.clearAll();
 } 

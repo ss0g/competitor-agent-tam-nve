@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
@@ -162,7 +162,7 @@ model ReportSchedule {
   timeframe       Int
   lastRun         DateTime?
   nextRun         DateTime
-  recipients      String[]
+  recipients      Json
   status          ReportScheduleStatus    @default(ACTIVE)
   notifyOnChanges Boolean                 @default(false)
   createdBy       String?
@@ -184,7 +184,7 @@ model Project {
   startDate         DateTime                 @default(now())
   endDate           DateTime?
   parameters        Json
-  tags              String[]
+  tags              Json
   createdAt         DateTime                 @default(now())
   updatedAt         DateTime                 @updatedAt
   scrapingFrequency ReportScheduleFrequency? @default(WEEKLY)
@@ -317,6 +317,7 @@ model AWSCredentials {
   encryptedAccessKey     String
   encryptedSecretKey     String
   encryptedSessionToken  String?
+  salt                   String
   awsRegion              String
   createdAt              DateTime @default(now())
   updatedAt              DateTime @updatedAt

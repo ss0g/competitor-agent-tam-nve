@@ -12,23 +12,74 @@ jest.mock('@/lib/logger', () => ({
   },
 }));
 
+// Fix P0.4: Complete Mock Configurations - Add all required Prisma methods
 jest.mock('@/lib/prisma', () => ({
   __esModule: true,
   default: {
     competitor: {
       findUnique: jest.fn(),
+      findMany: jest.fn(),
+      findFirst: jest.fn(),
+      create: jest.fn(),
+      update: jest.fn(),
+      delete: jest.fn(),
+      upsert: jest.fn(),
+      count: jest.fn(),
+      aggregate: jest.fn(),
     },
     competitorSnapshot: {
+      findUnique: jest.fn(),
       findMany: jest.fn(),
+      findFirst: jest.fn(),
+      create: jest.fn(),
+      update: jest.fn(),
+      delete: jest.fn(),
+      upsert: jest.fn(),
+      count: jest.fn(),
     },
+    project: {
+      findUnique: jest.fn(),
+      findMany: jest.fn(),
+      create: jest.fn(),
+      update: jest.fn(),
+      delete: jest.fn(),
+    },
+    $connect: jest.fn().mockResolvedValue(undefined),
+    $disconnect: jest.fn().mockResolvedValue(undefined),
+    $transaction: jest.fn(),
   },
   prisma: {
     competitor: {
       findUnique: jest.fn(),
+      findMany: jest.fn(),
+      findFirst: jest.fn(),
+      create: jest.fn(),
+      update: jest.fn(),
+      delete: jest.fn(),
+      upsert: jest.fn(),
+      count: jest.fn(),
+      aggregate: jest.fn(),
     },
     competitorSnapshot: {
+      findUnique: jest.fn(),
       findMany: jest.fn(),
+      findFirst: jest.fn(),
+      create: jest.fn(),
+      update: jest.fn(),
+      delete: jest.fn(),
+      upsert: jest.fn(),
+      count: jest.fn(),
     },
+    project: {
+      findUnique: jest.fn(),
+      findMany: jest.fn(),
+      create: jest.fn(),
+      update: jest.fn(),
+             delete: jest.fn(),
+     },
+     $connect: jest.fn().mockResolvedValue(undefined),
+     $disconnect: jest.fn().mockResolvedValue(undefined),
+    $transaction: jest.fn(),
   },
 }));
 

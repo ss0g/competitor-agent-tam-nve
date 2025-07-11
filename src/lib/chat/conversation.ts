@@ -468,8 +468,25 @@ Now, what is the name of the product that you want to perform competitive analys
       suggestions
     );
     
-    // Store partial data for next iteration
-    this.chatState.collectedData = this.comprehensiveCollector.toChatState(existingData as ComprehensiveProjectRequirements).collectedData;
+    // *** COMPREHENSIVE NULL GUARDS: Store partial data for next iteration ***
+    try {
+      const chatStateData = this.comprehensiveCollector.toChatState(existingData as ComprehensiveProjectRequirements);
+      if (chatStateData?.collectedData) {
+        if (!this.chatState.collectedData) {
+          this.chatState.collectedData = {};
+        }
+        this.chatState.collectedData = {
+          ...this.chatState.collectedData,
+          ...chatStateData.collectedData
+        };
+      }
+    } catch (error) {
+      // Fallback: ensure we have some state initialized
+      console.warn('[SAFETY] Failed to convert data to chat state, maintaining existing state:', error);
+      if (!this.chatState.collectedData) {
+        this.chatState.collectedData = {};
+      }
+    }
     
     return {
       message,
@@ -1168,37 +1185,53 @@ Now, what is the name of the product that you want to perform competitive analys
     requirements: ComprehensiveProjectRequirements,
     validation?: { warnings: ValidationWarning[]; suggestions: string[] }
   ): ChatResponse {
-    // Add null checks for collectedData with proper initialization
-    const collectedData = requirements || {};
+    // *** COMPREHENSIVE NULL GUARDS: Add safe initialization and access ***
+    // 1. Safe requirements initialization - ensure we have a valid object
+    const collectedData = requirements || {} as ComprehensiveProjectRequirements;
     
-    // Initialize chatState.collectedData if it doesn't exist
+    // 2. Initialize chatState.collectedData if it doesn't exist (safe initialization)
     if (!this.chatState.collectedData) {
       this.chatState.collectedData = {};
     }
     
-    // *** FIX: Store the requirements in chat state BEFORE showing confirmation ***
-    const chatStateData = this.comprehensiveCollector.toChatState(collectedData as ComprehensiveProjectRequirements);
-    if (chatStateData.collectedData) {
-      this.chatState.collectedData = chatStateData.collectedData;
+    // 3. *** FIX: Safe toChatState conversion with null guards ***
+    try {
+      const chatStateData = this.comprehensiveCollector.toChatState(collectedData);
+      
+      // Add comprehensive null checking for the returned data
+      if (chatStateData && chatStateData.collectedData && typeof chatStateData.collectedData === 'object') {
+        // Safely merge the data with existing state
+        this.chatState.collectedData = {
+          ...this.chatState.collectedData,
+          ...chatStateData.collectedData
+        };
+      }
+    } catch (error) {
+      // If toChatState fails, ensure we still have a safe state
+      console.warn('[SAFETY] toChatState conversion failed, maintaining existing state:', error);
+      // Initialize empty object if needed
+      if (!this.chatState.collectedData) {
+        this.chatState.collectedData = {};
+      }
     }
     
     let message = `🎯 **Ready to Create Your Competitive Analysis Project!**\n\n`;
     
     message += `Please review all the information below and confirm to proceed:\n\n`;
 
-    // Phase 4.2: Contact & Project Information Section
+    // Phase 4.2: Contact & Project Information Section - with null guards
     message += `📧 **CONTACT & PROJECT SETUP**\n`;
     message += `• **Email Address:** ${collectedData.userEmail || 'Not provided'}\n`;
     message += `• **Report Frequency:** ${this.formatReportFrequency(collectedData.reportFrequency || 'Weekly')}\n`;
     message += `• **Project Name:** "${collectedData.projectName || 'Untitled Project'}"\n\n`;
 
-    // Phase 4.2: Product Information Section
+    // Phase 4.2: Product Information Section - with null guards
     message += `🎯 **PRODUCT INFORMATION**\n`;
     message += `• **Product Name:** ${collectedData.productName || 'Not provided'}\n`;
     message += `• **Product URL:** ${collectedData.productUrl || 'Not provided'}\n`;
     message += `• **Industry:** ${collectedData.industry || 'Not specified'}\n\n`;
 
-    // Phase 4.2: Business Context Section
+    // Phase 4.2: Business Context Section - with safe text formatting
     message += `📊 **BUSINESS CONTEXT**\n`;
     message += `• **Product Positioning:**\n`;
     message += `  ${this.formatMultilineText(collectedData.positioning || 'Not provided', '  ')}\n\n`;
@@ -1207,53 +1240,89 @@ Now, what is the name of the product that you want to perform competitive analys
     message += `• **User Problems Solved:**\n`;
     message += `  ${this.formatMultilineText(collectedData.userProblem || 'Not provided', '  ')}\n\n`;
 
-    // Phase 4.2: Optional Enhancements Section
-    if (requirements.competitorHints || requirements.focusAreas || requirements.reportTemplate) {
+    // Phase 4.2: Optional Enhancements Section - with comprehensive null checks
+    const hasOptionalEnhancements = (
+      (collectedData.competitorHints && Array.isArray(collectedData.competitorHints) && collectedData.competitorHints.length > 0) ||
+      (collectedData.focusAreas && Array.isArray(collectedData.focusAreas) && collectedData.focusAreas.length > 0) ||
+      (collectedData.reportTemplate && typeof collectedData.reportTemplate === 'string' && collectedData.reportTemplate.trim())
+    );
+    
+    if (hasOptionalEnhancements) {
       message += `✨ **OPTIONAL ENHANCEMENTS**\n`;
       
-      if (requirements.competitorHints && requirements.competitorHints.length > 0) {
-        message += `• **Competitor Focus:** ${requirements.competitorHints.join(', ')}\n`;
+      if (collectedData.competitorHints && Array.isArray(collectedData.competitorHints) && collectedData.competitorHints.length > 0) {
+        message += `• **Competitor Focus:** ${collectedData.competitorHints.join(', ')}\n`;
       }
       
-      if (requirements.focusAreas && requirements.focusAreas.length > 0) {
-        message += `• **Analysis Focus Areas:** ${requirements.focusAreas.join(', ')}\n`;
+      if (collectedData.focusAreas && Array.isArray(collectedData.focusAreas) && collectedData.focusAreas.length > 0) {
+        message += `• **Analysis Focus Areas:** ${collectedData.focusAreas.join(', ')}\n`;
       }
       
-      if (requirements.reportTemplate) {
-        message += `• **Report Template:** ${requirements.reportTemplate}\n`;
+              if (collectedData.reportTemplate && typeof collectedData.reportTemplate === 'string' && collectedData.reportTemplate.trim()) {
+        message += `• **Report Template:** ${collectedData.reportTemplate}\n`;
       }
       
       message += `\n`;
     }
 
-    // Phase 4.2: Validation Feedback Integration
-    if (validation?.warnings && validation.warnings.length > 0) {
+    // Phase 4.2: Validation Feedback Integration - with safe array access
+    if (validation?.warnings && Array.isArray(validation.warnings) && validation.warnings.length > 0) {
       message += `⚠️ **RECOMMENDATIONS TO ENHANCE YOUR ANALYSIS:**\n`;
       validation.warnings.slice(0, 3).forEach((warning, index) => {
-        const fieldName = this.getFieldDisplayName(warning.field);
-        message += `${index + 1}. **${fieldName}:** ${warning.message}\n`;
-        message += `   💡 *${warning.suggestion}*\n`;
+        // Safe property access with fallback
+        const fieldName = warning?.field ? this.getFieldDisplayName(warning.field) : 'Unknown Field';
+        const warningMessage = warning?.message || 'No message provided';
+        const warningSuggestion = warning?.suggestion || 'No suggestion available';
+        
+        message += `${index + 1}. **${fieldName}:** ${warningMessage}\n`;
+        message += `   💡 *${warningSuggestion}*\n`;
       });
       message += `\n`;
     }
 
-    if (validation?.suggestions && validation.suggestions.length > 0) {
+    if (validation?.suggestions && Array.isArray(validation.suggestions) && validation.suggestions.length > 0) {
       message += `🚀 **PRO TIPS FOR BETTER RESULTS:**\n`;
       validation.suggestions.slice(0, 2).forEach((suggestion, index) => {
-        message += `${index + 1}. ${suggestion}\n`;
+        // Safe string access
+        const safeSuggestion = (typeof suggestion === 'string' && suggestion.trim()) ? suggestion : 'No suggestion available';
+        message += `${index + 1}. ${safeSuggestion}\n`;
       });
       message += `\n`;
     }
 
-    // Phase 4.2: Auto-Assignment Preview
+    // Phase 4.2: Auto-Assignment Preview - with safe property access
     message += `🤖 **AUTOMATED SETUP PREVIEW:**\n`;
     message += `• **Competitor Discovery:** We'll automatically identify and add relevant competitors based on your industry\n`;
-    message += `• **Scraping Schedule:** Your product and competitors will be scraped ${this.formatReportFrequency(requirements.reportFrequency).toLowerCase()}\n`;
-    message += `• **Report Delivery:** Comprehensive analysis reports will be sent to ${requirements.userEmail}\n`;
+    
+    // Safe frequency formatting
+    const safeFrequency = typeof collectedData.reportFrequency === 'string' && collectedData.reportFrequency.trim() 
+      ? collectedData.reportFrequency 
+      : 'Weekly';
+    message += `• **Scraping Schedule:** Your product and competitors will be scraped ${this.formatReportFrequency(safeFrequency).toLowerCase()}\n`;
+    
+    // Safe email access
+    const safeEmail = typeof collectedData.userEmail === 'string' && collectedData.userEmail.trim() 
+      ? collectedData.userEmail 
+      : 'your email';
+    message += `• **Report Delivery:** Comprehensive analysis reports will be sent to ${safeEmail}\n`;
     message += `• **AI Analysis:** Advanced competitive insights using Claude AI\n\n`;
 
-    // Phase 4.2: Data Quality Summary
-    const dataQuality = this.assessDataQuality(requirements);
+    // Phase 4.2: Data Quality Summary - with safe assessment
+    let dataQuality;
+    try {
+      dataQuality = this.assessDataQuality(collectedData);
+    } catch (error) {
+      // Fallback data quality if assessment fails
+      console.warn('[SAFETY] Data quality assessment failed, using fallback:', error);
+      dataQuality = {
+        completeness: 50,
+        completenessLabel: 'Partial',
+        detailLevel: 'Basic',
+        detailDescription: 'Limited information provided',
+        analysisPotential: 'Good with available data'
+      };
+    }
+    
     message += `📈 **DATA QUALITY ASSESSMENT:**\n`;
     message += `• **Completeness:** ${dataQuality.completeness}% (${dataQuality.completenessLabel})\n`;
     message += `• **Detail Level:** ${dataQuality.detailLevel} (${dataQuality.detailDescription})\n`;
@@ -1496,30 +1565,45 @@ Now, what is the name of the product that you want to perform competitive analys
    * Phase 4.2: Extract requirements from current chat state
    */
   private extractRequirementsFromChatState(): ComprehensiveProjectRequirements | null {
-    if (!this.chatState.collectedData) {
+    // *** COMPREHENSIVE NULL GUARDS: Safe chatState.collectedData access ***
+    if (!this.chatState?.collectedData) {
+      console.warn('[SAFETY] extractRequirementsFromChatState: chatState.collectedData is undefined');
       return null;
     }
 
     const data = this.chatState.collectedData;
     
-    // Check if we have all required fields
-    if (!data.userEmail || !data.reportFrequency || !data.reportName) {
+    // Safe property access with comprehensive null checks
+    const userEmail = typeof data.userEmail === 'string' && data.userEmail.trim() ? data.userEmail : null;
+    const reportFrequency = typeof data.reportFrequency === 'string' && data.reportFrequency.trim() ? data.reportFrequency : null;
+    const reportName = typeof data.reportName === 'string' && data.reportName.trim() ? data.reportName : null;
+    
+    // Check if we have all required fields with proper null safety
+    if (!userEmail || !reportFrequency || !reportName) {
+      console.warn('[SAFETY] extractRequirementsFromChatState: Missing required fields', {
+        hasEmail: !!userEmail,
+        hasFrequency: !!reportFrequency,
+        hasReportName: !!reportName
+      });
       return null;
     }
 
+    // *** COMPREHENSIVE NULL GUARDS: Safe optional field extraction ***
     return {
-      userEmail: data.userEmail,
-      reportFrequency: data.reportFrequency,
-      projectName: data.reportName,
-      productName: data.productName || '',
-      productUrl: data.productUrl || '',
-      industry: data.industry || '',
-      positioning: data.positioning || '',
-      customerData: data.customerData || '',
-      userProblem: data.userProblem || '',
-      competitorHints: data.competitorHints,
-      focusAreas: data.focusAreas,
-      reportTemplate: data.reportTemplate
+      userEmail,
+      reportFrequency,
+      projectName: reportName,
+      // Safe extraction of optional fields with fallback values
+      productName: (typeof data.productName === 'string' && data.productName.trim()) ? data.productName : '',
+      productUrl: (typeof data.productUrl === 'string' && data.productUrl.trim()) ? data.productUrl : '',
+      industry: (typeof data.industry === 'string' && data.industry.trim()) ? data.industry : '',
+      positioning: (typeof data.positioning === 'string' && data.positioning.trim()) ? data.positioning : '',
+      customerData: (typeof data.customerData === 'string' && data.customerData.trim()) ? data.customerData : '',
+      userProblem: (typeof data.userProblem === 'string' && data.userProblem.trim()) ? data.userProblem : '',
+      // Safe array access with null checks
+      competitorHints: (Array.isArray(data.competitorHints) && data.competitorHints.length > 0) ? data.competitorHints : undefined,
+      focusAreas: (Array.isArray(data.focusAreas) && data.focusAreas.length > 0) ? data.focusAreas : undefined,
+      reportTemplate: (typeof data.reportTemplate === 'string' && data.reportTemplate.trim()) ? data.reportTemplate : undefined
     };
   }
 
