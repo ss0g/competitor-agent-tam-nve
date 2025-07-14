@@ -314,10 +314,9 @@ model MonitoringAlert {
 model AWSCredentials {
   id                     String   @id @default(cuid())
   profileName            String   @unique
-  encryptedAccessKey     String
-  encryptedSecretKey     String
-  encryptedSessionToken  String?
-  salt                   String
+  accessKeyId            String   // Changed from encryptedAccessKey
+  secretAccessKey        String   // Changed from encryptedSecretKey
+  sessionToken           String?  // Changed from encryptedSessionToken
   awsRegion              String
   createdAt              DateTime @default(now())
   updatedAt              DateTime @updatedAt

@@ -1,10 +1,6 @@
-import { PrismaClient } from '@prisma/client';
-import { EncryptionService } from '@/lib/security/encryption';
-import { BedrockService } from '@/services/bedrock/bedrock.service';
-import { BedrockMessage } from '@/services/bedrock/types';
+import { prisma } from '@/lib/prisma';
 import { logger } from '@/lib/logger';
-
-const prisma = new PrismaClient();
+import { BedrockService } from '@/services/bedrock/bedrockService';
 
 export interface AWSCredentialInput {
   profileName: string;
@@ -45,21 +41,13 @@ export class AWSCredentialService {
    */
   async saveCredentials(credentials: AWSCredentialInput): Promise<AWSCredentialRecord> {
     try {
-      // Encrypt credentials
-      const encryptedData = EncryptionService.encryptCredentials({
-        accessKeyId: credentials.accessKeyId,
-        secretAccessKey: credentials.secretAccessKey,
-        ...(credentials.sessionToken && { sessionToken: credentials.sessionToken })
-      });
-
-      // Save to database
+      // Save to database (no encryption)
       const savedCredentials = await prisma.aWSCredentials.upsert({
         where: { profileName: credentials.profileName },
         update: {
-          encryptedAccessKey: encryptedData.encryptedAccessKey,
-          encryptedSecretKey: encryptedData.encryptedSecretKey,
-          encryptedSessionToken: encryptedData.encryptedSessionToken,
-          salt: encryptedData.salt,
+          accessKeyId: credentials.accessKeyId,
+          secretAccessKey: credentials.secretAccessKey,
+          sessionToken: credentials.sessionToken,
           awsRegion: credentials.awsRegion,
           updatedAt: new Date(),
           isValid: false, // Mark as invalid until validated
@@ -68,10 +56,9 @@ export class AWSCredentialService {
         },
         create: {
           profileName: credentials.profileName,
-          encryptedAccessKey: encryptedData.encryptedAccessKey,
-          encryptedSecretKey: encryptedData.encryptedSecretKey,
-          encryptedSessionToken: encryptedData.encryptedSessionToken,
-          salt: encryptedData.salt,
+          accessKeyId: credentials.accessKeyId,
+          secretAccessKey: credentials.secretAccessKey,
+          sessionToken: credentials.sessionToken,
           awsRegion: credentials.awsRegion,
           isValid: false,
           validationError: null,
@@ -147,24 +134,17 @@ export class AWSCredentialService {
         return null;
       }
 
-      // Decrypt credentials
-      const decrypted = EncryptionService.decryptCredentials({
-        encryptedAccessKey: credentials.encryptedAccessKey,
-        encryptedSecretKey: credentials.encryptedSecretKey,
-        encryptedSessionToken: credentials.encryptedSessionToken || undefined,
-        salt: credentials.salt
-      });
-
+      // Return plain text credentials (no decryption needed)
       return {
         profileName: credentials.profileName,
-        accessKeyId: decrypted.accessKeyId,
-        secretAccessKey: decrypted.secretAccessKey,
-        sessionToken: decrypted.sessionToken,
+        accessKeyId: credentials.accessKeyId,
+        secretAccessKey: credentials.secretAccessKey,
+        sessionToken: credentials.sessionToken || undefined,
         awsRegion: credentials.awsRegion
       };
     } catch (error) {
-      logger.error('Failed to decrypt AWS credentials', error as Error);
-      throw new Error('Failed to decrypt AWS credentials');
+      logger.error('Failed to get AWS credentials', error as Error);
+      throw new Error('Failed to retrieve AWS credentials');
     }
   }
 
@@ -190,7 +170,7 @@ export class AWSCredentialService {
         }
       });
 
-      const testMessages: BedrockMessage[] = [
+      const testMessages = [
         {
           role: 'user',
           content: [{ type: 'text', text: 'Hi' }]
