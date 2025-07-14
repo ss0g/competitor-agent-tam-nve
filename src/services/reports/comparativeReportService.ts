@@ -1,6 +1,6 @@
 import { createId } from '@paralleldrive/cuid2';
 import Handlebars from 'handlebars';
-import { logger } from '@/lib/logger';
+import { logger, generateCorrelationId } from '@/lib/logger';
 import { BedrockService } from '../bedrock/bedrock.service';
 import { BedrockMessage } from '../bedrock/types';
 import { UserExperienceAnalyzer, UXAnalysisResult } from '../analysis/userExperienceAnalyzer';
@@ -413,31 +413,37 @@ export class ComparativeReportService {
   }
 
   private async generateSection(
-    sectionTemplate: ReportSectionTemplate,
+    sectionTemplate: ComparativeReportSectionTemplate,
     context: ReportContext,
     options: ReportGenerationOptions
   ): Promise<ComparativeReportSection> {
-    // Register this section in memory monitoring
-    const sectionId = `section-${sectionTemplate.id}-${createId()}`;
+    const sectionId = createId();
+    
+    // Track memory usage for this section if available
+    const memoryBefore = process.memoryUsage();
     
     try {
-      const content = await this.generateSectionContent(
-        sectionTemplate,
-        context,
-        options
-      );
+      // Compile the section template with the context
+      const compiledTemplate = Handlebars.compile(sectionTemplate.template);
+      const content = compiledTemplate(context);
       
       return {
-        id: createId(),
+        id: sectionId,
         title: sectionTemplate.title,
         content,
         type: sectionTemplate.type,
-        importance: sectionTemplate.importance,
         order: sectionTemplate.order
       };
     } finally {
-      // Cleanup any tracked memory
-      memoryManager.unregisterLargeObject(sectionId);
+      // Log memory usage if in debug mode
+      if (process.env.NODE_ENV === 'development') {
+        const memoryAfter = process.memoryUsage();
+        const memoryDiff = memoryAfter.heapUsed - memoryBefore.heapUsed;
+        logger.debug('Section memory usage', {
+          sectionId,
+          memoryDiff: `${Math.round(memoryDiff / 1024 / 1024 * 100) / 100}MB`
+        });
+      }
     }
   }
 

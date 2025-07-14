@@ -87,10 +87,15 @@ export class UserExperienceAnalyzer {
     options: UXAnalysisOptions = {}
   ): Promise<UXAnalysisResult> {
     const correlationId = generateCorrelationId();
+    
+    // Add null guards for productData.product
+    const productName = productData?.product?.name || 'Unknown Product';
+    const productWebsite = productData?.product?.website || 'Unknown Website';
+    
     const context = { 
       correlationId, 
-      productName: productData.product.name,
-      competitorCount: competitorData.length,
+      productName,
+      competitorCount: competitorData?.length || 0,
       operation: 'analyzeProductVsCompetitors'
     };
 
@@ -143,6 +148,10 @@ export class UserExperienceAnalyzer {
       'Include accessibility and inclusive design considerations.' :
       'Focus on general usability and design.';
 
+    // Add null guards
+    const productName = productData?.product?.name || 'Unknown Product';
+    const productWebsite = productData?.product?.website || 'Unknown Website';
+
     return `As a UX and competitive analysis expert, analyze this product against its competitors from a user experience perspective.
 
 ANALYSIS FOCUS:
@@ -151,16 +160,16 @@ ${technicalText}
 ${accessibilityText}
 
 PRODUCT BEING ANALYZED:
-Name: ${productData.product.name}
-Website: ${productData.product.website}
-Content Analysis: ${JSON.stringify(productData.content, null, 2)}
+Name: ${productName}
+Website: ${productWebsite}
+Content Analysis: ${JSON.stringify(productData?.content || {}, null, 2)}
 
 COMPETITORS:
-${competitorData.map(comp => `
-Competitor: ${comp.competitor.name}
-Website: ${comp.competitor.website}
-Content Analysis: ${JSON.stringify(comp.metadata, null, 2)}
-`).join('\n\n')}
+${competitorData?.map(comp => `
+Competitor: ${comp?.competitor?.name || 'Unknown Competitor'}
+Website: ${comp?.competitor?.website || 'Unknown Website'}
+Content Analysis: ${JSON.stringify(comp?.metadata || {}, null, 2)}
+`).join('\n\n') || 'No competitors available'}
 
 Please provide a comprehensive UX-focused comparison analyzing:
 
@@ -407,6 +416,18 @@ Ensure all recommendations are specific, actionable, and tied to measurable UX i
     competitorData: (Snapshot & { competitor: { name: string; website: string } })[],
     focusArea: 'navigation' | 'mobile' | 'conversion' | 'content' | 'accessibility'
   ): Promise<UXAnalysisResult> {
+    // Add null guards for productData
+    if (!productData || !productData.product) {
+      logger.warn('ProductData or product property is null, creating fallback', { productData });
+      productData = {
+        ...productData,
+        product: {
+          name: 'Unknown Product',
+          website: 'Unknown Website'
+        }
+      };
+    }
+
     const options: UXAnalysisOptions = {
       focus: focusArea === 'mobile' ? 'mobile' : 'both',
       includeTechnical: focusArea === 'conversion',

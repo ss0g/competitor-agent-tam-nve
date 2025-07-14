@@ -99,7 +99,21 @@ const analysisInputSchema = z.object({
   }),
   productSnapshot: z.object({
     id: idSchema,
-    content: nonEmptyStringSchema.min(100, 'Snapshot content too short for analysis'),
+    content: z.union([
+      nonEmptyStringSchema.min(100, 'Snapshot content too short for analysis'),
+      z.object({
+        text: z.string().optional(),
+        html: z.string().optional(),
+        title: z.string().optional(),
+        description: z.string().optional(),
+      }).refine(
+        (data) => {
+          const totalLength = (data.text || '') + (data.html || '') + (data.title || '') + (data.description || '');
+          return totalLength.length >= 100;
+        },
+        { message: 'Combined snapshot content too short for analysis' }
+      )
+    ]),
     metadata: z.record(z.any()),
   }),
   competitors: z.array(z.object({
