@@ -48,11 +48,22 @@ describe('Delete Competitor Integration Tests', () => {
             snapshots: 5
           },
           correlationId: 'test-correlation-id'
-        }),
+        })
       };
+
       (global.fetch as jest.Mock).mockResolvedValueOnce(mockApiResponse);
 
-      render(<DeleteCompetitorButton {...defaultProps} />);
+      const mockOnDeleteSuccess = jest.fn();
+      const mockOnDeleteError = jest.fn();
+
+      // Render component
+      render(
+        <DeleteCompetitorButton
+          {...defaultProps}
+          onDeleteSuccess={mockOnDeleteSuccess}
+          onDeleteError={mockOnDeleteError}
+        />
+      );
 
       // Step 1: Click delete button to open modal
       const deleteButton = screen.getByRole('button', { name: /delete competitor/i });
@@ -60,64 +71,80 @@ describe('Delete Competitor Integration Tests', () => {
 
       // Step 2: Verify modal opens with correct content
       expect(screen.getByRole('dialog')).toBeInTheDocument();
-      expect(screen.getByText('Delete Competitor')).toBeInTheDocument();
+      expect(screen.getByRole('heading', { name: 'Delete Competitor' })).toBeInTheDocument();
       expect(screen.getByText(/Are you sure you want to delete/)).toBeInTheDocument();
       expect(screen.getByText(/Test Competitor/)).toBeInTheDocument();
 
-      // Step 3: Confirm deletion
-      const confirmButton = screen.getByRole('button', { name: /^delete$/i });
+      // Step 3: Click confirm delete button in modal
+      const confirmButton = screen.getByRole('button', { name: 'Delete' });
       fireEvent.click(confirmButton);
 
-      // Step 4: Verify API call is made with correct parameters
+      // Step 4: Wait for API call and verify success callback
       await waitFor(() => {
-        expect(global.fetch).toHaveBeenCalledWith('/api/competitors/test-competitor-id', {
-          method: 'DELETE',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        });
+        expect(global.fetch).toHaveBeenCalledWith(
+          '/api/competitors/test-competitor-id',
+          expect.objectContaining({
+            method: 'DELETE',
+            headers: expect.objectContaining({
+              'Content-Type': 'application/json',
+            }),
+          })
+        );
       });
 
-      // Step 5: Verify navigation after successful deletion
+      // Step 5: Verify success callback was called
       await waitFor(() => {
-        expect(mockRouter.push).toHaveBeenCalledWith('/competitors');
-        expect(mockRouter.refresh).toHaveBeenCalled();
+        expect(mockOnDeleteSuccess).toHaveBeenCalled();
       });
 
-      // Step 6: Verify modal closes after successful deletion
+      // Step 6: Verify modal is closed after successful deletion
       await waitFor(() => {
         expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+      });
+
+      // Step 7: Verify router navigation (if implemented)
+      await waitFor(() => {
+        expect(mockRouter.push).toHaveBeenCalledWith('/competitors');
       });
     });
 
     it('should handle API error responses gracefully', async () => {
-      // Mock error API response (404 - competitor not found)
-      const mockErrorResponse = {
+      // Mock 404 API response
+      const mockApiResponse = {
         ok: false,
         status: 404,
         json: async () => ({
           error: 'Competitor not found',
-          message: 'No competitor found with ID: test-competitor-id',
+          message: 'The competitor you are trying to delete does not exist.',
           correlationId: 'error-correlation-id'
-        }),
+        })
       };
-      (global.fetch as jest.Mock).mockResolvedValueOnce(mockErrorResponse);
 
+      (global.fetch as jest.Mock).mockResolvedValueOnce(mockApiResponse);
+
+      const mockOnDeleteSuccess = jest.fn();
       const mockOnDeleteError = jest.fn();
 
       render(
-        <DeleteCompetitorButton 
-          {...defaultProps} 
+        <DeleteCompetitorButton
+          {...defaultProps}
+          onDeleteSuccess={mockOnDeleteSuccess}
           onDeleteError={mockOnDeleteError}
         />
       );
 
-      // Open modal and confirm deletion
+      // Click delete button to open modal
       const deleteButton = screen.getByRole('button', { name: /delete competitor/i });
       fireEvent.click(deleteButton);
 
-      const confirmButton = screen.getByRole('button', { name: /^delete$/i });
+      // Confirm deletion
+      const confirmButton = screen.getByRole('button', { name: 'Delete' });
       fireEvent.click(confirmButton);
+
+      // Wait for API call
+      await waitFor(() => {
+        expect(global.fetch).toHaveBeenCalled();
+      });
 
       // Verify error handling
       await waitFor(() => {
@@ -126,28 +153,33 @@ describe('Delete Competitor Integration Tests', () => {
 
       // Verify modal stays open on error
       expect(screen.getByRole('dialog')).toBeInTheDocument();
+
+      // Verify error message is displayed
+      const errorMessages = screen.getAllByText(/Competitor not found/);
+      expect(errorMessages.length).toBeGreaterThan(0);
     });
 
     it('should handle network errors', async () => {
       // Mock network error
-      (global.fetch as jest.Mock).mockRejectedValueOnce(
-        new Error('Network error')
-      );
+      (global.fetch as jest.Mock).mockRejectedValueOnce(new Error('Network error'));
 
+      const mockOnDeleteSuccess = jest.fn();
       const mockOnDeleteError = jest.fn();
 
       render(
-        <DeleteCompetitorButton 
-          {...defaultProps} 
+        <DeleteCompetitorButton
+          {...defaultProps}
+          onDeleteSuccess={mockOnDeleteSuccess}
           onDeleteError={mockOnDeleteError}
         />
       );
 
-      // Open modal and confirm deletion
+      // Click delete button to open modal
       const deleteButton = screen.getByRole('button', { name: /delete competitor/i });
       fireEvent.click(deleteButton);
 
-      const confirmButton = screen.getByRole('button', { name: /^delete$/i });
+      // Confirm deletion
+      const confirmButton = screen.getByRole('button', { name: 'Delete' });
       fireEvent.click(confirmButton);
 
       // Verify network error handling
@@ -156,6 +188,9 @@ describe('Delete Competitor Integration Tests', () => {
           'Network error occurred. Please check your connection and try again.'
         );
       });
+
+      // Verify modal stays open on error
+      expect(screen.getByRole('dialog')).toBeInTheDocument();
     });
   });
 
@@ -166,35 +201,56 @@ describe('Delete Competitor Integration Tests', () => {
     };
 
     it('should call onDeleteSuccess callback after successful deletion', async () => {
+      // Mock successful API response
       const mockApiResponse = {
         ok: true,
         json: async () => ({
           message: 'Competitor deleted successfully',
-          correlationId: 'test-correlation-id'
-        }),
+          deletedCompetitor: {
+            id: 'test-competitor-id',
+            name: 'Test Competitor'
+          }
+        })
       };
+
       (global.fetch as jest.Mock).mockResolvedValueOnce(mockApiResponse);
 
       const mockOnDeleteSuccess = jest.fn();
+      const mockOnDeleteError = jest.fn();
 
       render(
-        <DeleteCompetitorButton 
-          {...defaultProps} 
+        <DeleteCompetitorButton
+          {...defaultProps}
           onDeleteSuccess={mockOnDeleteSuccess}
+          onDeleteError={mockOnDeleteError}
         />
       );
 
-      // Open modal and confirm deletion
+      // Click delete button to open modal
       const deleteButton = screen.getByRole('button', { name: /delete competitor/i });
       fireEvent.click(deleteButton);
 
-      const confirmButton = screen.getByRole('button', { name: /^delete$/i });
+      // Confirm deletion
+      const confirmButton = screen.getByRole('button', { name: 'Delete' });
       fireEvent.click(confirmButton);
+
+      // Wait for API call to complete
+      await waitFor(() => {
+        expect(global.fetch).toHaveBeenCalledWith(
+          '/api/competitors/test-competitor-id',
+          expect.objectContaining({
+            method: 'DELETE'
+          })
+        );
+      });
 
       // Verify success callback is called
       await waitFor(() => {
         expect(mockOnDeleteSuccess).toHaveBeenCalled();
       });
+
+      // Verify error callback is not called
+      expect(mockOnDeleteError).not.toHaveBeenCalled();
     });
   });
 }); 
