@@ -385,7 +385,14 @@ export const setupServiceMocks = () => {
 
   // Mock BedrockService class
   jest.mock('@/services/bedrock/bedrock.service', () => ({
-    BedrockService: jest.fn().mockImplementation(() => mocks.bedrockService)
+    BedrockService: Object.assign(
+      jest.fn().mockImplementation(() => mocks.bedrockService),
+      {
+        createWithStoredCredentials: jest.fn().mockImplementation(async (provider = 'anthropic', config = {}, credentialOptions = {}) => {
+          return mocks.bedrockService;
+        })
+      }
+    )
   }));
 
   // Mock AsyncReportProcessingService

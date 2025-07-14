@@ -118,7 +118,8 @@ export class ComprehensiveRequirementsCollector {
         if (!cleaned.startsWith('http')) {
           cleaned = 'https://' + cleaned;
         }
-        return cleaned.split('?')[0] + (cleaned.endsWith('/') ? '' : '/');
+        const finalUrl = cleaned.split('?')[0];
+        return finalUrl || cleaned;
       }
     }
   };
@@ -136,7 +137,7 @@ export class ComprehensiveRequirementsCollector {
       includeContextualHelp = true
     } = options;
 
-    return `🚀 **Welcome to the Competitor Research Agent!**
+    return `🚀 **Welcome to the ${industry ? `${industry} ` : ''}Competitor Research Agent!**
 
 To create your comprehensive competitive analysis, I need all the following information at once. This replaces our multi-step process and gets you started faster!
 

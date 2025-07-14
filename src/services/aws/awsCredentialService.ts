@@ -79,6 +79,11 @@ export class AWSCredentialService {
         }
       });
 
+      // Add null guard for saved credentials
+      if (!savedCredentials) {
+        throw new Error('Failed to save credentials to database');
+      }
+
       logger.info('AWS credentials saved successfully', { 
         profileName: credentials.profileName,
         region: credentials.awsRegion 

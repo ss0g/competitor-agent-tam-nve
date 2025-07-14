@@ -6,6 +6,9 @@ import { ComparativeAnalysisService } from '@/services/analysis/comparativeAnaly
 import { PrismaClient } from '@prisma/client';
 import { EncryptionService } from '@/lib/security/encryption';
 
+// Unmock BedrockService for this integration test to test real static methods
+jest.unmock('@/services/bedrock/bedrock.service');
+
 // Fix 1.2: Mock Prisma client for tests
 jest.mock('@prisma/client', () => {
   const mockPrisma = {
@@ -103,15 +106,14 @@ describe('AWS Credential Integration', () => {
     delete process.env.AWS_SESSION_TOKEN;
     delete process.env.AWS_REGION;
     
-    // Setup default mock behaviors
-    const mockRecord = getMockCredentialRecord();
-    mockPrismaInstance.aWSCredentials.upsert.mockResolvedValue(mockRecord);
-    mockPrismaInstance.aWSCredentials.findUnique.mockResolvedValue(mockRecord);
-    mockPrismaInstance.aWSCredentials.findMany.mockResolvedValue([mockRecord]);
-    mockPrismaInstance.aWSCredentials.findFirst.mockResolvedValue(mockRecord);
-    mockPrismaInstance.aWSCredentials.update.mockResolvedValue(mockRecord);
-    mockPrismaInstance.aWSCredentials.delete.mockResolvedValue(mockRecord);
-    mockPrismaInstance.aWSCredentials.deleteMany.mockResolvedValue({ count: 1 });
+    // Setup default mock behaviors - Start with NO profiles for clean testing
+    mockPrismaInstance.aWSCredentials.upsert.mockResolvedValue(null);
+    mockPrismaInstance.aWSCredentials.findUnique.mockResolvedValue(null);
+    mockPrismaInstance.aWSCredentials.findMany.mockResolvedValue([]); // Default: no profiles
+    mockPrismaInstance.aWSCredentials.findFirst.mockResolvedValue(null);
+    mockPrismaInstance.aWSCredentials.update.mockResolvedValue(null);
+    mockPrismaInstance.aWSCredentials.delete.mockResolvedValue(null);
+    mockPrismaInstance.aWSCredentials.deleteMany.mockResolvedValue({ count: 0 });
   });
 
   async function cleanupTestData() {
@@ -125,6 +127,13 @@ describe('AWS Credential Integration', () => {
 
   describe('End-to-End Credential Flow', () => {
     it('should save, retrieve, and use credentials in services', async () => {
+      // Set up mock for this test
+      const mockRecord = getMockCredentialRecord();
+      mockPrismaInstance.aWSCredentials.upsert.mockResolvedValue(mockRecord);
+      mockPrismaInstance.aWSCredentials.findUnique.mockResolvedValue(mockRecord);
+      mockPrismaInstance.aWSCredentials.findMany.mockResolvedValue([mockRecord]);
+      mockPrismaInstance.aWSCredentials.findFirst.mockResolvedValue(mockRecord);
+      
       // Step 1: Save credentials via AWSCredentialService
       const savedCredentials = await awsCredentialService.saveCredentials(testCredentials);
       
@@ -150,11 +159,11 @@ describe('AWS Credential Integration', () => {
 
       // Step 2: Verify credentials are encrypted in database
       // Mock that encrypted data is different from original
-      const mockRecord = getMockCredentialRecord();
-      expect(mockRecord.encryptedAccessKey).toContain(':'); // Should have salt prefix
-      expect(mockRecord.encryptedSecretKey).toContain(':');
-      expect(mockRecord.encryptedAccessKey).not.toBe(testCredentials.accessKeyId);
-      expect(mockRecord.encryptedSecretKey).not.toBe(testCredentials.secretAccessKey);
+      const mockRecord2 = getMockCredentialRecord();
+      expect(mockRecord2.encryptedAccessKey).toContain(':'); // Should have salt prefix
+      expect(mockRecord2.encryptedSecretKey).toContain(':');
+      expect(mockRecord2.encryptedAccessKey).not.toBe(testCredentials.accessKeyId);
+      expect(mockRecord2.encryptedSecretKey).not.toBe(testCredentials.secretAccessKey);
 
       // Step 3: Retrieve credentials via CredentialProvider
       const retrievedCredentials = await credentialProvider.getCredentials();
@@ -175,9 +184,8 @@ describe('AWS Credential Integration', () => {
     });
 
     it('should fallback to environment variables when no stored credentials', async () => {
-      // Mock no stored credentials
-      mockPrismaInstance.aWSCredentials.findMany.mockResolvedValue([]);
-      mockPrismaInstance.aWSCredentials.findFirst.mockResolvedValue(null);
+      // Ensure mock returns no stored credentials (default is already set in beforeEach)
+      // No need to mock again since beforeEach sets empty arrays
       
       // Set environment variables
       process.env.AWS_ACCESS_KEY_ID = 'env-access-key';
@@ -185,7 +193,7 @@ describe('AWS Credential Integration', () => {
       process.env.AWS_SESSION_TOKEN = 'env-session-token';
       process.env.AWS_REGION = 'us-west-2';
 
-      // Ensure no stored credentials
+      // Ensure no stored credentials (should be 0 based on beforeEach setup)
       const profiles = await awsCredentialService.listCredentialProfiles();
       expect(profiles.length).toBe(0);
 
@@ -244,10 +252,10 @@ describe('AWS Credential Integration', () => {
     });
 
     it('should create Bedrock service with environment fallback', async () => {
-      // Ensure no stored credentials
-      const profiles = await awsCredentialService.listCredentialProfiles();
-      expect(profiles.length).toBe(0);
-
+      // Mock no stored credentials
+      mockPrismaInstance.aWSCredentials.findMany.mockResolvedValue([]);
+      mockPrismaInstance.aWSCredentials.findFirst.mockResolvedValue(null);
+      
       // Set environment variables
       process.env.AWS_ACCESS_KEY_ID = 'env-access-key';
       process.env.AWS_SECRET_ACCESS_KEY = 'env-secret-key';
@@ -266,8 +274,19 @@ describe('AWS Credential Integration', () => {
     });
 
     it('should create Bedrock service factory method with stored credentials', async () => {
+      // Set up mock for this test
+      const mockRecord = getMockCredentialRecord();
+      mockPrismaInstance.aWSCredentials.upsert.mockResolvedValue(mockRecord);
+      mockPrismaInstance.aWSCredentials.findUnique.mockResolvedValue(mockRecord);
+      mockPrismaInstance.aWSCredentials.findMany.mockResolvedValue([mockRecord]);
+      mockPrismaInstance.aWSCredentials.findFirst.mockResolvedValue(mockRecord);
+      
       // Save credentials
       await awsCredentialService.saveCredentials(testCredentials);
+
+      // Debug: Check if the static method exists
+      console.log('BedrockService static methods:', Object.getOwnPropertyNames(BedrockService));
+      console.log('createWithStoredCredentials available:', typeof BedrockService.createWithStoredCredentials);
 
       // This should work without throwing
       const service = await BedrockService.createWithStoredCredentials('anthropic');
@@ -277,6 +296,13 @@ describe('AWS Credential Integration', () => {
 
   describe('Analysis Service Integration', () => {
     it('should initialize ComparativeAnalysisService with stored credentials', async () => {
+      // Set up mock for this test
+      const mockRecord = getMockCredentialRecord();
+      mockPrismaInstance.aWSCredentials.upsert.mockResolvedValue(mockRecord);
+      mockPrismaInstance.aWSCredentials.findUnique.mockResolvedValue(mockRecord);
+      mockPrismaInstance.aWSCredentials.findMany.mockResolvedValue([mockRecord]);
+      mockPrismaInstance.aWSCredentials.findFirst.mockResolvedValue(mockRecord);
+      
       // Save credentials
       await awsCredentialService.saveCredentials(testCredentials);
 
@@ -307,7 +333,43 @@ describe('AWS Credential Integration', () => {
     };
 
     it('should handle multiple credential profiles', async () => {
-      // Save two different profiles
+      // Set up mock for multiple profiles
+      const mockRecord1 = getMockCredentialRecord();
+      const mockRecord2 = {
+        ...getMockCredentialRecord(),
+        profileName: secondTestCredentials.profileName,
+        encryptedAccessKey: 'salt:' + Buffer.from(secondTestCredentials.accessKeyId).toString('base64'),
+        encryptedSecretKey: 'salt:' + Buffer.from(secondTestCredentials.secretAccessKey).toString('base64'),
+        encryptedSessionToken: 'salt:' + Buffer.from(secondTestCredentials.sessionToken!).toString('base64'),
+        awsRegion: secondTestCredentials.awsRegion,
+      };
+      
+      // Mock finding multiple profiles
+      mockPrismaInstance.aWSCredentials.findMany.mockResolvedValue([mockRecord1, mockRecord2]);
+      
+      // Mock specific profile lookups
+      mockPrismaInstance.aWSCredentials.findUnique
+        .mockImplementation((query: any) => {
+          if (query.where.profileName === testCredentials.profileName) {
+            return Promise.resolve(mockRecord1);
+          } else if (query.where.profileName === secondTestCredentials.profileName) {
+            return Promise.resolve(mockRecord2);
+          }
+          return Promise.resolve(null);
+        });
+
+      // Mock upsert operations for both profiles
+      mockPrismaInstance.aWSCredentials.upsert
+        .mockImplementation((query: any) => {
+          if (query.where.profileName === testCredentials.profileName) {
+            return Promise.resolve(mockRecord1);
+          } else if (query.where.profileName === secondTestCredentials.profileName) {
+            return Promise.resolve(mockRecord2);
+          }
+          return Promise.resolve(null);
+        });
+
+      // Save two different profiles (this will set up the mocks)
       await awsCredentialService.saveCredentials(testCredentials);
       await awsCredentialService.saveCredentials(secondTestCredentials);
 
@@ -360,6 +422,7 @@ describe('AWS Credential Integration', () => {
 
       // Mock finding the valid profile first
       mockPrismaInstance.aWSCredentials.findFirst.mockResolvedValue(validProfile);
+      mockPrismaInstance.aWSCredentials.findMany.mockResolvedValue([invalidProfile, validProfile]);
 
       // Should use the valid profile
       const credentials = await credentialProvider.getCredentials();

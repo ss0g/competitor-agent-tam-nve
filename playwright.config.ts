@@ -95,11 +95,14 @@ const config: PlaywrightTestConfig = {
       testMatch: /.*\.visual\.spec\.ts/,
     },
   ],
-  // webServer: {
-  //   command: 'npm run dev',
-  //   port: 3003,
-  //   reuseExistingServer: !process.env.CI,
-  // },
+  webServer: {
+    command: 'npm run dev',
+    port: 3000,
+    reuseExistingServer: !process.env.CI,
+    timeout: 120 * 1000, // 2 minutes for server to start
+    stderr: 'pipe',
+    stdout: 'pipe'
+  },
   // Output directory for test artifacts
   outputDir: path.join(__dirname, 'test-reports/artifacts'),
   // Configure snapshot storage for visual tests

@@ -30,6 +30,11 @@
     "test:load:api": "artillery run load-tests/config/api-load-test.yml",
     "test:load:browser": "node load-tests/browser-load-test.js",
     "test:load:full": "./scripts/run-load-tests.sh",
+    "test:server:start": "./scripts/test-server-manager.sh start",
+    "test:server:stop": "./scripts/test-server-manager.sh stop",
+    "test:server:status": "./scripts/test-server-manager.sh status",
+    "test:server:restart": "./scripts/test-server-manager.sh restart",
+    "test:e2e:with-server": "./scripts/test-server-manager.sh start && npm run test:e2e:playwright; ./scripts/test-server-manager.sh stop",
     "analyze:bundle": "cross-env ANALYZE=true npm run build",
     "db:reset": "npx prisma migrate reset --force && npx prisma db seed"
   },

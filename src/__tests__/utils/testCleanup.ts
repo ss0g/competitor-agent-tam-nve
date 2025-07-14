@@ -145,21 +145,22 @@ export const teardownTestCleanup = async (): Promise<void> => {
 };
 
 /**
- * Jest setup hook
+ * Jest setup hook - DISABLED: This was causing "Cannot add a hook after tests have started running" errors
+ * Individual test files should call setupTestCleanup() and teardownTestCleanup() directly in their hooks
  */
-export const setupTestEnvironment = (): void => {
-  beforeEach(() => {
-    setupTestCleanup();
-  });
+// export const setupTestEnvironment = (): void => {
+//   beforeEach(() => {
+//     setupTestCleanup();
+//   });
 
-  afterEach(async () => {
-    await teardownTestCleanup();
-  });
+//   afterEach(async () => {
+//     await teardownTestCleanup();
+//   });
 
-  afterAll(async () => {
-    await teardownTestCleanup();
-  });
-};
+//   afterAll(async () => {
+//     await teardownTestCleanup();
+//   });
+// };
 
 /**
  * Test Cleanup Utilities

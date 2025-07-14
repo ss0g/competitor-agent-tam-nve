@@ -126,22 +126,22 @@ export class BedrockServiceFactory {
     // Strategy 3: Create service without credentials (let AWS SDK handle default chain)
     try {
       logger.debug('Attempting BedrockService initialization with default AWS credential chain', context);
-      const service = new BedrockService(
-        {
-          ...config,
-          // Remove any explicit credentials to use AWS default chain
-          credentials: undefined
-        },
-        provider
-      );
+      
+      // Create config without explicit credentials to use AWS default chain
+      const configWithoutCredentials = { ...config };
+      delete configWithoutCredentials.credentials;
+      
+      const service = new BedrockService(configWithoutCredentials, provider);
       
       logger.info('BedrockService initialized with default credential chain', context);
       return service;
     } catch (error) {
       lastError = error as Error;
-      logger.error('BedrockService initialization failed with all strategies', {
-        ...context,
-        finalError: lastError.message
+      logger.error('BedrockService initialization failed with all strategies', lastError, {
+        provider: context.provider,
+        useStoredCredentials: context.useStoredCredentials,
+        fallbackToEnvironment: context.fallbackToEnvironment,
+        configProvided: context.configProvided
       });
     }
 
@@ -205,7 +205,9 @@ export class BedrockServiceFactory {
     providers: string[];
   } {
     const providers = Array.from(new Set(
-      Array.from(this.instances.keys()).map(key => key.split('-')[0])
+      Array.from(this.instances.keys())
+        .map(key => key.split('-')[0])
+        .filter((provider): provider is string => provider !== undefined)
     ));
 
     return {

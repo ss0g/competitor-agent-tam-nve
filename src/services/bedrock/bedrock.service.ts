@@ -111,18 +111,6 @@ export class BedrockService {
     }
   }
 
-  private formatMessages(messages: BedrockMessage[]): string {
-    return messages.map(msg => {
-      const role = msg.role === 'user' ? 'Human' : 'Assistant';
-      const content = msg.content.map(c => {
-        if (c.type === 'text') return c.text;
-        if (c.type === 'image_url') return `[Image: ${c.image_url.url}]`;
-        return '';
-      }).join('\n');
-      return `${role}: ${content}`;
-    }).join('\n\n');
-  }
-
   async generateCompletion(messages: BedrockMessage[]): Promise<string> {
     const request: BedrockRequest = {
       messages
