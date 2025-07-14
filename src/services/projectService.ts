@@ -154,6 +154,7 @@ export class ProjectService {
         where: { userId },
         include: {
           products: true,
+          competitors: true, // Add competitors to fix the frontend error
           reports: {
             orderBy: { createdAt: 'desc' },
             take: 3
