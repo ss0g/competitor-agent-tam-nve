@@ -137,7 +137,8 @@ describe('Concurrent Project Creation', () => {
                   testIndex: i,
                   hasProduct: true,
                   productWebsite: `https://example-${i}.com`
-                }
+                },
+                tags: [] // Required field for Prisma schema
               }
             });
 
@@ -199,7 +200,8 @@ describe('Concurrent Project Creation', () => {
                   testIndex: i,
                   hasProduct: true,
                   productWebsite: `https://unique-${i}.com`
-                }
+                },
+                tags: [] // Required field for Prisma schema
               }
             });
 

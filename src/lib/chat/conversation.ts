@@ -2504,6 +2504,7 @@ What would you prefer?`,
               createdViaChat: true,
               chatSessionId: context.correlationId
             },
+            tags: [], // Required field for Prisma schema
             competitors: {
               connect: competitorIds.map((id: string) => ({ id }))
             }

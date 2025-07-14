@@ -85,11 +85,15 @@ describe('DeleteCompetitorButton', () => {
     const deleteButton = screen.getByRole('button', { name: /delete competitor/i });
     fireEvent.click(deleteButton);
     
+    // Verify modal is open
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    
     // Close modal
     const cancelButton = screen.getByRole('button', { name: /cancel/i });
     fireEvent.click(cancelButton);
     
-    expect(screen.queryByText('Delete Competitor')).not.toBeInTheDocument();
+    // Verify modal is closed by checking for dialog role
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 
   it('should close modal when clicking outside (backdrop)', () => {
@@ -99,11 +103,17 @@ describe('DeleteCompetitorButton', () => {
     const deleteButton = screen.getByRole('button', { name: /delete competitor/i });
     fireEvent.click(deleteButton);
     
-    // Click backdrop (the modal overlay)
-    const modalBackdrop = screen.getByRole('dialog').parentElement;
-    fireEvent.click(modalBackdrop!);
+    // Verify modal is open
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
     
-    expect(screen.queryByText('Delete Competitor')).not.toBeInTheDocument();
+    // Click the backdrop div directly (not the dialog container)
+    const modalDialog = screen.getByRole('dialog');
+    const backdrop = modalDialog.querySelector('.fixed.inset-0.bg-gray-500');
+    expect(backdrop).toBeInTheDocument();
+    fireEvent.click(backdrop!);
+    
+    // Verify modal is closed by checking for dialog role
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 
   it('should call deleteCompetitor when confirm button is clicked', async () => {
@@ -130,12 +140,17 @@ describe('DeleteCompetitorButton', () => {
     
     render(<DeleteCompetitorButton {...defaultProps} />);
     
-    // Open modal
-    const deleteButton = screen.getByRole('button', { name: /delete competitor/i });
+    // When deleting, the main button should show "Deleting..." text and be disabled
+    const deleteButton = screen.getByRole('button', { name: /deleting/i });
+    expect(deleteButton).toBeDisabled();
+    expect(deleteButton).toHaveTextContent('Deleting...');
+    
+    // When isDeleting is true, clicking the button should not open the modal
+    // since the button is disabled
     fireEvent.click(deleteButton);
     
-    const confirmButton = screen.getByRole('button', { name: /^delete$/i });
-    expect(confirmButton).toBeDisabled();
+    // Verify modal did not open when button is disabled
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 
   it('should disable delete button when deleting', async () => {
@@ -146,7 +161,8 @@ describe('DeleteCompetitorButton', () => {
     
     render(<DeleteCompetitorButton {...defaultProps} />);
     
-    const deleteButton = screen.getByRole('button', { name: /delete competitor/i });
+    // When deleting, the button text changes to "Deleting..." and becomes disabled
+    const deleteButton = screen.getByRole('button', { name: /deleting/i });
     expect(deleteButton).toBeDisabled();
   });
 
@@ -224,12 +240,16 @@ describe('DeleteCompetitorButton', () => {
     const deleteButton = screen.getByRole('button', { name: /delete competitor/i });
     fireEvent.click(deleteButton);
     
+    // Verify modal is open first
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    
     // Confirm deletion
     const confirmButton = screen.getByRole('button', { name: /^delete$/i });
     fireEvent.click(confirmButton);
     
+    // Wait for modal to close after successful deletion
     await waitFor(() => {
-      expect(screen.queryByText('Delete Competitor')).not.toBeInTheDocument();
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     });
   });
 
