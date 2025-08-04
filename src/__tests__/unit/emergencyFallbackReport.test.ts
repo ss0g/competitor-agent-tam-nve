@@ -34,7 +34,7 @@ jest.mock('@/lib/logger', () => ({
   trackBusinessEvent: jest.fn()
 }));
 
-jest.mock('@paralleldrive/cuid2', () => ({
+jest.mock('@/lib/utils', () => ({
   createId: jest.fn(() => 'test-id-123')
 }));
 
@@ -42,7 +42,7 @@ describe('Emergency Fallback Report Generation', () => {
   let reportService: InitialComparativeReportService;
   let mockTx: any;
 
-    beforeEach(() => {
+  beforeEach(() => {
     reportService = new InitialComparativeReportService();
     
     // Mock transaction object
@@ -63,12 +63,9 @@ describe('Emergency Fallback Report Generation', () => {
       }
     };
     
-    mockPrisma.$transaction.mockImplementation(async (callback: any) => {
+    mockPrisma.$transaction.mockImplementation(async (callback) => {
       return await callback(mockTx);
     });
-    
-    // Reset project.findUnique mock
-    mockPrisma.project.findUnique.mockReset();
   });
 
   afterEach(() => {
